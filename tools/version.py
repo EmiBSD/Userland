@@ -41,6 +41,8 @@ def program_of(path: str):
 
 def is_code(path: str, prog: Path) -> bool:
     rel = str(Path(path).relative_to(prog))
+    if Path(rel).name == ".gitkeep":   # a skeleton's placeholder is not code
+        return False
     return rel.startswith(CODE_DIRS) or rel in CODE_FILES
 
 

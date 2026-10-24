@@ -107,6 +107,7 @@ LAYOUT = [
             "paste", "tr", "wc", "head", "tail", "fold", "fmt", "pr", "col", "colrm", "column", "expand",
             "unexpand", "nl", "rev", "rs", "lam", "csplit", "split", "look", "spell", "ul", "deroff", "vis",
             "unvis", "uuencode", "uudecode", "hexdump"]),
+        ("records", "Querying the records the written programs emit (`-o json`); EmiBSD's own, no counterpart elsewhere.", ["own:jpath"]),
         ("editors", "Editors and the pager.", ["vi", "mg", "less"]),
         ("file-tools", "Finding, describing and installing files (the basic operations are bin/files).", [
             "find", "xargs", "file", "stat", "du", "touch", "mktemp", "readlink", "realpath", "basename",
@@ -1157,6 +1158,27 @@ def crate_skeleton(leaf: str, name: str) -> int:
     return n
 
 
+def own_skeleton(top: str, leaf: str, name: str) -> int:
+    """A program of EmiBSD's own: written, with no counterpart in any reference tree; its
+    specification comes from the standards it implements and from the common grammar."""
+    d = OUT / top / leaf / name
+    force = regenerable(d)
+    section = DEFAULT_SECTION[top]
+    rel = os.path.relpath(OUT / "tools" / "program.just", d)
+    n = 0
+    n += put(d / "STATUS", "planned\n", force)
+    n += put(d / "justfile", f"import '{rel}'\n", force)
+    n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section=section), force)
+    n += put(d / "DEFINITION.md", DEFINITION.format(name=name, origin="none: EmiBSD's own program", section=section,
+                                                     notes="\n- No counterpart elsewhere: the specification is written from the standards the program\n  implements and from the common grammar; there is no reference implementation to survey.\n"), force)
+    n += put(d / "DESIGN.md", DESIGN.format(name=name, section=section), force)
+    n += put(d / "man" / f"{name}.{section}", MAN.format(name=name, NAME=name.upper(), section=section), force)
+    for sub in ("schemas", "src", "tests", "bench"):
+        n += put(d / sub / ".gitkeep", "", False)
+    n += put(d / "tests" / "cve" / ".gitkeep", "", False)
+    return n
+
+
 def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     d = OUT / top / leaf / name
     force = regenerable(d)
@@ -1235,7 +1257,7 @@ def main() -> int:
                     kind, _, nm = p.partition(":")
                     if kind == "compiler" and nm not in COMPILERS:
                         unknown.append(p)
-                    elif kind not in ("compiler", "crate"):
+                    elif kind not in ("compiler", "crate", "own"):
                         unknown.append(p)
                     continue
                 if "/" in p:
@@ -1279,6 +1301,12 @@ def main() -> int:
                     name = p.split(":", 1)[1]
                     lines.append(f"- [`{name}`]({name}/) (EmiBSD's own crate)")
                     created += crate_skeleton(leaf, name)
+                    programs += 1
+                    continue
+                if p.startswith("own:"):
+                    name = p.split(":", 1)[1]
+                    lines.append(f"- [`{name}`]({name}/) (EmiBSD's own)")
+                    created += own_skeleton(top, leaf, name)
                     programs += 1
                     continue
                 if ":" in p:

@@ -76,6 +76,7 @@ sbin/
 └── kernel               Reading and setting the kernel's state.
 usr/bin/
 ├── text                 Filters and transformers of text streams.
+├── records              Querying the records the written programs emit (`-o json`); EmiBSD's own, no counterpart elsewhere.
 ├── editors              Editors and the pager.
 ├── file-tools           Finding, describing and installing files (the basic operations are bin/files).
 ├── process-tools        Running things under a changed environment, priority or limit; the shell's helpers (the primitives are bin/processes).
