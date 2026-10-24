@@ -1,0 +1,20 @@
+[package]
+name = "cp"
+version = "0.1.0"
+description = "Copy files and directories: every copy is a record, rendered quietly, as source -> target lines, or as a table, JSON, YAML or custom columns."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "cp"
+path = "main.rs"
+
+[[test]]
+name = "cli"
+path = "../tests/cli.rs"
+
+[dependencies]
+cli = { path = "../../../../lib/crates/cli/src" }
+sys = { path = "../../../../lib/crates/sys/src" }

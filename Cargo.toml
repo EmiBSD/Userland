@@ -6,6 +6,7 @@ members = [
     "lib/crates/sys/src",
     "lib/crates/cli/src",
     "bin/files/ls/src",
+    "bin/files/cp/src",
 ]
 
 [workspace.package]

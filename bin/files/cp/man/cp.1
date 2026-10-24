@@ -1,15 +1,277 @@
 .\" cp(1): written from scratch; OpenBSD's cp(1) is the behavioural reference.
-.Dd $Mdocdate$
+.\" Copyright (c) 2026 Emilio Navarrete Lineros <enavarre@outlook.com>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.Dd $Mdocdate: October 24 2026 $
 .Dt CP 1
 .Os
 .Sh NAME
 .Nm cp
-.Nd
+.Nd copy files and directories
 .Sh SYNOPSIS
-.Nm
+.Nm cp
+.Op Fl afipv
+.Oo
+.Fl R
+.Op Fl H | L | P
+.Oc
+.Op Fl o Ar format
+.Op Fl -dry-run
+.Ar source target
+.Nm cp
+.Op Fl afipv
+.Oo
+.Fl R
+.Op Fl H | L | P
+.Oc
+.Op Fl o Ar format
+.Op Fl -dry-run
+.Ar source ... directory
 .Sh DESCRIPTION
+In the first form,
+.Nm
+copies
+.Ar source
+to
+.Ar target .
+In the second form, where the last operand is an existing directory, each
+.Ar source
+is copied into that directory under its own name.
+A source that is a directory is copied only with
+.Fl R ,
+with everything below it.
+.Pp
+Every copy
+.Nm
+makes, or refuses, is a record: by default nothing is printed and a refusal
+goes to standard error; with
+.Fl v
+each copy prints
+.Dq Ar source Li -> Ar target ;
+with
+.Fl o
+the records are printed as a table, as JSON or YAML, or as the columns chosen,
+in the common grammar of the EmiBSD programs.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl a , Fl -archive
+The same as
+.Fl R p P :
+the tree, links as links, times and modes kept.
+.It Fl f , Fl -force
+Remove an existing target before copying, whatever its permissions, without
+asking.
+Undoes an earlier
+.Fl i .
+.It Fl H
+With
+.Fl R ,
+follow the symbolic links named on the command line; links found below are
+copied as links.
+.It Fl i , Fl -interactive
+Before overwriting an existing target, ask
+.Dq overwrite Ar target ?
+on standard error and read one line from standard input; a reply starting with
+.Sq y
+or
+.Sq Y
+copies, anything else skips the file, which is not an error.
+Undoes an earlier
+.Fl f .
+.It Fl L
+With
+.Fl R ,
+follow every symbolic link.
+.It Fl P
+With
+.Fl R ,
+follow no symbolic link: every link is copied as a link.
+This is the default with
+.Fl R .
+.It Fl p , Fl -preserve
+Give the copy the source's access and modification times, mode, owner, group
+and file flags, as far as permissions allow.
+If the owner or group cannot be set, no error is reported and the set-user-ID,
+set-group-ID and sticky bits are dropped from the copy's mode.
+.It Fl R , Fl -recursive
+Copy directories and everything below them.
+Symbolic links are copied as links unless
+.Fl H
+or
+.Fl L
+says otherwise; FIFOs and device nodes are recreated rather than read.
+Hard links are copied as separate files; to keep them use
+.Xr pax 1
+or
+.Xr tar 1 .
+.It Fl v , Fl -verbose
+Print
+.Dq Ar source Li -> Ar target
+after each copy.
+.It Fl o , Fl -output Ar format
+Print every copy as a record:
+.Cm name
+(the target of each copy, one per line),
+.Cm table
+.Pq SOURCE TARGET TYPE SIZE ACTION ,
+.Cm wide
+(every field),
+.Cm json ,
+.Cm yaml
+(a
+.Li CopyList
+document, see FILES), or
+.Cm custom-columns=NAME:.field,...
+for the fields chosen.
+.It Fl -dry-run
+Examine the sources and report every copy that would be made, as
+.Fl v
+or
+.Fl o
+asks, writing nothing.
+.It Fl -no-headers
+No header line on tables.
+.It Fl -help
+This description; with
+.Fl o Cm json
+or
+.Fl o Cm yaml ,
+as a record a tool can read.
+.El
+.Pp
+Without
+.Fl R
+every symbolic link is followed, and
+.Fl H ,
+.Fl L
+and
+.Fl P
+mean nothing.
+Of
+.Fl H ,
+.Fl L
+and
+.Fl P ,
+as of
+.Fl f
+and
+.Fl i ,
+the last one given wins.
+.Pp
+A target that already exists is written over and keeps its mode, owner and
+group.
+A target that does not exist gets the source's mode shaped by the
+.Xr umask 2 ,
+with the set-user-ID and set-group-ID bits dropped unless the copy is made by
+the file's owner into the file's group and
+.Fl p
+is off.
+A directory created by
+.Fl R
+gets the source directory's mode, unshaped by the umask, once its contents are
+in place.
+Runs of zero bytes in a file are written as holes, so a sparse source gives a
+sparse copy.
+.Pp
+If a source and its target are the same file, the copy is refused.
+A file is never copied over a directory, nor a directory over a file.
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa bin/files/cp/schemas/copy.v1.json
+The schema of the
+.Li CopyList
+document
+.Fl o Cm json
+and
+.Fl o Cm yaml
+print.
+.El
 .Sh EXIT STATUS
+.Bl -tag -width Ds
+.It 0
+Everything was copied.
+.It 1
+Something could not be copied; the rest was.
+.It 2
+The command line was wrong: an unknown option, a value of the wrong type, fewer
+than two operands, or several sources with a target that is not a directory.
+Nothing was copied.
+.El
 .Sh EXAMPLES
+A copy of
+.Pa foo
+named
+.Pa bar :
+.Pp
+.Dl $ cp foo bar
+.Pp
+The text files into
+.Pa /tmp :
+.Pp
+.Dl $ cp *.txt /tmp
+.Pp
+The directory
+.Pa junk
+and everything below it, as
+.Pa /tmp/junk :
+.Pp
+.Dl $ cp -R junk /tmp
+.Pp
+An archive of a tree, links as links, times and modes kept:
+.Pp
+.Dl $ cp -a src dst
+.Pp
+What would be copied, as records, without writing a byte:
+.Pp
+.Dl $ cp -R --dry-run -o json src dst
+.Pp
+The copies that failed, from the records:
+.Pp
+.Dl $ cp -R -o json src dst | jq '.items[] | select(.action == \&"failed\&")'
 .Sh SEE ALSO
+.Xr ls 1 ,
+.Xr mv 1 ,
+.Xr pax 1 ,
+.Xr umask 2 ,
+.Xr symlink 7
 .Sh STANDARDS
+The
+.Nm
+utility is compliant with the
+.St -p1003.1-2008
+specification.
+The flags
+.Fl a
+and
+.Fl v
+are the extensions OpenBSD's
+.Nm
+has;
+.Fl o ,
+.Fl -dry-run ,
+.Fl -no-headers
+and the long forms of the flags are EmiBSD's.
+The historic
+.Fl r
+is not accepted: it copied special files and links wrongly, and
+.Fl R
+does what it meant.
 .Sh HISTORY
+A
+.Nm
+command appeared in
+.At v1 .
+This one was written from scratch for EmiBSD in 2026, with OpenBSD's
+.Nm
+as the reference for its behaviour.

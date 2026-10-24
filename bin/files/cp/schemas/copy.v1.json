@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://emibsd.org/schemas/cp/copy.v1.json",
+  "title": "CopyList",
+  "description": "What `cp -o json` prints: one record per source examined, in the order the copies were attempted. `cp -o yaml` is the same document. A refusal is a record with `action: failed` and its `error`.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "items"],
+  "properties": {
+    "apiVersion": { "const": "emibsd.org/v1" },
+    "kind": { "const": "CopyList" },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/copy" } }
+  },
+  "$defs": {
+    "copy": {
+      "type": "object",
+      "required": ["source", "target", "type", "action"],
+      "properties": {
+        "source": { "type": "string", "description": "The source as named on the command line, or the path below an operand." },
+        "target": { "type": "string", "description": "Where the copy went, or would have gone." },
+        "type": { "enum": ["file", "dir", "symlink", "fifo", "socket", "char", "block", "unknown"], "description": "The source's kind; `unknown` when it could not be examined." },
+        "action": {
+          "enum": ["created", "replaced", "merged", "skipped", "planned", "failed"],
+          "description": "created: the target did not exist and does now. replaced: it existed and holds the source now. merged: an existing directory received the tree below the source. skipped: -i was answered with anything but y. planned: --dry-run, nothing written. failed: not copied, see error."
+        },
+        "size": { "type": "integer", "minimum": 0, "description": "Files only: the bytes copied (or that would be, under --dry-run)." },
+        "error": { "type": "string", "description": "Why the copy failed, as printed on standard error after `cp: `." }
+      },
+      "additionalProperties": false
+    }
+  }
+}
