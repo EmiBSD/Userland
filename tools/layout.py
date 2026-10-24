@@ -401,9 +401,11 @@ closes, as the kernel bumps its LZ pin.
 
 ## Rules
 
-- A written program is written from scratch under its definition, from POSIX where it
-  defines the program and from the definition alone otherwise; no other system's code is
-  read, copied or translated for it. An imported one is never edited in place:
+- A written program is written from scratch under its definition. The definition is the
+  specification, written from POSIX where the standard defines the program and from what the
+  tradition settled (what each parameter does, how the output is formatted, the exit codes);
+  the code is written from the definition alone, and nothing in the repository names another
+  system for a written program. An imported one is never edited in place:
   patches only, and a patch needs a reason.
 - Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc`,
   `libexec/rtld` and `lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
@@ -839,8 +841,9 @@ exit 1
 DEFINITION = """# {name}
 
 STATUS: see `STATUS`. EmiBSD's own `{name}`, written from scratch under this definition (the
-user's decision of 2026-10-23); its reference is POSIX where the standard defines the
-program, and this definition alone otherwise. No other system's code is read for it.
+user's decision of 2026-10-23): this document is the specification, written from POSIX where
+the standard defines the program and from the behaviour the tradition settled; the code is
+written from this document alone.
 
 ## What it does
 

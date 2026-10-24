@@ -16,9 +16,13 @@ final message.
 
 Read first: `README.md` ("Rules"), `docs/PROGRAM.md` whole, `.claude/rules/subagents.md`, the
 program's DEFINITION.md, DESIGN.md, `schemas/` and manual, and `lib/crates/cli/src/command.rs`
-(what the declaration can express). POSIX.1-2024 is the behavioural reference where it
-defines the program (`man 1p` on the host); no other system's source is opened, and a
-finding that would need one is marked as such.
+(what the declaration can express). POSIX.1-2024 is the frame where it defines the program
+(`man 1p` on the host). You may read the reference implementation's manual and code the way
+the surveyor does (`git -C ../Kernel/reference/openbsd-src show HEAD:<path>`, never from
+inside) to check that the DEFINITION captured its behaviour where it claims to; your findings
+name the DEFINITION line and the behaviour, never the reference system, since the
+implementer fixes from the DEFINITION and the repository names no other system in a written
+program.
 
 ## How
 

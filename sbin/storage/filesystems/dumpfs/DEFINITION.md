@@ -1,8 +1,9 @@
 # dumpfs
 
 STATUS: see `STATUS`. EmiBSD's own `dumpfs`, written from scratch under this definition (the
-user's decision of 2026-10-23); its reference is POSIX where the standard defines the
-program, and this definition alone otherwise. No other system's code is read for it.
+user's decision of 2026-10-23): this document is the specification, written from POSIX where
+the standard defines the program and from the behaviour the tradition settled; the code is
+written from this document alone.
 
 ## What it does
 

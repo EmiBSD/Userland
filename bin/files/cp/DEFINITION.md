@@ -2,7 +2,8 @@
 
 STATUS: see `STATUS`. EmiBSD's own `cp`, written from scratch under this definition (the
 user's decision of 2026-10-23); its reference is POSIX.1-2024's `cp` and the BSD habits its
-users have. No other system's code is read for it. The second program of the repository, and
+users have; this document is the specification the code was written from. The second program
+of the repository, and
 the one that proved the common grammar fits an action, not only a query: every copy is a record.
 
 ## What it does

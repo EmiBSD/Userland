@@ -11,7 +11,7 @@ of a program, the common grammar, linking, versions); when they change, this fil
 
 | Agent | Model | Worktree | Memory | Writes | Use it for |
 |---|---|---|---|---|---|
-| `surveyor` | opus | no | yes | scratchpad | read-only inventory of a program before it is defined, from POSIX's text and this tree alone: what the standard says it does, every flag and its meaning, exit codes, what it parses and prints, who in this tree will call it, the CVE classes of its namesakes, what `std`, `cli` and `sys` lack for it; facts with their source, never another system's code, never a design |
+| `surveyor` | opus | no | yes | scratchpad | read-only inventory of a program before it is defined, the raw material of its specification: what POSIX says, what the reference implementation's manual and code do with every flag, the exact bytes of its outputs and diagnostics, exit codes, who in a base system calls it, the CVE classes of its namesakes, what `std`, `cli` and `sys` lack for it; facts with their source, in the scratchpad only; never a design |
 | `designer` | fable | yes | yes | branch (documents) | DEFINITION.md, DESIGN.md, `schemas/`, the manual's SYNOPSIS and DESCRIPTION of one program from the survey; STATUS to `defined` then `designed`; proposes the decisions the user must take, never takes them, never writes code |
 | `implementer` | opus | yes | yes | branch | `src/`, `tests/`, the manual's EXAMPLES, DELIVERY.md of a designed program, on `cli` and `sys`; the additions those two crates need for it (a `Kind`, a libc call), each with its reason; one program per run |
 | `mechanical` | sonnet | yes | yes | branch | the same change over many programs (a `cli` API moved, a rule's wording in every DEFINITION), tests added to an existing program, a manual's lint, `tools/layout.py` regeneration, an import's `UPSTREAM.toml`, `build/` and patch series once the pin is decided |
@@ -41,7 +41,7 @@ their work leaves commits unmade.
 Guard hook: the writing roles (`designer`, `implementer`, `mechanical`, `integrator`) carry a
 `PreToolUse` hook, `.claude/hooks/agent-guard.sh`, that refuses before it runs: `git push`,
 `git commit --amend`, a force of anything, any write under `upstream/` or under a `reference/`
-tree (the Kernel's pinned clone of the system it ports; never opened by a userland agent), a `cd` into
+tree (the Kernel's pinned clone, which the reading roles consult with `git show` and never from inside), a `cd` into
 either, `cargo install`, `rustup`, `brew`, `pip`, `npm`, and `curl` or `wget` (nothing is
 installed and nothing is downloaded without the user's OK; `tools/upstream.py fetch` is the
 one sanctioned download and runs from the main session). A refusal is a "STOP" like any
@@ -85,9 +85,12 @@ A prompt that misses one of these gets a question back, not a guess.
 - The main checkout is the first line of `git worktree list --porcelain`:
   `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')`. `upstream/` (fetched
   sources, gitignored) lives only there: `ln -s "$MAIN/upstream" upstream` when an import is
-  the work, unlinked before the worktree is removed. The Kernel's `reference/` trees are not
-  for the userland's written programs: no agent opens them (the user's rule of 2026-10-24:
-  the written programs owe nothing to any other system); the hook refuses a `cd` or a write.
+  the work, unlinked before the worktree is removed. The Kernel's `reference/` tree is read
+  by the surveyor, the designer and the reviewer with
+  `git -C $MAIN/../Kernel/reference/openbsd-src show HEAD:<path>`, to write and check the
+  specification; the implementer never opens it (the user's rule of 2026-10-24: the
+  implementation comes from the specification alone); nobody `cd`s into it or writes there,
+  the hook refuses both.
 - `PATH=/opt/homebrew/opt/rustup/bin:$PATH` before `cargo` or `just`. Install nothing. The
   worktree has its own `target/`; the main checkout's is never used.
 - `just setup` once, so the `commit-msg` hook runs (it is `core.hooksPath`, shared by the
@@ -99,8 +102,10 @@ A prompt that misses one of these gets a question back, not a guess.
 
 - Author block: every file starts with the author's ISC block (`LICENSE`; copy the header of
   `lib/crates/cli/src/lib.rs`). Everything in the repository is in English.
-- A written program is written from scratch under its DEFINITION, from POSIX's text where
-  the standard defines it; no other system's code is read, copied or translated. A program parses nothing itself: its `Command`
+- A written program is written from scratch under its DEFINITION. The reference manual and
+  code are read only to write that DEFINITION (what each parameter does, how the output is
+  formatted, the exit codes); the code is written from the DEFINITION alone, never from the
+  reference, and nothing in the repository names the reference system for a written program. A program parses nothing itself: its `Command`
   declares the options with their types and `cli` does the rest (`docs/PROGRAM.md`, "The
   common grammar"). `#![forbid(unsafe_code)]`; `unsafe` only in `lib/crates/sys` with a
   `// SAFETY:` proof, and only for what `std` lacks.

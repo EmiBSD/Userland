@@ -2,7 +2,8 @@
 
 STATUS: see `STATUS`. EmiBSD's own `ls`, written from scratch under this definition (the
 user's decision of 2026-10-23); its reference is POSIX.1-2024's `ls` and the BSD habits its
-users have. No other system's code is read for it. The first program of the repository, and
+users have; this document is the specification the code was written from. The first program
+of the repository, and
 the one that set the common grammar (docs/PROGRAM.md).
 
 ## What it does

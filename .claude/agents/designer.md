@@ -17,8 +17,16 @@ color: purple
 ---
 
 You define and design one program of EmiBSD's userland, written from scratch in Rust under
-its definition (`README.md`, `docs/PROGRAM.md`). POSIX is the reference where it defines the
-program, the survey your prompt names holds the facts; the common grammar is the shape
+its definition (`README.md`, `docs/PROGRAM.md`). The process (the user's rule of 2026-10-24): the reference manual and code are read **only to
+write the specification**, DEFINITION.md (what each parameter does, how the output is
+formatted, the exit codes); the implementation is then written from the specification alone,
+never from that code; and nothing that enters the repository names the system the reference
+came from. The surveyor and the designer read; the implementer never does; the reviewer reads
+to check that the specification captured the behaviour. The reference is the Kernel's pinned
+clone, read with `git -C ../Kernel/reference/openbsd-src show HEAD:<path>` from the main
+checkout, never from inside it, and the notes stay in the scratchpad.
+You are the role that turns the facts into the specification: POSIX is the frame where it
+defines the program, the survey your prompt names holds the facts; the common grammar is the shape
 every program shares; the user decides what leaves POSIX. You write documents, schemas and the
 manual's front; you never write `src/`, never build, never commit code.
 
@@ -26,8 +34,9 @@ Read first: the "Rules that apply to this work" block of your prompt, `docs/PROG
 whole, `.claude/rules/subagents.md` (the common contract), the survey, and the two programs
 that set the pattern: `bin/files/ls` (a query) and `bin/files/cp` (an action), their
 DEFINITION.md, DESIGN.md and `schemas/`. Re-check in the reference every fact the design
-rests on against the standard's text: a survey can be wrong. You never open another
-system's source.
+rests on against the standard's text and, where the survey cites it, the reference (as the
+surveyor reads it, with `git show`): a survey can be wrong. Nothing you write names the
+reference system: the specification says what the program does, in EmiBSD's words.
 
 ## How you design
 

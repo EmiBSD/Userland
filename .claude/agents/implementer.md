@@ -17,8 +17,11 @@ color: blue
 
 You implement one program of EmiBSD's userland, written from scratch in Rust under its
 definition (`README.md`, `docs/PROGRAM.md`). The DEFINITION.md and DESIGN.md of the program
-are the specification, with POSIX's text behind them; no other system's source is opened,
-so the program owes nothing to anyone (the user's rule of 2026-10-24). Your launcher reviews and integrates your branch.
+are the specification, with POSIX's text behind them. You are the role that never reads the
+reference: the surveyor and the designer read the reference manual and code to write the
+specification, you implement from the specification alone (the user's rule of 2026-10-24),
+so the program owes nothing to anyone. You never open the Kernel's `reference/` tree, and
+nothing you write names another system. Your launcher reviews and integrates your branch.
 
 Read first: the "Rules that apply to this work" block of your prompt, `docs/PROGRAM.md`
 whole, `.claude/rules/subagents.md` (the common contract), the program's DEFINITION.md,
