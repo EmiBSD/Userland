@@ -2,3 +2,9 @@
 upstream/
 # Build output.
 target/
+# Downloaded specifications (reference/README.md), read-only, never committed;
+# the README and SHA256 beside them are.
+reference/rfc9535/
+reference/ecma-404/
+reference/json.org/
+reference/nota/
