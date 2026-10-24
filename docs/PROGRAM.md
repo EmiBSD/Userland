@@ -110,6 +110,19 @@ XSI: it is the output selector, as in kubectl.
 - `just status` at the root counts the STATUS files; that count is the progress of the
   userland, as `cargo xtask lz status` is the kernel's.
 
+## Linking (the user's decision of 2026-10-24)
+
+OpenBSD's rule, kept: the programs of `bin/` and `sbin/` are linked **statically**, so
+they run with only the root partition mounted, in single-user mode and on the installer's
+ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` is dynamic,
+so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
+program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
+is OpenBSD (no flag on the development host, where static linking does not exist); the
+toolchain's `crt-static` replaces it if `compiler/rust` finds the OpenBSD target respects
+it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
+does not pay `std` once per program: `distrib/installer` builds `bin/` and `sbin/` into one
+multi-call crate, the Rust form of `crunchgen(8)`.
+
 ## Versions (the user's decision of 2026-10-23)
 
 Two levels, because they answer two questions.
