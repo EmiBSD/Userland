@@ -37,3 +37,14 @@ setup:
 # Regenerate CHANGELOG.md of one program from its commits' Change: trailers.
 changelog dir:
     python3 -I tools/version.py changelog {{dir}}
+
+# Advisories against our crate dependencies (RustSec) and the licence and duplicate policy.
+# Both are `cargo install`ed tools, outside the repository: installed only with the user's OK.
+audit:
+    #!/bin/sh
+    if command -v cargo-audit >/dev/null; then cargo audit; else echo "audit: cargo-audit not installed (cargo install cargo-audit, with the user's OK)"; fi
+    if command -v cargo-deny >/dev/null; then cargo deny check; else echo "audit: cargo-deny not installed (cargo install cargo-deny, with the user's OK)"; fi
+
+# The CVE history of one program from NVD, as rows for DEFINITION.md's Security history (network).
+cve dir:
+    python3 -I tools/cve.py {{dir}}

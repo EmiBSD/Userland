@@ -1,9 +1,9 @@
-# share/data
+# data/dict
 
-What share/ holds that belongs to no program.
+The word lists spell(1) and look(1) read.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `share` (share)
+- `dict` (share/dict)
 
 Nothing written yet.

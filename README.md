@@ -114,19 +114,26 @@ lib/
 ├── crypto               Cryptography and authentication.
 ├── terminal             Terminal handling and line editing.
 └── system               The rest.
-include/
-└── headers              The exported headers.
 compiler/
 ├── llvm                 LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.
 └── rust                 rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the OpenBSD targets is how the tier 3 problem is solved without nightly.
 etc/
 ├── rc                   The start-up scripts and the terminal table.
-└── base                 Users, groups, services, device nodes, skeletons, examples and the default configuration files.
-share/
-└── data                 What share/ holds that belongs to no program.
+└── base                 Users, groups, shells, the protocol tables, device nodes, the file-system skeleton, root's dotfiles, the per-architecture files.
+data/
+├── zoneinfo             The IANA time zone database (tzdata; zic and zdump are usr/sbin/services).
+├── locale               Locale definitions and character maps.
+├── dict                 The word lists spell(1) and look(1) read.
+├── termtypes            The terminal descriptions, source of terminfo (tic is usr/bin/docs).
+└── misc                 Small tables of share/misc: ascii, airport codes, units, the magic of file(1) is in file itself.
 distrib/
-├── sets                 The install sets and their lists.
-└── installer            The installer, its ramdisk and the per-architecture media.
+├── sets                 The install sets and their lists; the release version is YEAR.MONTH (docs/PROGRAM.md, Versions).
+├── installer            The installer, its ramdisk and the per-architecture media.
+├── include              The recipe that assembles /usr/include from what each library of lib/ exports; no header is kept here.
+└── share                The recipe that assembles /usr/share: every program's man/ rendered, data/, share/mk; no file is kept here.
+regress/
+├── scenarios            One directory per scenario: the steps, the expected lines, the OpenBSD comparison.
+└── harness              Booting the images, driving the console, collecting and comparing.
 ```
 
 The lists are the map to what OpenBSD's base system provides at the pin of
@@ -137,10 +144,10 @@ The lists are the map to what OpenBSD's base system provides at the pin of
 - **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are Perl in OpenBSD, and
   Perl (Artistic or GPL, dual) is not in the tree: import it under the Artistic licence, or
   write those five in Rust. The user's decision; their skeletons say so.
-- `include/` and `share/` are generated from the libraries and the programs; `etc/` shrinks
-  to what the system needs before any program exists; `regress/` holds the integration
-  battery. Pending the user's word.
-- `cargo audit`, `cargo deny` and `tools/cve.py` (NVD by CPE) need tools installed outside
-  the repository and network access: pending the user's OK.
+- `cargo audit` and `cargo deny` (`just audit`, part of `just check` when installed) are
+  tools installed outside the repository with `cargo install`; `tools/cve.py` (`just cve
+  <dir>`) queries NVD over the network. Both written, neither run: pending the user's OK.
+- `data/` entries are imports like the programs (tzdata, the locales): their `UPSTREAM.toml`
+  files are to be written.
 
 New code is ISC (`LICENSE`).

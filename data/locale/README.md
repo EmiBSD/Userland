@@ -1,9 +1,9 @@
-# include/headers
+# data/locale
 
-The exported headers.
+Locale definitions and character maps.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `include` (include)
+- `locale` (share/locale)
 
 Nothing written yet.

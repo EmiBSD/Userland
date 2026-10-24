@@ -45,3 +45,7 @@ status:
 # CHANGELOG.md from this program's commits' Change: trailers.
 changelog:
     python3 -I "{{root}}/tools/version.py" changelog .
+
+# This program's CVE history from NVD (network), as rows for DEFINITION.md.
+cve:
+    python3 -I "{{root}}/tools/cve.py" .

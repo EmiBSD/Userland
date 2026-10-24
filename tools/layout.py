@@ -198,33 +198,36 @@ LAYOUT = [
             "libutil", "libkvm", "libevent", "libz", "libexpat", "libelf", "libfuse", "libpcap", "libusbhid",
             "libossaudio", "libsndio", "libagentx", "librpcsvc", "libarch", "libl", "liby"]),
     ]),
-    ("include", "The headers installed under /usr/include. OpenBSD's include/.", [
-        ("headers", "The exported headers.", ["include"]),
-    ]),
     ("compiler", "The toolchains, both imported: LLVM as OpenBSD ships it (clang, lld, libc++, compiler-rt; Apache-2.0 with the LLVM exception, nothing GPL) and Rust (rustc, cargo, std; Apache-2.0 and MIT), so the system builds itself, as OpenBSD's comp set does. The user's decisions of 2026-10-23.", [
         ("llvm", "LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.", ["compiler:llvm"]),
         ("rust", "rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the OpenBSD targets is how the tier 3 problem is solved without nightly.", ["compiler:rust"]),
     ]),
-    ("etc", "The configuration the system is born with. OpenBSD's etc/.", [
+    ("etc", "What the system needs before any program exists: the users and groups it is born with, the device nodes, the protocol tables, the start-up scripts. A program's own default configuration (pf.conf, ntpd.conf, syslog.conf, sshd's moduli, ...) lives in that program's etc/ and is installed from there; this tree holds only what belongs to no program. OpenBSD's etc/, reduced.", [
         ("rc", "The start-up scripts and the terminal table.", [
             "etc/rc", "etc/rc.conf", "etc/rc.d", "etc/netstart", "etc/daily", "etc/weekly", "etc/monthly",
             "etc/changelist", "etc/gettytab", "etc/ttys.pty"]),
-        ("base", "Users, groups, services, device nodes, skeletons, examples and the default configuration files.", [
+        ("base", "Users, groups, shells, the protocol tables, device nodes, the file-system skeleton, root's dotfiles, the per-architecture files.", [
             "etc/master.passwd", "etc/group", "etc/shells", "etc/services", "etc/protocols", "etc/rpc",
             "etc/MAKEDEV.mi", "etc/MAKEDEV.common", "etc/MAKEDEV.sub", "etc/MAKEDEV.man", "etc/MAKEDEV.mansub",
-            "etc/mtree", "etc/moduli", "etc/skel", "etc/examples", "etc/mail", "etc/motd", "etc/ksh.kshrc",
-            "etc/locate.rc", "etc/newsyslog.conf", "etc/syslog.conf", "etc/pf.conf", "etc/pf.os",
-            "etc/ntpd.conf", "etc/nsd.conf", "etc/unbound.conf", "etc/ftpusers", "etc/fbtab.head",
-            "etc/fbtab.tail", "etc/signify", "etc/rpki", "etc/minfree", "etc/root", "etc/crontab",
-            "etc/mailer.conf", "etc/ppp", "etc/amd", "etc/etc.<arch>"]),
+            "etc/mtree", "etc/skel", "etc/root", "etc/motd", "etc/minfree", "etc/etc.<arch>"]),
     ]),
-    ("share", "Data for everyone: zoneinfo, locale, dictionaries, terminal types, the shared manuals. OpenBSD's share/.", [
-        ("data", "What share/ holds that belongs to no program.", ["share"]),
+    ("data", "Data for everyone that no program owns, imported from its upstream like a program is (an UPSTREAM.toml per entry, to be written): the time zone database, locales, dictionaries, terminal types. A program's manual lives beside the program; `share/` as a tree is generated at install time, not kept. OpenBSD's share/, reduced.", [
+        ("zoneinfo", "The IANA time zone database (tzdata; zic and zdump are usr/sbin/services).", ["share/zoneinfo"]),
+        ("locale", "Locale definitions and character maps.", ["share/locale"]),
+        ("dict", "The word lists spell(1) and look(1) read.", ["share/dict"]),
+        ("termtypes", "The terminal descriptions, source of terminfo (tic is usr/bin/docs).", ["share/termtypes", "share/tabset"]),
+        ("misc", "Small tables of share/misc: ascii, airport codes, units, the magic of file(1) is in file itself.", ["share/misc"]),
     ]),
-    ("distrib", "How a release is made. OpenBSD's distrib/.", [
-        ("sets", "The install sets and their lists.", ["distrib/sets", "distrib/notes", "distrib/syspatch"]),
+    ("distrib", "How a release is made, and what else is generated at release time: the install sets, the installer and its ramdisk, /usr/include from the libraries' exported headers, /usr/share from every program's manual plus data/. OpenBSD's distrib/.", [
+        ("sets", "The install sets and their lists; the release version is YEAR.MONTH (docs/PROGRAM.md, Versions).", ["distrib/sets", "distrib/notes", "distrib/syspatch"]),
         ("installer", "The installer, its ramdisk and the per-architecture media.", [
             "distrib/miniroot", "distrib/special", "distrib/<arch>"]),
+        ("include", "The recipe that assembles /usr/include from what each library of lib/ exports; no header is kept here.", []),
+        ("share", "The recipe that assembles /usr/share: every program's man/ rendered, data/, share/mk; no file is kept here.", ["share/mk", "share/man"]),
+    ]),
+    ("regress", "The integration battery: what no single program's tests can see. Boots EmiBSD in QEMU and runs scenarios across programs (login over the console, rc bringing up the network, an install from the ramdisk, ssh in, pf rules, a mail delivered), each also run on OpenBSD at the pin and compared, as the kernel's diff-openbsd does. OpenBSD's regress/ is not in the clone; its scenarios are read as the reference for what to cover (the kernel's N11 organic battery draws on the same source).", [
+        ("scenarios", "One directory per scenario: the steps, the expected lines, the OpenBSD comparison.", []),
+        ("harness", "Booting the images, driving the console, collecting and comparing.", []),
     ]),
 ]
 
@@ -304,11 +307,11 @@ The lists are the map to what OpenBSD's base system provides at the pin of
 - **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are Perl in OpenBSD, and
   Perl (Artistic or GPL, dual) is not in the tree: import it under the Artistic licence, or
   write those five in Rust. The user's decision; their skeletons say so.
-- `include/` and `share/` are generated from the libraries and the programs; `etc/` shrinks
-  to what the system needs before any program exists; `regress/` holds the integration
-  battery. Pending the user's word.
-- `cargo audit`, `cargo deny` and `tools/cve.py` (NVD by CPE) need tools installed outside
-  the repository and network access: pending the user's OK.
+- `cargo audit` and `cargo deny` (`just audit`, part of `just check` when installed) are
+  tools installed outside the repository with `cargo install`; `tools/cve.py` (`just cve
+  <dir>`) queries NVD over the network. Both written, neither run: pending the user's OK.
+- `data/` entries are imports like the programs (tzdata, the locales): their `UPSTREAM.toml`
+  files are to be written.
 
 New code is ISC (`LICENSE`).
 """
@@ -477,6 +480,10 @@ status:
 # CHANGELOG.md from this program's commits' Change: trailers.
 changelog:
     python3 -I "{{root}}/tools/version.py" changelog .
+
+# This program's CVE history from NVD (network), as rows for DEFINITION.md.
+cve:
+    python3 -I "{{root}}/tools/cve.py" .
 """
 
 ROOT_JUST = """# EmiBSD Userland: the recipes over the whole monorepo. Each program has its own justfile
@@ -518,6 +525,17 @@ setup:
 # Regenerate CHANGELOG.md of one program from its commits' Change: trailers.
 changelog dir:
     python3 -I tools/version.py changelog {{dir}}
+
+# Advisories against our crate dependencies (RustSec) and the licence and duplicate policy.
+# Both are `cargo install`ed tools, outside the repository: installed only with the user's OK.
+audit:
+    #!/bin/sh
+    if command -v cargo-audit >/dev/null; then cargo audit; else echo "audit: cargo-audit not installed (cargo install cargo-audit, with the user's OK)"; fi
+    if command -v cargo-deny >/dev/null; then cargo deny check; else echo "audit: cargo-deny not installed (cargo install cargo-deny, with the user's OK)"; fi
+
+# The CVE history of one program from NVD, as rows for DEFINITION.md's Security history (network).
+cve dir:
+    python3 -I tools/cve.py {{dir}}
 """
 
 COMMIT_MSG_HOOK = """#!/bin/sh
@@ -1162,6 +1180,9 @@ def main() -> int:
     (OUT / "docs" / "PROGRAM.md").write_text(PROGRAM_DOC)
     (OUT / "tools" / "program.just").write_text(PROGRAM_JUST)
     (OUT / "tools" / "upstream.py").write_text(UPSTREAM_PY)
+    cve_src = Path(__file__).resolve().parent / "cve.py"
+    if cve_src.exists() and cve_src != OUT / "tools" / "cve.py":
+        (OUT / "tools" / "cve.py").write_text(cve_src.read_text())
     (OUT / "justfile").write_text(ROOT_JUST)
     hook = OUT / ".githooks" / "commit-msg"
     hook.parent.mkdir(exist_ok=True)
