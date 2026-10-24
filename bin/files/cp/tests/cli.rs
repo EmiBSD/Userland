@@ -153,12 +153,12 @@ fn refusals_are_reported_and_the_rest_is_copied() {
     let t = Tree::new("refuse");
     let (rc, out, err) = cp(&t.0, &["a.txt", "a.txt"]);
     assert_eq!((rc, out.as_str()), (1, ""));
-    assert_eq!(err, "cp: a.txt and a.txt are identical (not copied)\n");
+    assert_eq!(err, "cp: a.txt and a.txt are identical (not copied).\n");
     let (rc, _, err) = cp(&t.0, &["src", "nope", "a.txt", "dest"]);
     assert_eq!(rc, 1);
     assert_eq!(
         err,
-        "cp: src is a directory (not copied)\ncp: nope: No such file or directory\n"
+        "cp: src is a directory (not copied).\ncp: nope: No such file or directory\n"
     );
     assert_eq!(t.read("dest/a.txt"), "hello");
     let (rc, _, err) = cp(&t.0, &["a.txt", "src"]);
@@ -208,10 +208,15 @@ fn recursion_keeps_links_by_default_and_follows_with_l() {
             .file_type()
             .is_symlink()
     );
-    // into an existing directory: under its own name
+    // into an existing directory: under its own name; `src/.` means its contents
     let (rc, _, _) = cp(&t.0, &["-R", "src", "dest"]);
     assert_eq!(rc, 0);
     assert_eq!(t.read("dest/src/sub/two"), "two two");
+    fs::create_dir(t.path("contents")).unwrap();
+    let (rc, _, err) = cp(&t.0, &["-R", "src/.", "contents"]);
+    assert_eq!(rc, 0, "{err}");
+    assert_eq!(t.read("contents/one"), "one");
+    assert!(!t.path("contents/src").exists());
     // -H: an operand that is a link is followed, links below are not
     symlink("src", t.path("srclink")).unwrap();
     let (rc, _, err) = cp(&t.0, &["-RH", "srclink", "copyh"]);
@@ -375,6 +380,36 @@ fn verbose_dry_run_and_the_records() {
             && out.contains("\"error\": \"nope: No such file or directory\""),
         "{out}"
     );
+}
+
+#[test]
+fn a_failed_standard_output_is_a_failure() {
+    // Only a device that refuses writes shows it: std's stdout swallows EBADF (a closed or
+    // read-only descriptor is written to "successfully"), and a closed pipe is a quiet exit
+    // by design. /dev/full exists on Linux and NetBSD, not on macOS or OpenBSD; without it
+    // the test checks only that the copy itself is made.
+    let t = Tree::new("stdout");
+    let Ok(full) = File::options().write(true).open("/dev/full") else {
+        let (rc, _, _) = cp(&t.0, &["-v", "a.txt", "w.txt"]);
+        assert_eq!(rc, 0);
+        assert_eq!(t.read("w.txt"), "hello");
+        return;
+    };
+    let out = Command::new(env!("CARGO_BIN_EXE_cp"))
+        .args(["-v", "a.txt", "w.txt"])
+        .current_dir(&t.0)
+        .stdin(Stdio::null())
+        .stdout(full)
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&out.stderr).starts_with("cp: stdout: "),
+        "{:?}",
+        out.stderr
+    );
+    assert_eq!(t.read("w.txt"), "hello", "the copy itself was made");
 }
 
 #[test]

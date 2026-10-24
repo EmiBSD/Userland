@@ -15,7 +15,7 @@
 //! The program's one declaration, and the command line turned into a [`Config`] whose fields
 //! cannot contradict each other.
 //!
-//! The POSIX short flags keep their meaning (`-R -H -L -P -f -i -p`), OpenBSD's `-a` and `-v`
+//! The POSIX short flags keep their meaning (`-R -H -L -P -f -i -p`), the BSDs' `-a` and `-v`
 //! too; the common grammar adds `-o` (every copy as a record), `--dry-run` and
 //! `--no-headers`. `-f` and `-i` undo each other, the last one wins; `-H`, `-L` and `-P`
 //! likewise, and mean nothing without `-R`.
@@ -48,7 +48,7 @@ pub const COMMAND: Command = Command {
             "with -R, follow no symbolic link (the default)",
         )
         .in_group("follow"),
-        OptSpec::flag(Some('a'), Some("archive"), "the same as -R -p -P"),
+        OptSpec::flag(Some('a'), Some("archive"), "the same as -R -p -P").bsd(),
         OptSpec::flag(
             Some('f'),
             Some("force"),
@@ -70,7 +70,8 @@ pub const COMMAND: Command = Command {
             Some('v'),
             Some("verbose"),
             "print `source -> target` after each copy",
-        ),
+        )
+        .bsd(),
         OptSpec::value(
             Some('o'),
             Some("output"),

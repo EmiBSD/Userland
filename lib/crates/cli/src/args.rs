@@ -218,6 +218,95 @@ mod tests {
         );
     }
 
+    /// A property, with a generator of our own (no dependency): any sequence of known
+    /// flags, valued options and operands, spelled in any of the accepted ways (clustered,
+    /// attached or separate values, `=` or a word for long ones), lexes back to the same
+    /// sequence, with the operands intact after the first one.
+    #[test]
+    fn every_spelling_of_a_command_line_lexes_back_to_the_same_sequence() {
+        let mut seed: u64 = 0x9e37_79b9_7f4a_7c15;
+        let mut next = || {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (seed >> 33) as usize
+        };
+        for _ in 0..500 {
+            let n = next() % 6;
+            let mut want: Vec<(&str, Option<&str>)> = Vec::new();
+            let mut words: Vec<String> = Vec::new();
+            let mut cluster = String::new();
+            for _ in 0..n {
+                match next() % 5 {
+                    0 => {
+                        want.push(("l", None));
+                        cluster.push('l');
+                    }
+                    1 => {
+                        want.push(("a", None));
+                        cluster.push('a');
+                    }
+                    2 => {
+                        let v = ["json", "yaml", "name"][next() % 3];
+                        want.push(("o", Some(v)));
+                        if next() % 2 == 0 {
+                            words.push(format!("-{cluster}o{v}"));
+                        } else {
+                            words.push(format!("-{cluster}o"));
+                            words.push(v.to_string());
+                        }
+                        cluster.clear();
+                    }
+                    3 => {
+                        if !cluster.is_empty() {
+                            words.push(format!("-{cluster}"));
+                            cluster.clear();
+                        }
+                        want.push(("no-headers", None));
+                        words.push("--no-headers".to_string());
+                    }
+                    _ => {
+                        if !cluster.is_empty() {
+                            words.push(format!("-{cluster}"));
+                            cluster.clear();
+                        }
+                        let v = [".size", ".name"][next() % 2];
+                        want.push(("sort-by", Some(v)));
+                        if next() % 2 == 0 {
+                            words.push(format!("--sort-by={v}"));
+                        } else {
+                            words.push("--sort-by".to_string());
+                            words.push(v.to_string());
+                        }
+                    }
+                }
+            }
+            if !cluster.is_empty() {
+                words.push(format!("-{cluster}"));
+            }
+            // The first operand is a plain word (an option there would be parsed as one);
+            // after it anything goes, including what looks like an option.
+            let operands: Vec<String> = (0..next() % 3)
+                .map(|i| {
+                    if i == 0 {
+                        ["file", "dir/"][next() % 2].to_string()
+                    } else {
+                        ["file", "-x", "--", "dir/"][next() % 4].to_string()
+                    }
+                })
+                .collect();
+            words.extend(operands.iter().cloned());
+            let got = lex(words.clone(), classify).unwrap_or_else(|e| panic!("{words:?}: {e}"));
+            let got_opts: Vec<(&str, Option<&str>)> = got
+                .opts
+                .iter()
+                .map(|o| (o.name.as_str(), o.value.as_deref()))
+                .collect();
+            assert_eq!(got_opts, want, "{words:?}");
+            assert_eq!(got.operands, operands, "{words:?}");
+        }
+    }
+
     #[test]
     fn a_lone_dash_is_an_operand() {
         let p = parse("-").unwrap();

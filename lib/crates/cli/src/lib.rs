@@ -31,7 +31,7 @@ pub mod text;
 pub mod value;
 
 pub use args::ArgError;
-pub use command::{Command, Given, Kind, OptSpec, Parsed, Typed, exit};
+pub use command::{Command, Given, Kind, OptSpec, Origin, Parsed, Typed, exit};
 pub use render::{Align, Column, Output, Table};
 pub use value::Value;
 

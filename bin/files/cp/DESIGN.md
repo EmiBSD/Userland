@@ -74,8 +74,8 @@ follows `lib/crates/cli/schemas/command-help.v1.json`.
 2. **`--dry-run` exists** because the record model makes it free: the walk and the pairing
    run, the copier reports `planned` and writes nothing. Not in POSIX; an EmiBSD addition.
 3. **`-r` is refused**, not accepted and discouraged: it is `-R` with links and specials done
-   wrong, and a script that uses it gets a usage error that names the fix rather than a
-   wrong copy.
+   wrong, and a script that uses it gets a usage error (`unknown option -- r`, exit 2) rather
+   than a wrong copy; the manual's STANDARDS names the fix.
 4. **A socket is a failure.** OpenBSD warns and exits 0; a copy that silently left something
    out is the kind of half-truth the record model exists to avoid. Documented as the one
    visible difference.

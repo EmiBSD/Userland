@@ -18,8 +18,8 @@
 //! [`COMMAND`] is the only place `ls` says what it accepts: from it `cli` derives the parser
 //! (values arrive typed), `--help` as text and as a record, the usage line and the error
 //! prefix. The POSIX short flags keep their meaning; the common grammar adds `-o`,
-//! `--sort-by`, `--type`, `--since`, `--max-depth`, `--no-headers`, `--flags`. Where
-//! OpenBSD's `ls` keeps twenty integers that override each other in a `switch`, the mutually
+//! `--sort-by`, `--type`, `--since`, `--max-depth`, `--no-headers`, `--flags`. Where the
+//! classic `ls` keeps twenty integers that override each other in a `switch`, the mutually
 //! exclusive flags here collapse into enums: the last one given wins, and `-l` always beats
 //! `-g`.
 
@@ -35,7 +35,8 @@ pub const COMMAND: Command = Command {
     summary: "list directory contents",
     synopsis: "[-1AacdFghiklnpqRrSstuHL] [-o format] [--sort-by=.field] [--type=t,...] [--since=duration] [--max-depth=n] [--no-headers] [--flags] [file ...]",
     options: &[
-        OptSpec::value(Some('o'), Some("output"), Kind::Format, "what to print").in_group("format"),
+        OptSpec::value(Some('o'), Some("output"), Kind::Format, "what to print")
+            .in_group("format"),
         OptSpec::flag(Some('1'), None, "one name per line").in_group("format"),
         OptSpec::flag(Some('C'), None, "names in columns").in_group("format"),
         OptSpec::flag(
@@ -127,7 +128,8 @@ pub const COMMAND: Command = Command {
             Some('h'),
             Some("human"),
             "sizes with K, M, G suffixes (default on a terminal)",
-        ),
+        )
+        .bsd(),
         OptSpec::flag(
             None,
             Some("flags"),

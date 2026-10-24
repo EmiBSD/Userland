@@ -68,7 +68,12 @@ fn main() -> ExitCode {
         COMMAND.report("stdout", e);
         failed = true;
     }
-    let _ = out.flush();
+    if let Err(e) = out.flush()
+        && e.kind() != io::ErrorKind::BrokenPipe
+    {
+        COMMAND.report("stdout", e);
+        failed = true;
+    }
     if failed {
         ExitCode::from(exit::FAILURE)
     } else {

@@ -15,11 +15,12 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["short", "long", "type", "takesValue", "value", "description"],
+        "required": ["short", "long", "type", "origin", "takesValue", "value", "description"],
         "properties": {
           "short": { "type": ["string", "null"], "pattern": "^-.$" },
           "long": { "type": ["string", "null"], "pattern": "^--[a-z0-9-]+$" },
           "type": { "enum": ["flag", "string", "choice", "list", "int", "duration", "size", "path", "field", "format"], "description": "The type of the value the parser checks: a list is comma-separated choices, a duration is 7d/12h/30m/45s, a size is 4K/10M/1G, a field is a path into the record, a format is one of the -o renderers." },
+          "origin": { "enum": ["posix", "bsd", "emibsd", "grammar"], "description": "Where the option comes from: POSIX's definition of the utility; a flag the BSD systems have beyond POSIX, kept for compatibility with their scripts; EmiBSD's own for this program (filters, flags no other system has); or the common grammar every EmiBSD program shares (-o, --sort-by, --no-headers, --help)." },
           "takesValue": { "type": "boolean" },
           "value": { "type": ["string", "null"], "description": "The placeholder of the value, when one is taken." },
           "description": { "type": "string" },

@@ -68,7 +68,7 @@ with a target that is not a directory, is a usage error.
 - `-o json`, `-o yaml`: `{apiVersion: emibsd.org/v1, kind: CopyList, items: [...]}`, one
   record per source examined, including the refused ones (`action: failed`, `error`).
 - Standard error: `cp: <what>: <why>` per failure (`nope: No such file or directory`,
-  `a and a are identical (not copied)`, `src is a directory (not copied)`, `cannot overwrite
+  `a and a are identical (not copied).`, `src is a directory (not copied).`, `cannot overwrite
   directory d with non-directory f`, `x: directory causes a cycle`, `update times: t: ...`),
   and the `-i` question `overwrite target? `.
 
@@ -96,9 +96,11 @@ configuration), `rc` and `rc.d` scripts, `sysmerge`, `security(8)`, every Makefi
 `install` fallback, every user's muscle memory. What they expect: the POSIX flags with their
 meaning, silence on success, exit 0 or 1, the modes and times that `-p` and `-R` give. All
 kept; the conscious additions (`-o`, `--dry-run`, long flags, exit 2 for a wrong command
-line) touch no script that was correct. The one visible difference from OpenBSD's: a socket
-among the sources is a failure (exit 1) here, where OpenBSD's warns and exits 0; and `-r` is
-refused instead of discouraged. `tests/golden` copies a fixed tree with every POSIX form
+line) touch no script that was correct. The visible differences from OpenBSD's, all in
+failure paths: a socket among the sources is a failure (exit 1) here, where OpenBSD's warns
+and exits 0; a directory that cannot be created, and a directory source over a target that is
+not a directory, are per-source failures here (reported, the rest copied, exit 1) where
+OpenBSD's aborts at once with exit 1; and `-r` is refused instead of discouraged. `tests/golden` copies a fixed tree with every POSIX form
 through this `cp` and through OpenBSD's and compares the resulting trees (`ls -lR`, contents).
 
 ## Performance budget
@@ -123,6 +125,11 @@ through a link under `-f` (the link is unlinked, never written through).
 | none | symlink followed during recursion into an unnamed tree | `-P` default under `-R`; `tests/cli.rs` `recursion_keeps_links_by_default_and_follows_with_l` |
 
 ## Open questions
+
+- A failed write of the records is reported and exits 1 (disk full, I/O error), but a closed
+  or read-only standard output is not: Rust's `std` swallows `EBADF` on stdout, so
+  `cp -v a b >&-` exits 0 with nothing printed. Detecting it would need the descriptor
+  outside `std`; whether that is worth an `unsafe` line in `sys` is open.
 
 - `tests/golden` against OpenBSD's `cp` needs the EmiBSD image; `bench/` its two measures;
   `tests/cve/setid.rs` a second user to run as. Until then STATUS stays `designed`: the code,

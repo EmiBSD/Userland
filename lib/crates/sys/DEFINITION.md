@@ -69,6 +69,10 @@ and who upholds it, and the host tests exercise every call (Miri on them is pend
 
 ## Open questions
 
+- `set_flags_fd` takes a `RawFd`, so its SAFETY ("a descriptor the caller holds open") is the
+  caller's word; a `BorrowedFd<'_>` would make the type say it. A breaking change of this
+  crate, to be made with the next one (the reviewer's note of 2026-10-24).
+
 - Miri over the host tests, as docs/PROGRAM.md asks.
 - `umask()` reads by setting and restoring: a program that creates files from another thread
   at that instant could see the wrong mask; the programs call it first.

@@ -93,6 +93,24 @@ impl Meta {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::under;
+    use std::path::Path;
+
+    #[test]
+    fn the_last_component_is_read_as_openbsd_reads_it() {
+        let d = Path::new("dst");
+        assert_eq!(under(d, "src"), Path::new("dst/src"));
+        assert_eq!(under(d, "a/b/src/"), Path::new("dst/src"));
+        assert_eq!(under(d, "src/."), Path::new("dst"));
+        assert_eq!(under(d, "src/./"), Path::new("dst"));
+        assert_eq!(under(d, "src/sub/.."), Path::new("dst"));
+        assert_eq!(under(d, "."), Path::new("dst"));
+        assert_eq!(under(d, "/"), Path::new("dst"));
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn file_flags(m: &Metadata) -> u32 {
     use std::os::macos::fs::MetadataExt as _;
@@ -210,12 +228,15 @@ pub fn shape(cfg: &Config) -> Result<Shape, ShapeError> {
 }
 
 /// The target of a source under the directory form: the directory plus the source's last
-/// component; a source that ends in `.` or `..` has none and goes to the directory itself,
-/// so `cp -R .. dir` fills `dir` as OpenBSD's does.
-fn under(dir: &Path, source: &Path) -> PathBuf {
-    match source.file_name() {
-        Some(name) => dir.join(name),
-        None => dir.to_path_buf(),
+/// component, read from the text as OpenBSD's `cp` does (never through `Path::file_name`,
+/// which drops a trailing `.`). A source whose last component is `.` or `..` (`src/.`,
+/// `src/./`, `..`) goes to the directory itself, so `cp -R src/. dir` fills `dir`.
+fn under(dir: &Path, source: &str) -> PathBuf {
+    let trimmed = source.trim_end_matches('/');
+    let last = trimmed.rsplit('/').next().unwrap_or(trimmed);
+    match last {
+        "" | "." | ".." => dir.to_path_buf(),
+        name => dir.join(name),
     }
 }
 
@@ -228,7 +249,7 @@ pub fn walk(cfg: &Config, shape: Shape, sink: &mut dyn FnMut(Op) -> bool) {
         let source = Path::new(s);
         let dst = match shape {
             Shape::ToTarget => target.to_path_buf(),
-            Shape::IntoDirectory => under(target, source),
+            Shape::IntoDirectory => under(target, s),
         };
         match stat_source(source, cfg.follow_operand()) {
             Ok(meta) => visit(cfg, source.to_path_buf(), dst, meta, &mut entered, sink),
@@ -257,7 +278,7 @@ fn visit(
         if t.same_file(&meta) {
             sink(Op::Refused {
                 error: format!(
-                    "{} and {} are identical (not copied)",
+                    "{} and {} are identical (not copied).",
                     target.display(),
                     source.display()
                 ),
@@ -292,7 +313,7 @@ fn visit(
     }
     if !cfg.recursive {
         sink(Op::Refused {
-            error: format!("{} is a directory (not copied)", source.display()),
+            error: format!("{} is a directory (not copied).", source.display()),
             source,
             target,
             kind: "dir",

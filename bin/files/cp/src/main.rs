@@ -87,8 +87,15 @@ fn main() -> ExitCode {
         COMMAND.report("stdout", e);
         output_failed = true;
     }
-    let failed = reporter.failed || output_failed;
-    let _ = out.flush();
+    let mut failed = reporter.failed || output_failed;
+    // The buffer holds the -v lines and a small document until here: a failure to write
+    // them is a failure of the program, not a quiet exit.
+    if let Err(e) = out.flush()
+        && e.kind() != io::ErrorKind::BrokenPipe
+    {
+        COMMAND.report("stdout", e);
+        failed = true;
+    }
     if failed {
         ExitCode::from(exit::FAILURE)
     } else {

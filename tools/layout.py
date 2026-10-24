@@ -435,11 +435,19 @@ XSI: it is the output selector, as in kubectl.
 `cp`): a `Command` in `src/options.rs` names every option once, with its type (`Flag`,
 `Str`, `Choice`, `List`, `Int {min, max}`, `Duration`, `Size`, `Path`, `Field`, `Format`).
 From that one table `cli` derives the parser (values arrive converted and checked, the
-error already worded: `ls: --max-depth: x is not a whole number`), `--help` as text,
+error already worded, as in `ls: --max-depth: 'x' is not a whole number` with the value
+in backticks), `--help` as text,
 `--help -o json` as a `CommandHelp` record (`lib/crates/cli/schemas/command-help.v1.json`,
 with the type of every option, so an agent can drive the program without reading prose), the
 usage line, and the `name: message` prefix of every diagnostic. No program declares `--help`
-or writes a `parse::<usize>()` of its own. The exit codes are shared: **0** everything asked
+or writes a `parse::<usize>()` of its own. Every option carries its origin, and `--help`
+shows the options in four sections, POSIX's, BSD compatibility (flags the BSDs have beyond
+POSIX, kept so their scripts work), EmiBSD's own for this program, and the common grammar
+every program shares (`-o`, `--sort-by`, `--no-headers`,
+`--help`; `origin` in the record), so a user tells at a glance what works everywhere, what
+is this program's, and what is the same in every EmiBSD program: `cli` knows the grammar's
+names; a short flag is POSIX's unless the declaration says `.bsd()` or `.emibsd()`; a
+long-only option is EmiBSD's. The exit codes are shared: **0** everything asked
 was done, **1** something could not be done and the rest was, **2** the command line was
 wrong and nothing was done; a program may define more above 2 and lists them in its
 `Command`. An action is a stream of records too: `cp` makes one record per source examined,

@@ -109,6 +109,83 @@ impl Typed {
     }
 }
 
+/// Where an option comes from: `--help` groups the options by it, so a user sees at a glance
+/// what POSIX gives every system, what the BSDs have beyond it and is kept so their scripts
+/// and habits work, what is this program's own, and what is the grammar every EmiBSD program
+/// shares (the user's decision of 2026-10-24). No section names another system's program:
+/// the origin is the flag's, never the code's, which is written here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    /// Defined by POSIX for this utility.
+    Posix,
+    /// A flag the BSD systems have beyond POSIX, kept for compatibility with their scripts.
+    Bsd,
+    /// EmiBSD's own, this program's: a filter, a flag no other system has.
+    Emibsd,
+    /// The common grammar every EmiBSD program shares, the shape of the output: `-o`,
+    /// `--sort-by`, `--no-headers`, `--help`.
+    Grammar,
+}
+
+/// The long names `cli` recognises as the common grammar's.
+const GRAMMAR: &[&str] = &["output", "sort-by", "no-headers", "help"];
+
+const fn str_eq(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+impl Origin {
+    /// The name `--help -o json` prints.
+    pub fn name(self) -> &'static str {
+        match self {
+            Origin::Posix => "posix",
+            Origin::Bsd => "bsd",
+            Origin::Emibsd => "emibsd",
+            Origin::Grammar => "grammar",
+        }
+    }
+
+    fn heading(self) -> &'static str {
+        match self {
+            Origin::Posix => "options (POSIX):",
+            Origin::Bsd => "options (BSD compatibility):",
+            Origin::Emibsd => "options (EmiBSD extensions):",
+            Origin::Grammar => "options (EmiBSD common grammar, the output):",
+        }
+    }
+
+    /// The default for a declaration: one of the grammar's long names is the grammar's
+    /// whatever its short form; otherwise a short flag is POSIX's unless said otherwise and
+    /// a long-only option is EmiBSD's (POSIX has no long options).
+    const fn default_for(short: Option<char>, long: Option<&'static str>) -> Origin {
+        if let Some(l) = long {
+            let mut i = 0;
+            while i < GRAMMAR.len() {
+                if str_eq(l, GRAMMAR[i]) {
+                    return Origin::Grammar;
+                }
+                i += 1;
+            }
+        }
+        if short.is_some() {
+            Origin::Posix
+        } else {
+            Origin::Emibsd
+        }
+    }
+}
+
 /// One option of a [`Command`].
 #[derive(Debug, Clone, Copy)]
 pub struct OptSpec {
@@ -123,6 +200,8 @@ pub struct OptSpec {
     /// The group of mutually exclusive options it belongs to, if any; the program decides
     /// which wins (usually the last), the help tells a tool not to combine them.
     pub group: Option<&'static str>,
+    /// Where it comes from.
+    pub origin: Origin,
 }
 
 impl OptSpec {
@@ -134,6 +213,7 @@ impl OptSpec {
             kind: Kind::Flag,
             doc,
             group: None,
+            origin: Origin::default_for(short, long),
         }
     }
 
@@ -150,6 +230,7 @@ impl OptSpec {
             kind,
             doc,
             group: None,
+            origin: Origin::default_for(short, long),
         }
     }
 
@@ -157,6 +238,22 @@ impl OptSpec {
     pub const fn in_group(self, group: &'static str) -> Self {
         OptSpec {
             group: Some(group),
+            ..self
+        }
+    }
+
+    /// The same option, a BSD flag beyond POSIX kept for compatibility.
+    pub const fn bsd(self) -> Self {
+        OptSpec {
+            origin: Origin::Bsd,
+            ..self
+        }
+    }
+
+    /// The same option, EmiBSD's own (a short flag POSIX does not define, like `-o`).
+    pub const fn emibsd(self) -> Self {
+        OptSpec {
+            origin: Origin::Emibsd,
             ..self
         }
     }
@@ -396,14 +493,10 @@ impl Command {
         f
     }
 
-    /// The text a terminal gets.
+    /// The text a terminal gets: the options in four sections, POSIX's, BSD compatibility,
+    /// EmiBSD's own, the common grammar (`--help` among the last).
     pub fn text(&self) -> String {
-        let mut s = format!(
-            "{}: {}\n\n{}\n\noptions:\n",
-            self.name,
-            self.summary,
-            self.usage()
-        );
+        let mut s = format!("{}: {}\n\n{}\n", self.name, self.summary, self.usage());
         let help_col = "--help".to_string();
         let width = self
             .options
@@ -413,20 +506,29 @@ impl Command {
             .max()
             .unwrap_or(0)
             .min(28);
-        for o in self.options {
-            let f = Self::flag_column(o);
-            let mut line = format!("  {f:<width$}  {}", o.doc);
-            let ch = choices(&o.kind);
-            if !ch.is_empty() {
-                line.push_str(&format!(" [{}]", ch.join(" | ")));
+        for origin in [Origin::Posix, Origin::Bsd, Origin::Emibsd, Origin::Grammar] {
+            let mine: Vec<&OptSpec> = self.options.iter().filter(|o| o.origin == origin).collect();
+            if mine.is_empty() && origin != Origin::Grammar {
+                continue;
             }
-            if let Kind::Int { min, max, .. } = o.kind {
-                line.push_str(&format!(" [{min}..{max}]"));
-            }
-            s.push_str(&line);
             s.push('\n');
+            s.push_str(origin.heading());
+            s.push('\n');
+            for o in mine {
+                let mut doc = o.doc.to_string();
+                let ch = choices(&o.kind);
+                if !ch.is_empty() {
+                    doc.push_str(&format!(" [{}]", ch.join(" | ")));
+                }
+                if let Kind::Int { min, max, .. } = o.kind {
+                    doc.push_str(&format!(" [{min}..{max}]"));
+                }
+                s.push_str(&option_lines(&Self::flag_column(o), &doc, width));
+            }
+            if origin == Origin::Grammar {
+                s.push_str(&option_lines(&help_col, HELP_DOC, width));
+            }
         }
-        s.push_str(&format!("  {help_col:<width$}  {HELP_DOC}\n"));
         if !self.outputs.is_empty() {
             s.push_str("\noutput formats (-o):\n");
             for (n, d) in self.outputs {
@@ -483,7 +585,8 @@ impl Command {
                       long: Option<&str>,
                       kind: &Kind,
                       doc: &str,
-                      group: Option<&str>| {
+                      group: Option<&str>,
+                      origin: Origin| {
             let mut m = vec![
                 (
                     "short".into(),
@@ -497,6 +600,7 @@ impl Command {
                         .unwrap_or(Value::Null),
                 ),
                 ("type".into(), s(kind_name(kind))),
+                ("origin".into(), s(origin.name())),
                 ("takesValue".into(), Value::Bool(*kind != Kind::Flag)),
                 (
                     "value".into(),
@@ -523,9 +627,16 @@ impl Command {
         let mut options: Vec<Value> = self
             .options
             .iter()
-            .map(|o| option(o.short, o.long, &o.kind, o.doc, o.group))
+            .map(|o| option(o.short, o.long, &o.kind, o.doc, o.group, o.origin))
             .collect();
-        options.push(option(None, Some("help"), &Kind::Flag, HELP_DOC, None));
+        options.push(option(
+            None,
+            Some("help"),
+            &Kind::Flag,
+            HELP_DOC,
+            None,
+            Origin::Grammar,
+        ));
         let pairs = |xs: &[(&str, &str)], k1: &str, k2: &str| {
             Value::List(
                 xs.iter()
@@ -581,6 +692,38 @@ impl Command {
             _ => self.text(),
         }
     }
+}
+
+/// One option of the help text: the flag column, then the description wrapped at 80 columns
+/// with the continuation lines under the description.
+fn option_lines(flags: &str, doc: &str, width: usize) -> String {
+    let indent = width + 4;
+    let room = 80usize.saturating_sub(indent).max(20);
+    let mut out = String::new();
+    let mut first = true;
+    let mut line = String::new();
+    let flush = |line: &mut String, out: &mut String, first: &mut bool| {
+        if *first {
+            out.push_str(&format!("  {flags:<width$}  {line}\n"));
+            *first = false;
+        } else {
+            out.push_str(&format!("{}{line}\n", " ".repeat(indent)));
+        }
+        line.clear();
+    };
+    for word in doc.split(' ') {
+        if !line.is_empty() && line.len() + 1 + word.len() > room {
+            flush(&mut line, &mut out, &mut first);
+        }
+        if !line.is_empty() {
+            line.push(' ');
+        }
+        line.push_str(word);
+    }
+    if !line.is_empty() || first {
+        flush(&mut line, &mut out, &mut first);
+    }
+    out
 }
 
 /// Splits a synopsis into words, keeping each bracketed group (`[-o format]`) whole.
@@ -795,7 +938,8 @@ mod tests {
                 Some("mode"),
                 Kind::Choice("MODE", &["fast", "slow"]),
                 "the mode",
-            ),
+            )
+            .bsd(),
         ],
         outputs: &[("json", "the record")],
         schema: Some("schemas/x.v1.json"),
@@ -868,8 +1012,15 @@ mod tests {
             t.starts_with("x: does x\n\nusage: x [-a] [-o format]"),
             "{t}"
         );
-        assert!(t.contains("-o, --output FORMAT  the format [name | table | wide | json | yaml | custom-columns=NAME:.path,...]"), "{t}");
         assert!(t.contains("--max-depth N        how deep [0..64]"), "{t}");
+        assert!(
+            t.lines().all(|l| l.len() <= 80 || l.starts_with("usage")),
+            "{t}"
+        );
+        assert!(
+            t.contains("  -o, --output FORMAT  the format [name | table | wide | json | yaml |\n                       custom-columns=NAME:.path,...]\n"),
+            "{t}"
+        );
         assert!(t.contains("  --help "), "{t}");
         assert!(t.contains("  2   the command line was wrong"), "{t}");
         let v = X.value();
@@ -880,6 +1031,24 @@ mod tests {
         };
         assert_eq!(opts.len(), 10); // nine declared plus --help
         assert_eq!(opts[3].get("type").unwrap().to_cell(), "int");
+        assert_eq!(opts[0].get("origin").unwrap().to_cell(), "posix");
+        assert_eq!(opts[1].get("origin").unwrap().to_cell(), "grammar");
+        assert_eq!(
+            opts[3].get("origin").unwrap().to_cell(),
+            "emibsd",
+            "long-only is EmiBSD's"
+        );
+        assert_eq!(opts[8].get("origin").unwrap().to_cell(), "bsd");
+        assert_eq!(
+            opts[6].get("origin").unwrap().to_cell(),
+            "grammar",
+            "--sort-by"
+        );
+        assert_eq!(
+            opts[9].get("origin").unwrap().to_cell(),
+            "grammar",
+            "--help"
+        );
         assert_eq!(opts[3].get("max").unwrap().to_cell(), "64");
         assert_eq!(opts[1].get("exclusiveGroup").unwrap().to_cell(), "format");
         assert_eq!(opts[9].get("long").unwrap().to_cell(), "--help");
