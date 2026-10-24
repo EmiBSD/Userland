@@ -4,8 +4,8 @@ Editors and the pager.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `vi` (usr.bin/vi)
-- `mg` (usr.bin/mg)
-- `less` (usr.bin/less)
+- [`vi`](vi/) (usr.bin/vi)
+- [`mg`](mg/) (usr.bin/mg)
+- [`less`](less/) (usr.bin/less)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

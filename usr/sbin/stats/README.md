@@ -4,9 +4,9 @@ Kernel and I/O statistics.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `procmap` (usr.sbin/procmap)
-- `pstat` (usr.sbin/pstat)
-- `iostat` (usr.sbin/iostat)
-- `kgmon` (usr.sbin/kgmon)
+- [`procmap`](procmap/) (usr.sbin/procmap)
+- [`pstat`](pstat/) (usr.sbin/pstat)
+- [`iostat`](iostat/) (usr.sbin/iostat)
+- [`kgmon`](kgmon/) (usr.sbin/kgmon)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

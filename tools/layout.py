@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Generate the Userland monorepo's directory layout with one README.md per directory.
+"""Generate the Userland monorepo's layout: the trees, one README.md per directory, and the
+skeleton of every program and library (docs/PROGRAM.md is the contract).
 
 usage: layout.py <openbsd-src root> <Userland root>
 
 The top level is OpenBSD's own split by install path (bin, sbin, usr/bin, usr/sbin, libexec,
-lib, include, gnu, etc, share, distrib); inside each, the programs are grouped by what they
-do. Every program of OpenBSD's bin/, sbin/, usr.bin/, usr.sbin/, libexec/ and lib/ is mapped
-to exactly one leaf, in the tree OpenBSD keeps it in; the script refuses to write otherwise.
+lib, include, compiler, etc, share, distrib); inside each, the programs are grouped by what
+they do. Every program of OpenBSD's bin/, sbin/, usr.bin/, usr.sbin/, libexec/ and lib/ is
+mapped to exactly one leaf, in the tree OpenBSD keeps it in; the script refuses to write
+otherwise. Skeleton files are created only when missing, so refinement survives a rerun.
 """
 import os
 import sys
@@ -18,6 +20,7 @@ OUT = Path(sys.argv[2])
 # Where a top-level directory's bare names come from in OpenBSD's src.
 SOURCE_DIR = {"bin": "bin", "sbin": "sbin", "usr/bin": "usr.bin", "usr/sbin": "usr.sbin",
               "libexec": "libexec", "lib": "lib"}
+DEFAULT_SECTION = {"bin": "1", "usr/bin": "1", "sbin": "8", "usr/sbin": "8", "libexec": "8", "lib": "3"}
 
 # (top-level, purpose, [(leaf, purpose, [programs])]); a leaf may nest ("storage/disks").
 # A program is a bare name (looked up in the top-level's source directory) or a path under
@@ -137,7 +140,7 @@ LAYOUT = [
         ("system", "The login prompt, the nightly security check, the kernel relinker, the traditional cpp.", [
             "getty", "security", "reorder_kernel", "tradcpp"]),
     ]),
-    ("lib", "The libraries every program links. While the kernel keeps OpenBSD's ABI, libc speaks OpenBSD's system calls: this is the layer closest to OpenBSD by necessity. OpenBSD's lib/ (35).", [
+    ("lib", "The libraries every program links. While the kernel keeps OpenBSD's ABI, libc speaks OpenBSD's system calls: this is the layer closest to OpenBSD by necessity, and with libexec/rtld the only place `unsafe` is allowed. OpenBSD's lib/ (35).", [
         ("libc", "The C library, its start-up files, threads and libm.", [
             "libc", "csu", "librthread", "libpthread", "libm", "check_sym"]),
         ("crypto", "Cryptography and authentication.", [
@@ -184,6 +187,24 @@ above the [Kernel](https://github.com/EmiBSD/Kernel). Phase 3 of the project: un
 kernel's redesign closes at N9, EmiBSD runs OpenBSD's base system unmodified; this repository
 is where the system that replaces it is written.
 
+## Rules (the user's decisions of 2026-10-23)
+
+- **Written from scratch, under a definition.** Nothing here is a port or a translation of
+  OpenBSD's programs. Each program is specified first (what it does, its inputs, outputs,
+  exit codes, what the rest of the system expects of it), then designed, then written.
+  OpenBSD's program and its manual are the reference for behaviour, read, not copied.
+- **Rust.** Everything written here is Rust; C only where the ABI demands it, assembly only
+  in the syscall stubs of libc. `#![forbid(unsafe_code)]` in every program; `unsafe` only in
+  `lib/libc` and `libexec/rtld`, each site with a written proof, as the kernel's `hal`.
+- **LLVM, nothing GPL.** The toolchain is clang and lld (`compiler/`).
+- **`just`.** Every program carries a `justfile` that imports `tools/program.just`; the root
+  `justfile` runs over all of them. `cargo` builds; `just` is the recipes. Not make: the
+  build is Cargo's, and BSD make is itself one of the programs to write
+  (`usr/bin/development/make`).
+- **One contract per program**: `docs/PROGRAM.md`. Every program directory holds `STATUS`,
+  `DEFINITION.md`, `DESIGN.md`, `DELIVERY.md`, `schemas/`, `src/`, `tests/`, `man/` and a
+  `justfile`; `just status` counts the STATUS files.
+
 ## Layout
 
 OpenBSD's own split at the top: `bin/` and `sbin/` are what works with only the root
@@ -192,8 +213,8 @@ are for the user, `sbin` and `usr/sbin` for operating the system. Inside each, t
 are grouped by what they do. A concept that OpenBSD spreads over two trees keeps a distinct
 name in each (`bin/files` and `usr/bin/file-tools`, `sbin/network` and `usr/sbin/network/`),
 and the README of each says where its other half is. Every program is listed once, in the
-tree OpenBSD keeps it in; `tools/layout.py` regenerates the READMEs from the map and refuses
-to write when one is missing or doubled.
+tree OpenBSD keeps it in; `tools/layout.py` regenerates the READMEs and the skeletons from
+the map and refuses to write when one is missing or doubled.
 
 ```
 {tree}```
@@ -201,7 +222,245 @@ to write when one is missing or doubled.
 The lists are the map to what OpenBSD's base system provides at the pin of
 `Kernel/reference/PINNED.md`, not a porting list: the programs written here are EmiBSD's own.
 
+## Open
+
+- **The Rust target.** `aarch64-unknown-openbsd` and `x86_64-unknown-openbsd` are tier 3 in
+  Rust: no prebuilt `std`, and building it needs nightly's `-Zbuild-std`, which the no-nightly
+  rule excludes. The options (a custom target over our own libc with `no_std` + `alloc`,
+  `std` built once by a pinned script, rustc bootstrapped on EmiBSD itself) are decided with
+  the first slice, `lib/libc`.
+- `include/` and `share/` are generated from the libraries and the programs; `etc/` shrinks
+  to what the system needs before any program exists; `regress/` holds the integration
+  battery. Pending the user's word.
+
 New code is ISC (`LICENSE`).
+"""
+
+PROGRAM_DOC = """# The contract of a program
+
+Every program and library directory of this repository (`bin/`, `sbin/`, `usr/bin/`,
+`usr/sbin/`, `libexec/`, `lib/`) is one solution, laid out the same way. `tools/layout.py`
+creates the skeleton; the people and agents who work on the program fill it, in this order.
+
+```
+<group>/<name>/
+├── STATUS            one word: planned | defined | designed | implemented | shipped
+├── DEFINITION.md     the functional design: what it does, scope, constraints, inputs,
+│                     parameters, outputs, exit codes, signals, compatibility
+├── DESIGN.md         the architecture: mermaid diagrams, security (pledge, unveil,
+│                     privileges), decisions with their reasons, dependencies
+├── schemas/          the machine-readable contracts: output.v1.json, config.v1.json
+│                     (what `-o json` / `-o yaml` emit; versioned, kubectl's apiVersion)
+├── src/              the Rust sources, a Cargo package; unit tests beside the code
+├── tests/            integration tests, property tests for every parser, and golden/,
+│                     the differential tests: the same input to ours and to OpenBSD's
+├── man/<name>.<n>    the manual, mdoc(7) source; HTML and Markdown are rendered from it
+├── etc/              the default configuration installed under /etc, when it has one
+├── DELIVERY.md       the install set, path, static or dynamic, owner and mode, MAKEDEV
+└── justfile          `import` of tools/program.just: build, test, lint, man, status
+```
+
+## The order
+
+1. **planned**: the skeleton exists. `DEFINITION.md` names the OpenBSD program and manual
+   that are the reference for behaviour.
+2. **defined**: `DEFINITION.md` is complete. Its *Compatibility* section is the one that
+   matters most: what the rest of the base system expects of this program (the flags `rc`
+   calls it with, the output another program parses, the exit codes a script branches on).
+   The base system is an ecosystem; a program that works but breaks `netstart` is a failure.
+3. **designed**: `DESIGN.md` and `schemas/` are complete; the security section says which
+   `pledge(2)` promises and `unveil(2)` paths the program lives under, and whether it
+   separates privileges or runs setuid. Nothing OpenBSD's program restricts may be relaxed.
+4. **implemented**: `src/` builds, the unit, integration, property and differential tests
+   pass, `man/` is complete with EXAMPLES. The package joined the workspace `Cargo.toml`.
+5. **shipped**: `DELIVERY.md` is complete and `distrib/` installs it.
+
+## Rules
+
+- Written from scratch under the definition; OpenBSD's code is read for behaviour, never
+  copied or translated (the user's decision of 2026-10-23).
+- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc` and
+  `libexec/rtld`, each site with a `// SAFETY:` proof.
+- A new dependency needs the user's OK and a row in the allowlist (to be written with the
+  first program).
+- The manual's source is mdoc(7), the format of the system; `mandoc -T markdown` and
+  `-T html` render it for the site. EXAMPLES is not optional.
+- Every file starts with the author's ISC block (`LICENSE`).
+- `just status` at the root counts the STATUS files; that count is the progress of the
+  userland, as `cargo xtask lz status` is the kernel's.
+"""
+
+PROGRAM_JUST = """# Shared recipes for every program and library; each one's justfile imports this file.
+# The program's name is its directory's name.
+
+name := file_name(justfile_directory())
+
+# Build the package (once src/Cargo.toml exists).
+build:
+    cargo build --manifest-path src/Cargo.toml
+
+# Unit and integration tests.
+test:
+    cargo test --manifest-path src/Cargo.toml
+
+# Format check and clippy with warnings denied.
+lint:
+    cargo fmt --manifest-path src/Cargo.toml -- --check
+    cargo clippy --manifest-path src/Cargo.toml -- -D warnings
+
+# Render the manual to the terminal.
+man:
+    mandoc -T utf8 man/{{name}}.* | less -R
+
+# This program's STATUS line.
+status:
+    @printf '%s\\t%s\\n' "$(cat STATUS)" "{{name}}"
+"""
+
+ROOT_JUST = """# EmiBSD Userland: the recipes over the whole monorepo. Each program has its own justfile
+# importing tools/program.just; these run across all of them.
+
+# Progress: how many programs sit at each STATUS.
+status:
+    @find bin sbin usr libexec lib -name STATUS | xargs cat | sort | uniq -c | sort -rn
+
+# Every program at a given status: `just at implemented`.
+at s:
+    @find bin sbin usr libexec lib -name STATUS | while read f; do [ "$(cat "$f")" = "{{s}}" ] && dirname "$f"; done | sort
+
+# Regenerate the READMEs and the missing skeletons from the map (needs Kernel's reference tree).
+layout src="../Kernel/reference/openbsd-src":
+    python3 -I tools/layout.py {{src}} .
+
+# Format, clippy and tests over the workspace (the packages that joined Cargo.toml).
+check:
+    cargo fmt --all -- --check
+    cargo clippy --workspace -- -D warnings
+    cargo test --workspace
+"""
+
+ROOT_CARGO = """# The workspace. A program's package (src/Cargo.toml) is added to `members` when its STATUS
+# reaches `implemented`; until then the skeletons are not built.
+[workspace]
+resolver = "3"
+members = []
+
+[workspace.package]
+edition = "2024"
+license = "ISC"
+authors = ["Emilio Navarrete Lineros <enavarre@outlook.com>"]
+"""
+
+TOOLCHAIN = """# Stable, pinned, the same channel as Kernel. Bumping is its own commit.
+# No targets yet: the OpenBSD targets are tier 3 (README, Open).
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+components = ["rustfmt", "clippy", "rust-src"]
+"""
+
+DEFINITION = """# {name}
+
+STATUS: see `STATUS`. Reference for behaviour: OpenBSD's `{origin}`, manual {name}({section}).
+Written from scratch under this definition; not a port (the user's decision of 2026-10-23).
+
+## What it does
+
+## Scope
+
+What is in, what is out, and why.
+
+## Constraints
+
+Root partition only (static) or not; privileges; what it may never do.
+
+## Inputs
+
+Arguments, standard input, environment variables, files it reads, configuration.
+
+## Parameters
+
+| Flag | Argument | Meaning | Default |
+|---|---|---|---|
+
+## Outputs
+
+Human output; `-o json` / `-o yaml` (`schemas/output.v1.json`); what goes to stderr.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | success |
+
+## Signals and failure behaviour
+
+SIGHUP, SIGTERM, SIGINT; disk full, permission denied, interrupted.
+
+## Compatibility
+
+What the rest of the base system expects of this program: who calls it (rc, other
+programs, the installer), with which flags, which output they parse, which exit codes they
+branch on. Nothing here changes without checking every caller.
+
+## Open questions
+"""
+
+DESIGN = """# {name}: design
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A[input] --> B[{name}] --> C[output]
+```
+
+## Security
+
+`pledge(2)` promises, `unveil(2)` paths, privilege separation, setuid. Never less than
+OpenBSD's {name}({section}) restricts.
+
+## Data
+
+The schemas in `schemas/`; their versions; who consumes them.
+
+## Decisions
+
+Numbered, each with its reason and what was rejected.
+
+## Dependencies
+
+Crates used, each with why; the allowlist governs.
+"""
+
+DELIVERY = """# {name}: delivery
+
+| | |
+|---|---|
+| Install set | |
+| Install path | |
+| Linking | static / dynamic |
+| Owner and mode | |
+| MAKEDEV | none / the node |
+| Manual | man/{name}.{section} |
+| Default configuration | none / etc/ |
+"""
+
+MAN = """.\\" {name}({section}): written from scratch; OpenBSD's {name}({section}) is the behavioural reference.
+.Dd $Mdocdate$
+.Dt {NAME} {section}
+.Os
+.Sh NAME
+.Nm {name}
+.Nd
+.Sh SYNOPSIS
+.Nm
+.Sh DESCRIPTION
+.Sh EXIT STATUS
+.Sh EXAMPLES
+.Sh SEE ALSO
+.Sh STANDARDS
+.Sh HISTORY
 """
 
 
@@ -209,6 +468,53 @@ def listing(d: str) -> set:
     return {n for n in os.listdir(SRC / d)
             if not n.lower().startswith("makefile") and n != "CVS"
             and not n.endswith(".inc") and not n.endswith(".mk")}
+
+
+def man_section(top: str, src_dir: str, name: str) -> str:
+    """The section of OpenBSD's manual for this program: <name>.<n> in its directory (one
+    level of subdirectories too), else the tree's default."""
+    base = SRC / src_dir / name
+    candidates = []
+    for root, _, files in os.walk(base):
+        depth = Path(root).relative_to(base).parts
+        if len(depth) > 1:
+            continue
+        for f in files:
+            stem, _, ext = f.rpartition(".")
+            if stem == name and ext.isdigit():
+                candidates.append(ext)
+    # The program's own page, not its file format (5) or device (4) page: disklabel has
+    # disklabel.5 and .8, arp has arp.4 and .8.
+    default = DEFAULT_SECTION[top]
+    if default in candidates:
+        return default
+    commands = [c for c in candidates if c in ("1", "8", "6", "3")]
+    return min(commands) if commands else (min(candidates) if candidates else default)
+
+
+def write_if_missing(path: Path, text: str) -> bool:
+    if path.exists():
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return True
+
+
+def skeleton(top: str, leaf: str, name: str, src_dir: str) -> int:
+    d = OUT / top / leaf / name
+    section = man_section(top, src_dir, name)
+    origin = f"{src_dir}/{name}"
+    rel = os.path.relpath(OUT / "tools" / "program.just", d)
+    n = 0
+    n += write_if_missing(d / "STATUS", "planned\n")
+    n += write_if_missing(d / "DEFINITION.md", DEFINITION.format(name=name, origin=origin, section=section))
+    n += write_if_missing(d / "DESIGN.md", DESIGN.format(name=name, section=section))
+    n += write_if_missing(d / "DELIVERY.md", DELIVERY.format(name=name, section=section))
+    n += write_if_missing(d / "justfile", f"import '{rel}'\n")
+    n += write_if_missing(d / "man" / f"{name}.{section}", MAN.format(name=name, NAME=name.upper(), section=section))
+    for sub in ("schemas", "src", "tests"):
+        n += write_if_missing(d / sub / ".gitkeep", "")
+    return n
 
 
 def main() -> int:
@@ -244,30 +550,46 @@ def main() -> int:
         print("missing:", missing)
         return 1
 
-    tree = []
+    tree, created, programs = [], 0, 0
     for top, purpose, leaves in LAYOUT:
         tree.append(f"{top}/")
         (OUT / top).mkdir(parents=True, exist_ok=True)
         top_md = [f"# {top}", "", purpose, "", "| Directory | What |", "|---|---|"]
+        src = SOURCE_DIR.get(top)
         for i, (leaf, what, progs) in enumerate(leaves):
             last = i == len(leaves) - 1
             tree.append(f"{'└── ' if last else '├── '}{leaf:<20} {what}")
             top_md.append(f"| `{leaf}/` | {what} |")
             d = OUT / top / leaf
             d.mkdir(parents=True, exist_ok=True)
-            src = SOURCE_DIR.get(top)
             lines = [f"# {top}/{leaf}", "", what, "",
                      "Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):", ""]
             for p in progs:
                 origin = p if "/" in p or src is None else f"{src}/{p}"
-                lines.append(f"- `{origin.rsplit('/', 1)[-1]}` ({origin})")
-            lines += ["", "Nothing written yet."]
+                name = origin.rsplit("/", 1)[-1]
+                if src is not None:
+                    lines.append(f"- [`{name}`]({name}/) ({origin})")
+                    created += skeleton(top, leaf, name, src)
+                    programs += 1
+                else:
+                    lines.append(f"- `{name}` ({origin})")
+            if src is not None:
+                lines += ["", "Each entry is a program directory laid out as `docs/PROGRAM.md` says."]
+            else:
+                lines += ["", "Nothing written yet."]
             (d / "README.md").write_text("\n".join(lines) + "\n")
-        top_md += ["", "Nothing written yet."]
+        top_md += ["", "Each entry is a group; each group's README lists its programs." if src else "Nothing written yet."]
         (OUT / top / "README.md").write_text("\n".join(top_md) + "\n")
     (OUT / "README.md").write_text(TOPLEVEL_README.format(tree="\n".join(tree) + "\n"))
+    (OUT / "docs").mkdir(exist_ok=True)
+    (OUT / "docs" / "PROGRAM.md").write_text(PROGRAM_DOC)
+    (OUT / "tools" / "program.just").write_text(PROGRAM_JUST)
+    write_if_missing(OUT / "justfile", ROOT_JUST)
+    write_if_missing(OUT / "Cargo.toml", ROOT_CARGO)
+    write_if_missing(OUT / "rust-toolchain.toml", TOOLCHAIN)
     total = sum(len(progs) for _, _, leaves in LAYOUT for _, _, progs in leaves)
-    print(f"ok: {len(LAYOUT)} trees, {sum(len(l) for _, _, l in LAYOUT)} leaves, {total} entries;",
+    print(f"ok: {len(LAYOUT)} trees, {sum(len(l) for _, _, l in LAYOUT)} leaves, {total} entries, "
+          f"{programs} program skeletons ({created} files created this run);",
           {d: len(s) for d, s in sorted(sources.items())})
     return 0
 

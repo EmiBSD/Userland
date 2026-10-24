@@ -4,17 +4,17 @@ Boot blocks, images, quotas, iSCSI, media (the root-partition tools are sbin/sto
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `installboot` (usr.sbin/installboot)
-- `makefs` (usr.sbin/makefs)
-- `mtree` (usr.sbin/mtree)
-- `quot` (usr.sbin/quot)
-- `edquota` (usr.sbin/edquota)
-- `quotaon` (usr.sbin/quotaon)
-- `repquota` (usr.sbin/repquota)
-- `rmt` (usr.sbin/rmt)
-- `iscsid` (usr.sbin/iscsid)
-- `iscsictl` (usr.sbin/iscsictl)
-- `rdsetroot` (usr.sbin/rdsetroot)
-- `fdformat` (usr.sbin/fdformat)
+- [`installboot`](installboot/) (usr.sbin/installboot)
+- [`makefs`](makefs/) (usr.sbin/makefs)
+- [`mtree`](mtree/) (usr.sbin/mtree)
+- [`quot`](quot/) (usr.sbin/quot)
+- [`edquota`](edquota/) (usr.sbin/edquota)
+- [`quotaon`](quotaon/) (usr.sbin/quotaon)
+- [`repquota`](repquota/) (usr.sbin/repquota)
+- [`rmt`](rmt/) (usr.sbin/rmt)
+- [`iscsid`](iscsid/) (usr.sbin/iscsid)
+- [`iscsictl`](iscsictl/) (usr.sbin/iscsictl)
+- [`rdsetroot`](rdsetroot/) (usr.sbin/rdsetroot)
+- [`fdformat`](fdformat/) (usr.sbin/fdformat)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

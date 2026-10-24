@@ -23,4 +23,4 @@ Daemons and administration once the system is whole. OpenBSD's usr.sbin/ (151).
 | `kernel-dev/` | Configuring, tracing and packaging kernels (the running kernel's state is sbin/kernel). |
 | `wscons/` | Console screens, fonts and the console mouse. |
 
-Nothing written yet.
+Each entry is a group; each group's README lists its programs.

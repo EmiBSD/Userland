@@ -5,6 +5,24 @@ above the [Kernel](https://github.com/EmiBSD/Kernel). Phase 3 of the project: un
 kernel's redesign closes at N9, EmiBSD runs OpenBSD's base system unmodified; this repository
 is where the system that replaces it is written.
 
+## Rules (the user's decisions of 2026-10-23)
+
+- **Written from scratch, under a definition.** Nothing here is a port or a translation of
+  OpenBSD's programs. Each program is specified first (what it does, its inputs, outputs,
+  exit codes, what the rest of the system expects of it), then designed, then written.
+  OpenBSD's program and its manual are the reference for behaviour, read, not copied.
+- **Rust.** Everything written here is Rust; C only where the ABI demands it, assembly only
+  in the syscall stubs of libc. `#![forbid(unsafe_code)]` in every program; `unsafe` only in
+  `lib/libc` and `libexec/rtld`, each site with a written proof, as the kernel's `hal`.
+- **LLVM, nothing GPL.** The toolchain is clang and lld (`compiler/`).
+- **`just`.** Every program carries a `justfile` that imports `tools/program.just`; the root
+  `justfile` runs over all of them. `cargo` builds; `just` is the recipes. Not make: the
+  build is Cargo's, and BSD make is itself one of the programs to write
+  (`usr/bin/development/make`).
+- **One contract per program**: `docs/PROGRAM.md`. Every program directory holds `STATUS`,
+  `DEFINITION.md`, `DESIGN.md`, `DELIVERY.md`, `schemas/`, `src/`, `tests/`, `man/` and a
+  `justfile`; `just status` counts the STATUS files.
+
 ## Layout
 
 OpenBSD's own split at the top: `bin/` and `sbin/` are what works with only the root
@@ -13,8 +31,8 @@ are for the user, `sbin` and `usr/sbin` for operating the system. Inside each, t
 are grouped by what they do. A concept that OpenBSD spreads over two trees keeps a distinct
 name in each (`bin/files` and `usr/bin/file-tools`, `sbin/network` and `usr/sbin/network/`),
 and the README of each says where its other half is. Every program is listed once, in the
-tree OpenBSD keeps it in; `tools/layout.py` regenerates the READMEs from the map and refuses
-to write when one is missing or doubled.
+tree OpenBSD keeps it in; `tools/layout.py` regenerates the READMEs and the skeletons from
+the map and refuses to write when one is missing or doubled.
 
 ```
 bin/
@@ -95,5 +113,16 @@ distrib/
 
 The lists are the map to what OpenBSD's base system provides at the pin of
 `Kernel/reference/PINNED.md`, not a porting list: the programs written here are EmiBSD's own.
+
+## Open
+
+- **The Rust target.** `aarch64-unknown-openbsd` and `x86_64-unknown-openbsd` are tier 3 in
+  Rust: no prebuilt `std`, and building it needs nightly's `-Zbuild-std`, which the no-nightly
+  rule excludes. The options (a custom target over our own libc with `no_std` + `alloc`,
+  `std` built once by a pinned script, rustc bootstrapped on EmiBSD itself) are decided with
+  the first slice, `lib/libc`.
+- `include/` and `share/` are generated from the libraries and the programs; `etc/` shrinks
+  to what the system needs before any program exists; `regress/` holds the integration
+  battery. Pending the user's word.
 
 New code is ISC (`LICENSE`).

@@ -4,10 +4,10 @@ Terminal handling and line editing.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `libcurses` (lib/libcurses)
-- `libedit` (lib/libedit)
-- `libform` (lib/libform)
-- `libmenu` (lib/libmenu)
-- `libpanel` (lib/libpanel)
+- [`libcurses`](libcurses/) (lib/libcurses)
+- [`libedit`](libedit/) (lib/libedit)
+- [`libform`](libform/) (lib/libform)
+- [`libmenu`](libmenu/) (lib/libmenu)
+- [`libpanel`](libpanel/) (lib/libpanel)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

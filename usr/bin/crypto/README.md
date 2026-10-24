@@ -4,9 +4,9 @@ Certificates, signatures and keys from the command line.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `openssl` (usr.bin/openssl)
-- `signify` (usr.bin/signify)
-- `htpasswd` (usr.bin/htpasswd)
-- `keynote` (usr.bin/keynote)
+- [`openssl`](openssl/) (usr.bin/openssl)
+- [`signify`](signify/) (usr.bin/signify)
+- [`htpasswd`](htpasswd/) (usr.bin/htpasswd)
+- [`keynote`](keynote/) (usr.bin/keynote)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

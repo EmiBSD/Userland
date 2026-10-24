@@ -4,11 +4,11 @@ Swap, dumps, restores and quotas.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `swapctl` (sbin/swapctl)
-- `swapon` (sbin/swapon)
-- `dump` (sbin/dump)
-- `restore` (sbin/restore)
-- `savecore` (sbin/savecore)
-- `quotacheck` (sbin/quotacheck)
+- [`swapctl`](swapctl/) (sbin/swapctl)
+- [`swapon`](swapon/) (sbin/swapon)
+- [`dump`](dump/) (sbin/dump)
+- [`restore`](restore/) (sbin/restore)
+- [`savecore`](savecore/) (sbin/savecore)
+- [`quotacheck`](quotacheck/) (sbin/quotacheck)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

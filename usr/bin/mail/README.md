@@ -4,9 +4,9 @@ Reading and sending mail from the command line.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `mail` (usr.bin/mail)
-- `biff` (usr.bin/biff)
-- `from` (usr.bin/from)
-- `vacation` (usr.bin/vacation)
+- [`mail`](mail/) (usr.bin/mail)
+- [`biff`](biff/) (usr.bin/biff)
+- [`from`](from/) (usr.bin/from)
+- [`vacation`](vacation/) (usr.bin/vacation)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

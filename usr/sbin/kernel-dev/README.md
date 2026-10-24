@@ -4,11 +4,11 @@ Configuring, tracing and packaging kernels (the running kernel's state is sbin/k
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `config` (usr.sbin/config)
-- `crunchgen` (usr.sbin/crunchgen)
-- `btrace` (usr.sbin/btrace)
-- `acpidump` (usr.sbin/acpidump)
-- `mksuncd` (usr.sbin/mksuncd)
-- `mkuboot` (usr.sbin/mkuboot)
+- [`config`](config/) (usr.sbin/config)
+- [`crunchgen`](crunchgen/) (usr.sbin/crunchgen)
+- [`btrace`](btrace/) (usr.sbin/btrace)
+- [`acpidump`](acpidump/) (usr.sbin/acpidump)
+- [`mksuncd`](mksuncd/) (usr.sbin/mksuncd)
+- [`mkuboot`](mkuboot/) (usr.sbin/mkuboot)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

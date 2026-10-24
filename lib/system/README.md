@@ -4,21 +4,21 @@ The rest.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `libutil` (lib/libutil)
-- `libkvm` (lib/libkvm)
-- `libevent` (lib/libevent)
-- `libz` (lib/libz)
-- `libexpat` (lib/libexpat)
-- `libelf` (lib/libelf)
-- `libfuse` (lib/libfuse)
-- `libpcap` (lib/libpcap)
-- `libusbhid` (lib/libusbhid)
-- `libossaudio` (lib/libossaudio)
-- `libsndio` (lib/libsndio)
-- `libagentx` (lib/libagentx)
-- `librpcsvc` (lib/librpcsvc)
-- `libarch` (lib/libarch)
-- `libl` (lib/libl)
-- `liby` (lib/liby)
+- [`libutil`](libutil/) (lib/libutil)
+- [`libkvm`](libkvm/) (lib/libkvm)
+- [`libevent`](libevent/) (lib/libevent)
+- [`libz`](libz/) (lib/libz)
+- [`libexpat`](libexpat/) (lib/libexpat)
+- [`libelf`](libelf/) (lib/libelf)
+- [`libfuse`](libfuse/) (lib/libfuse)
+- [`libpcap`](libpcap/) (lib/libpcap)
+- [`libusbhid`](libusbhid/) (lib/libusbhid)
+- [`libossaudio`](libossaudio/) (lib/libossaudio)
+- [`libsndio`](libsndio/) (lib/libsndio)
+- [`libagentx`](libagentx/) (lib/libagentx)
+- [`librpcsvc`](librpcsvc/) (lib/librpcsvc)
+- [`libarch`](libarch/) (lib/libarch)
+- [`libl`](libl/) (lib/libl)
+- [`liby`](liby/) (lib/liby)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

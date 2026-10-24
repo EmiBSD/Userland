@@ -4,12 +4,12 @@ Buses, firmware, GPIO and the guest-host channel.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `pcidump` (usr.sbin/pcidump)
-- `usbdevs` (usr.sbin/usbdevs)
-- `memconfig` (usr.sbin/memconfig)
-- `eeprom` (usr.sbin/eeprom)
-- `gpioctl` (usr.sbin/gpioctl)
-- `ractl` (usr.sbin/ractl)
-- `hostctl` (usr.sbin/hostctl)
+- [`pcidump`](pcidump/) (usr.sbin/pcidump)
+- [`usbdevs`](usbdevs/) (usr.sbin/usbdevs)
+- [`memconfig`](memconfig/) (usr.sbin/memconfig)
+- [`eeprom`](eeprom/) (usr.sbin/eeprom)
+- [`gpioctl`](gpioctl/) (usr.sbin/gpioctl)
+- [`ractl`](ractl/) (usr.sbin/ractl)
+- [`hostctl`](hostctl/) (usr.sbin/hostctl)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

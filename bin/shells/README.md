@@ -4,7 +4,7 @@ The shells.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `ksh` (bin/ksh)
-- `csh` (bin/csh)
+- [`ksh`](ksh/) (bin/ksh)
+- [`csh`](csh/) (bin/csh)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

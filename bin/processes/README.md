@@ -4,13 +4,13 @@ Listing, signalling and pacing processes; the shell's primitives.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `ps` (bin/ps)
-- `kill` (bin/kill)
-- `sleep` (bin/sleep)
-- `sync` (bin/sync)
-- `test` (bin/test)
-- `echo` (bin/echo)
-- `expr` (bin/expr)
-- `date` (bin/date)
+- [`ps`](ps/) (bin/ps)
+- [`kill`](kill/) (bin/kill)
+- [`sleep`](sleep/) (bin/sleep)
+- [`sync`](sync/) (bin/sync)
+- [`test`](test/) (bin/test)
+- [`echo`](echo/) (bin/echo)
+- [`expr`](expr/) (bin/expr)
+- [`date`](date/) (bin/date)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

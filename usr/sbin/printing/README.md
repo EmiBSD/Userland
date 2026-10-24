@@ -4,7 +4,7 @@ Printing.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `lpd` (usr.sbin/lpd)
-- `lpr` (usr.sbin/lpr)
+- [`lpd`](lpd/) (usr.sbin/lpd)
+- [`lpr`](lpr/) (usr.sbin/lpr)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

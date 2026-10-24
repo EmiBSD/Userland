@@ -4,19 +4,19 @@ The basic file operations.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `ls` (bin/ls)
-- `cp` (bin/cp)
-- `mv` (bin/mv)
-- `rm` (bin/rm)
-- `ln` (bin/ln)
-- `mkdir` (bin/mkdir)
-- `rmdir` (bin/rmdir)
-- `chmod` (bin/chmod)
-- `cat` (bin/cat)
-- `dd` (bin/dd)
-- `df` (bin/df)
-- `pwd` (bin/pwd)
-- `pax` (bin/pax)
-- `ed` (bin/ed)
+- [`ls`](ls/) (bin/ls)
+- [`cp`](cp/) (bin/cp)
+- [`mv`](mv/) (bin/mv)
+- [`rm`](rm/) (bin/rm)
+- [`ln`](ln/) (bin/ln)
+- [`mkdir`](mkdir/) (bin/mkdir)
+- [`rmdir`](rmdir/) (bin/rmdir)
+- [`chmod`](chmod/) (bin/chmod)
+- [`cat`](cat/) (bin/cat)
+- [`dd`](dd/) (bin/dd)
+- [`df`](df/) (bin/df)
+- [`pwd`](pwd/) (bin/pwd)
+- [`pax`](pax/) (bin/pax)
+- [`ed`](ed/) (bin/ed)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

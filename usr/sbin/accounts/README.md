@@ -4,18 +4,18 @@ Creating users and groups, the databases built from them, accounting, tokens (wh
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `adduser` (usr.sbin/adduser)
-- `user` (usr.sbin/user)
-- `vipw` (usr.sbin/vipw)
-- `chroot` (usr.sbin/chroot)
-- `pwd_mkdb` (usr.sbin/pwd_mkdb)
-- `dev_mkdb` (usr.sbin/dev_mkdb)
-- `kvm_mkdb` (usr.sbin/kvm_mkdb)
-- `netgroup_mkdb` (usr.sbin/netgroup_mkdb)
-- `ac` (usr.sbin/ac)
-- `accton` (usr.sbin/accton)
-- `sa` (usr.sbin/sa)
-- `tokenadm` (usr.sbin/tokenadm)
-- `tokeninit` (usr.sbin/tokeninit)
+- [`adduser`](adduser/) (usr.sbin/adduser)
+- [`user`](user/) (usr.sbin/user)
+- [`vipw`](vipw/) (usr.sbin/vipw)
+- [`chroot`](chroot/) (usr.sbin/chroot)
+- [`pwd_mkdb`](pwd_mkdb/) (usr.sbin/pwd_mkdb)
+- [`dev_mkdb`](dev_mkdb/) (usr.sbin/dev_mkdb)
+- [`kvm_mkdb`](kvm_mkdb/) (usr.sbin/kvm_mkdb)
+- [`netgroup_mkdb`](netgroup_mkdb/) (usr.sbin/netgroup_mkdb)
+- [`ac`](ac/) (usr.sbin/ac)
+- [`accton`](accton/) (usr.sbin/accton)
+- [`sa`](sa/) (usr.sbin/sa)
+- [`tokenadm`](tokenadm/) (usr.sbin/tokenadm)
+- [`tokeninit`](tokeninit/) (usr.sbin/tokeninit)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

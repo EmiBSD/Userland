@@ -4,9 +4,9 @@ What fits nowhere else.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `banner` (usr.bin/banner)
-- `tmux` (usr.bin/tmux)
-- `ts` (usr.bin/ts)
-- `sendbug` (usr.bin/sendbug)
+- [`banner`](banner/) (usr.bin/banner)
+- [`tmux`](tmux/) (usr.bin/tmux)
+- [`ts`](ts/) (usr.bin/ts)
+- [`sendbug`](sendbug/) (usr.bin/sendbug)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

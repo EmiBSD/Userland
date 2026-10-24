@@ -4,7 +4,7 @@ Reading and setting the kernel's state.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `sysctl` (sbin/sysctl)
-- `dmesg` (sbin/dmesg)
+- [`sysctl`](sysctl/) (sbin/sysctl)
+- [`dmesg`](dmesg/) (sbin/dmesg)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

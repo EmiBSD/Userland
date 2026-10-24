@@ -4,9 +4,9 @@ The login prompt, the nightly security check, the kernel relinker, the tradition
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `getty` (libexec/getty)
-- `security` (libexec/security)
-- `reorder_kernel` (libexec/reorder_kernel)
-- `tradcpp` (libexec/tradcpp)
+- [`getty`](getty/) (libexec/getty)
+- [`security`](security/) (libexec/security)
+- [`reorder_kernel`](reorder_kernel/) (libexec/reorder_kernel)
+- [`tradcpp`](tradcpp/) (libexec/tradcpp)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

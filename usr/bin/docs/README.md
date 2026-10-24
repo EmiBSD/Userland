@@ -4,10 +4,10 @@ Manual pages and terminal descriptions.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `mandoc` (usr.bin/mandoc)
-- `tic` (usr.bin/tic)
-- `infocmp` (usr.bin/infocmp)
-- `tput` (usr.bin/tput)
-- `tset` (usr.bin/tset)
+- [`mandoc`](mandoc/) (usr.bin/mandoc)
+- [`tic`](tic/) (usr.bin/tic)
+- [`infocmp`](infocmp/) (usr.bin/infocmp)
+- [`tput`](tput/) (usr.bin/tput)
+- [`tset`](tset/) (usr.bin/tset)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

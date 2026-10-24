@@ -10,4 +10,4 @@ What must work with only the root partition mounted, linked static: a shell and 
 | `system/` | The machine's name, the terminal line, a checksum. |
 | `tapes/` | Tape and changer control. |
 
-Nothing written yet.
+Each entry is a group; each group's README lists its programs.

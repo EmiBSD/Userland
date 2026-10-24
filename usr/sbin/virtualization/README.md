@@ -4,7 +4,7 @@ vmm(4)'s daemon and control program.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `vmd` (usr.sbin/vmd)
-- `vmctl` (usr.sbin/vmctl)
+- [`vmd`](vmd/) (usr.sbin/vmd)
+- [`vmctl`](vmctl/) (usr.sbin/vmctl)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

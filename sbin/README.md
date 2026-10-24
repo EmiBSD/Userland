@@ -13,4 +13,4 @@ What boots the system, repairs its disks and brings up its network, with only th
 | `ipsec/` | IPsec and its key daemons. |
 | `kernel/` | Reading and setting the kernel's state. |
 
-Nothing written yet.
+Each entry is a group; each group's README lists its programs.

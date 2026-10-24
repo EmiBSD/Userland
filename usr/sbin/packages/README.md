@@ -4,10 +4,10 @@ Packages, firmware, patches and upgrades.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `pkg_add` (usr.sbin/pkg_add)
-- `fw_update` (usr.sbin/fw_update)
-- `syspatch` (usr.sbin/syspatch)
-- `sysupgrade` (usr.sbin/sysupgrade)
-- `sysmerge` (usr.sbin/sysmerge)
+- [`pkg_add`](pkg_add/) (usr.sbin/pkg_add)
+- [`fw_update`](fw_update/) (usr.sbin/fw_update)
+- [`syspatch`](syspatch/) (usr.sbin/syspatch)
+- [`sysupgrade`](sysupgrade/) (usr.sbin/sysupgrade)
+- [`sysmerge`](sysmerge/) (usr.sbin/sysmerge)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

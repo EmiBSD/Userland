@@ -4,16 +4,16 @@ Neighbours, traces, captures, link state (the root-partition tools are sbin/netw
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- `arp` (usr.sbin/arp)
-- `ndp` (usr.sbin/ndp)
-- `rarpd` (usr.sbin/rarpd)
-- `traceroute` (usr.sbin/traceroute)
-- `tcpdump` (usr.sbin/tcpdump)
-- `tcpdrop` (usr.sbin/tcpdrop)
-- `trpt` (usr.sbin/trpt)
-- `lldp` (usr.sbin/lldp)
-- `lldpd` (usr.sbin/lldpd)
-- `ifstated` (usr.sbin/ifstated)
-- `bpflogd` (usr.sbin/bpflogd)
+- [`arp`](arp/) (usr.sbin/arp)
+- [`ndp`](ndp/) (usr.sbin/ndp)
+- [`rarpd`](rarpd/) (usr.sbin/rarpd)
+- [`traceroute`](traceroute/) (usr.sbin/traceroute)
+- [`tcpdump`](tcpdump/) (usr.sbin/tcpdump)
+- [`tcpdrop`](tcpdrop/) (usr.sbin/tcpdrop)
+- [`trpt`](trpt/) (usr.sbin/trpt)
+- [`lldp`](lldp/) (usr.sbin/lldp)
+- [`lldpd`](lldpd/) (usr.sbin/lldpd)
+- [`ifstated`](ifstated/) (usr.sbin/ifstated)
+- [`bpflogd`](bpflogd/) (usr.sbin/bpflogd)
 
-Nothing written yet.
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

@@ -21,4 +21,4 @@ The commands a user runs once /usr is mounted. OpenBSD's usr.bin/ (209).
 | `yp-clients/` | Querying the YP/NIS directory (its servers are usr/sbin/yp). |
 | `misc/` | What fits nowhere else. |
 
-Nothing written yet.
+Each entry is a group; each group's README lists its programs.

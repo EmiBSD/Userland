@@ -10,4 +10,4 @@ Programs run by other programs, never by a user. OpenBSD's libexec/ (28).
 | `mail/` | Local delivery and the spam daemon. |
 | `system/` | The login prompt, the nightly security check, the kernel relinker, the traditional cpp. |
 
-Nothing written yet.
+Each entry is a group; each group's README lists its programs.
