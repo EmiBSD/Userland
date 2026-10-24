@@ -314,11 +314,9 @@ impl<'a> Renderer<'a> {
                 time::iso(secs)
             });
             let mut name = self.decorated_name(e);
-            if m.is_symlink() {
-                if let Some(t) = &e.target {
-                    name.push_str(" -> ");
-                    name.push_str(&self.show(t));
-                }
+            if let (true, Some(t)) = (m.is_symlink(), &e.target) {
+                name.push_str(" -> ");
+                name.push_str(&self.show(t));
             }
             row.push(name);
             t.rows.push(row);

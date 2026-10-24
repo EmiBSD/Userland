@@ -362,16 +362,14 @@ fn descend(
         failed,
     });
     for (sub, id) in subdirs {
-        if let Some(id) = id {
-            if !seen.insert(id) {
-                sink(Listing {
-                    dir: Some(sub.clone()),
-                    error: Some("directory causes a cycle".into()),
-                    entries: Vec::new(),
-                    failed: Vec::new(),
-                });
-                continue;
-            }
+        if id.is_some_and(|id| !seen.insert(id)) {
+            sink(Listing {
+                dir: Some(sub.clone()),
+                error: Some("directory causes a cycle".into()),
+                entries: Vec::new(),
+                failed: Vec::new(),
+            });
+            continue;
         }
         descend(&sub, depth + 1, cfg, need_stat, now, seen, sink);
     }

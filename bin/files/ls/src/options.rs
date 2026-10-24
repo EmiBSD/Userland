@@ -595,17 +595,15 @@ impl Config {
 }
 
 fn terminal_width(tty: bool) -> usize {
-    if let Ok(cols) = std::env::var("COLUMNS") {
-        if let Ok(n) = cols.trim().parse::<usize>() {
-            if n > 0 {
-                return n;
-            }
-        }
+    if let Some(n) = std::env::var("COLUMNS")
+        .ok()
+        .and_then(|c| c.trim().parse::<usize>().ok())
+        .filter(|n| *n > 0)
+    {
+        return n;
     }
-    if tty {
-        if let Some(n) = sys::terminal_columns() {
-            return n;
-        }
+    if let Some(n) = sys::terminal_columns().filter(|_| tty) {
+        return n;
     }
     80
 }

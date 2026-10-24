@@ -1,6 +1,6 @@
 [package]
 name = "ls"
-version = "0.1.0"
+version = "0.1.1"
 description = "List directory contents: a query over file records, rendered as names, the classic table, wide, JSON, YAML or custom columns."
 edition.workspace = true
 license.workspace = true

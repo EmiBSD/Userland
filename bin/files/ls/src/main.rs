@@ -64,11 +64,11 @@ fn main() -> ExitCode {
             failed = true;
         }
     });
-    if let Err(e) = renderer.finish() {
-        if e.kind() != io::ErrorKind::BrokenPipe {
-            eprintln!("ls: stdout: {e}");
-            failed = true;
-        }
+    if let Err(e) = renderer.finish()
+        && e.kind() != io::ErrorKind::BrokenPipe
+    {
+        eprintln!("ls: stdout: {e}");
+        failed = true;
     }
     let _ = out.flush();
     if failed {
