@@ -29,6 +29,11 @@ is where the system that replaces it is written.
 - **`just`.** Every program carries a `justfile` that imports `tools/program.just`; the root
   `justfile` runs over all of them. `cargo` builds; `just` is the recipes. Not make: the build
   is Cargo's, and BSD make is itself one of the programs (imported).
+- **Versions.** Semver per program (`src/Cargo.toml`, or `version` in `UPSTREAM.toml` with
+  our patch level as `+emibsd.N`); a calendar version, `YEAR.MONTH`, for the system release.
+  A commit that changes a program's code carries `Change: breaking|feature|fix` and the bump
+  it calls for; the `commit-msg` hook (`just setup`) refuses it otherwise, and `just changelog`
+  writes each program's `CHANGELOG.md` from the trailers (`docs/PROGRAM.md`, Versions).
 - **Performance, concurrency and security are part of every definition**: a performance
   budget measured against OpenBSD's program on the same input (`bench/`, `just bench`); the
   concurrency model, and stress tests on four CPUs for what serves many; a threat model, the

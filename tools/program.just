@@ -41,3 +41,7 @@ man:
 # This program's STATUS line.
 status:
     @printf '%s\t%s\n' "$(cat STATUS)" "{{name}}"
+
+# CHANGELOG.md from this program's commits' Change: trailers.
+changelog:
+    python3 -I "{{root}}/tools/version.py" changelog .

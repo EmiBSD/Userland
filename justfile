@@ -28,3 +28,12 @@ check:
     cargo fmt --all -- --check
     cargo clippy --workspace -- -D warnings
     cargo test --workspace
+
+# Install the repository's git hooks (commit-msg: the Change: trailer and the version bump).
+setup:
+    git config core.hooksPath .githooks
+    @echo "hooks: core.hooksPath = .githooks"
+
+# Regenerate CHANGELOG.md of one program from its commits' Change: trailers.
+changelog dir:
+    python3 -I tools/version.py changelog {{dir}}

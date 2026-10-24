@@ -271,6 +271,11 @@ is where the system that replaces it is written.
 - **`just`.** Every program carries a `justfile` that imports `tools/program.just`; the root
   `justfile` runs over all of them. `cargo` builds; `just` is the recipes. Not make: the build
   is Cargo's, and BSD make is itself one of the programs (imported).
+- **Versions.** Semver per program (`src/Cargo.toml`, or `version` in `UPSTREAM.toml` with
+  our patch level as `+emibsd.N`); a calendar version, `YEAR.MONTH`, for the system release.
+  A commit that changes a program's code carries `Change: breaking|feature|fix` and the bump
+  it calls for; the `commit-msg` hook (`just setup`) refuses it otherwise, and `just changelog`
+  writes each program's `CHANGELOG.md` from the trailers (`docs/PROGRAM.md`, Versions).
 - **Performance, concurrency and security are part of every definition**: a performance
   budget measured against OpenBSD's program on the same input (`bench/`, `just bench`); the
   concurrency model, and stress tests on four CPUs for what serves many; a threat model, the
@@ -395,6 +400,34 @@ closes, as the kernel bumps its LZ pin.
 - Every file starts with the author's ISC block (`LICENSE`).
 - `just status` at the root counts the STATUS files; that count is the progress of the
   userland, as `cargo xtask lz status` is the kernel's.
+
+## Versions (the user's decision of 2026-10-23)
+
+Two levels, because they answer two questions.
+
+- **A program: semver, `MAJOR.MINOR.PATCH`**, because a program has interfaces others depend
+  on (flags, `-o json`, exit codes, its configuration format) and the question its users ask
+  is "does it break me?". `MAJOR` rises when a flag, an exit code, a schema (`output.v1` to
+  `v2`) or the configuration format is removed or changed; `MINOR` when something is added;
+  `PATCH` when something is fixed with nothing visible changed. A written program's version
+  is `version` in `src/Cargo.toml`, starting at `0.1.0`; while `MAJOR` is 0, Cargo's reading
+  applies: `breaking` bumps `MINOR`, `feature` and `fix` bump `PATCH`. An imported program's
+  version is `version` in `UPSTREAM.toml`: the upstream's, plus our patch level as build
+  metadata (`9.9+emibsd.2`); a new patch raises the level, a pin bump changes the base.
+- **The system: calendar, `YEAR.MONTH`** (`2027.04`), the release `distrib/` builds, like
+  OpenBSD's release every six months with the date said. The question there is "how old is
+  what I run?". It is a level apart from the `EmiBSD 8.0` the kernel shows userland, which
+  does not move while the ABI is OpenBSD's.
+
+The rule, mechanical: a commit that changes a program's code (`src/`; for an import
+`patches/`, `build/` or `UPSTREAM.toml`) carries one trailer, `Change: breaking`, `Change:
+feature` or `Change: fix`, and the version it carries is the bump that trailer calls for.
+`tools/version.py check-commit` runs as the `commit-msg` hook (`just setup` installs
+`.githooks/`) and refuses the commit otherwise; a commit that touches only tests, manuals or
+docs needs no trailer and no bump. `CHANGELOG.md` of a program is generated from those
+trailers by `just changelog`, never written by hand. A schema carries its own `apiVersion`,
+raised only when the JSON stops being compatible, and that raise is `breaking` by
+definition.
 """
 
 PROGRAM_JUST = """# Shared recipes for every program and library; each one's justfile imports this file.
@@ -440,6 +473,10 @@ man:
 # This program's STATUS line.
 status:
     @printf '%s\\t%s\\n' "$(cat STATUS)" "{{name}}"
+
+# CHANGELOG.md from this program's commits' Change: trailers.
+changelog:
+    python3 -I "{{root}}/tools/version.py" changelog .
 """
 
 ROOT_JUST = """# EmiBSD Userland: the recipes over the whole monorepo. Each program has its own justfile
@@ -472,6 +509,21 @@ check:
     cargo fmt --all -- --check
     cargo clippy --workspace -- -D warnings
     cargo test --workspace
+
+# Install the repository's git hooks (commit-msg: the Change: trailer and the version bump).
+setup:
+    git config core.hooksPath .githooks
+    @echo "hooks: core.hooksPath = .githooks"
+
+# Regenerate CHANGELOG.md of one program from its commits' Change: trailers.
+changelog dir:
+    python3 -I tools/version.py changelog {{dir}}
+"""
+
+COMMIT_MSG_HOOK = """#!/bin/sh
+# commit-msg: a change to a program's code carries a Change: trailer and the version bump it
+# calls for (docs/PROGRAM.md, Versions). Installed by `just setup` (core.hooksPath).
+exec python3 -I "$(git rev-parse --show-toplevel)/tools/version.py" check-commit "$1"
 """
 
 ROOT_CARGO = """# The workspace. A program's package (src/Cargo.toml) is added to `members` when its STATUS
@@ -1111,6 +1163,10 @@ def main() -> int:
     (OUT / "tools" / "program.just").write_text(PROGRAM_JUST)
     (OUT / "tools" / "upstream.py").write_text(UPSTREAM_PY)
     (OUT / "justfile").write_text(ROOT_JUST)
+    hook = OUT / ".githooks" / "commit-msg"
+    hook.parent.mkdir(exist_ok=True)
+    hook.write_text(COMMIT_MSG_HOOK)
+    hook.chmod(0o755)
     put(OUT / "Cargo.toml", ROOT_CARGO, False)
     put(OUT / "rust-toolchain.toml", TOOLCHAIN, False)
     put(OUT / ".gitignore", GITIGNORE, False)
