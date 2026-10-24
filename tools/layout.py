@@ -526,8 +526,8 @@ setup:
 changelog dir:
     python3 -I tools/version.py changelog {{dir}}
 
+# cargo-audit and cargo-deny are `cargo install`ed tools, outside the repository: installed only with the user's OK.
 # Advisories against our crate dependencies (RustSec) and the licence and duplicate policy.
-# Both are `cargo install`ed tools, outside the repository: installed only with the user's OK.
 audit:
     #!/bin/sh
     if command -v cargo-audit >/dev/null; then cargo audit; else echo "audit: cargo-audit not installed (cargo install cargo-audit, with the user's OK)"; fi
