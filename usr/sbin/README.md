@@ -1,6 +1,6 @@
 # usr/sbin
 
-Daemons and administration once the system is whole. OpenBSD's usr.sbin/ (151).
+Daemons and administration once the system is whole (151).
 
 | Directory | What |
 |---|---|

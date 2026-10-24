@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Independent read-only review of a branch or commit range of EmiBSD's userland - the program's behaviour against its DEFINITION.md and OpenBSD's manual (the POSIX forms byte for byte to a pipe, exit codes, diagnostics), the common grammar followed (one Command, typed options, cli's help and exit codes, records with a schema), forbid(unsafe_code) kept and sys's SAFETY proofs sound, the pledge profile no weaker than OpenBSD's, no C copied or translated, tests that assert behaviour, the Change: trailer and version bump right, the manual complete. Use before integrating a program; writes nothing; returns its findings.
+description: Independent read-only review of a branch or commit range of EmiBSD's userland - the program's behaviour against its DEFINITION.md and POSIX's text (the POSIX forms byte for byte to a pipe, exit codes, diagnostics), the common grammar followed (one Command, typed options, cli's help and exit codes, records with a schema), forbid(unsafe_code) kept and sys's SAFETY proofs sound, the pledge profile the least the program needs, nothing copied or translated from another system, tests that assert behaviour, the Change: trailer and version bump right, the manual complete. Use before integrating a program; writes nothing; returns its findings.
 model: opus
 effort: high
 maxTurns: 300
@@ -16,16 +16,16 @@ final message.
 
 Read first: `README.md` ("Rules"), `docs/PROGRAM.md` whole, `.claude/rules/subagents.md`, the
 program's DEFINITION.md, DESIGN.md, `schemas/` and manual, and `lib/crates/cli/src/command.rs`
-(what the declaration can express). OpenBSD's program is the behavioural reference:
-`git -C ../Kernel/reference/openbsd-src show HEAD:<path>` for its code and manual; never `cd`
-there.
+(what the declaration can express). POSIX.1-2024 is the behavioural reference where it
+defines the program (`man 1p` on the host); no other system's source is opened, and a
+finding that would need one is marked as such.
 
 ## How
 
 Inspect with `git log --oneline <base>..<branch>`, `git diff <base> <branch> -- <path>`,
 `git show <branch>:<path>`. Run the program's tests and, where a POSIX form is claimed byte
-for byte, run the binary yourself on a small tree and compare with what OpenBSD's manual and
-code say it prints (and with the host's `ls`, `cp` where they agree with OpenBSD's). Every
+for byte, run the binary yourself on a small tree and compare with what the standard says
+it prints (and with the host's `ls`, `cp` where they follow the standard). Every
 finding has `path:line` evidence on the branch and the DEFINITION line or
 `reference/openbsd-src/<path>:<line>` it must match, and a concrete failing input when it is
 a defect.
@@ -33,7 +33,7 @@ a defect.
 ## What to check
 
 1. Behaviour: every flag the DEFINITION lists does what it says; the POSIX forms to a pipe
-   match OpenBSD's byte for byte (widths, separators, `total`, dates); the exit codes are 0,
+   match the standard's byte for byte (widths, separators, `total`, dates); the exit codes are 0,
    1, 2 as `docs/PROGRAM.md` fixes them, and any more are declared; diagnostics are
    `name: subject: strerror`; a wrong value names the option; `--help` and `--help -o json`
    work; `-o json` validates against `schemas/*.v1.json` by eye (fields, types, `apiVersion`,
@@ -45,11 +45,12 @@ a defect.
 3. Safety: `#![forbid(unsafe_code)]` at the program's root; any `unsafe` only in
    `lib/crates/sys`, each block with a `// SAFETY:` that states a real invariant and who
    upholds it ("the C does this" is not one), each `extern` signature matching both targets'
-   libc, a host test exercising it. `pledge` promises no weaker than OpenBSD's program's,
+   libc, a host test exercising it. `pledge` promises the least the program needs,
    derived from the options where they change.
-4. Provenance: no C copied verbatim or translated line by line (compare shapes against the
-   reference: a `switch` of twenty globals is not a `Config` of enums); the author's ISC
-   block first in every file; English.
+4. Provenance: nothing copied or translated from another system's program (a written
+   program names only POSIX and its own definition; a mention of another system's code or
+   name in a written program's files is a defect, the user's rule of 2026-10-24); the
+   author's ISC block first in every file; English.
 5. Tests: they assert behaviour (text, codes, records), not that the code runs; the counts in
    the commit body match; property tests on every parser; a test for each row of the
    security history or an Open question saying why not yet.

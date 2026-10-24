@@ -11,11 +11,11 @@ of a program, the common grammar, linking, versions); when they change, this fil
 
 | Agent | Model | Worktree | Memory | Writes | Use it for |
 |---|---|---|---|---|---|
-| `surveyor` | opus | no | yes | scratchpad | read-only inventory of an OpenBSD program before it is defined: what it does, every flag and its meaning, exit codes, who in the base system calls it and with what, what it parses and prints, its CVE history, what `std`, `cli` and `sys` lack for it; facts with `file:line`, never a design |
+| `surveyor` | opus | no | yes | scratchpad | read-only inventory of a program before it is defined, from POSIX's text and this tree alone: what the standard says it does, every flag and its meaning, exit codes, what it parses and prints, who in this tree will call it, the CVE classes of its namesakes, what `std`, `cli` and `sys` lack for it; facts with their source, never another system's code, never a design |
 | `designer` | fable | yes | yes | branch (documents) | DEFINITION.md, DESIGN.md, `schemas/`, the manual's SYNOPSIS and DESCRIPTION of one program from the survey; STATUS to `defined` then `designed`; proposes the decisions the user must take, never takes them, never writes code |
 | `implementer` | opus | yes | yes | branch | `src/`, `tests/`, the manual's EXAMPLES, DELIVERY.md of a designed program, on `cli` and `sys`; the additions those two crates need for it (a `Kind`, a libc call), each with its reason; one program per run |
 | `mechanical` | sonnet | yes | yes | branch | the same change over many programs (a `cli` API moved, a rule's wording in every DEFINITION), tests added to an existing program, a manual's lint, `tools/layout.py` regeneration, an import's `UPSTREAM.toml`, `build/` and patch series once the pin is decided |
-| `reviewer` | opus | no | no | nothing | read-only review of a branch: behaviour against DEFINITION.md and OpenBSD's manual, POSIX byte for byte to a pipe, `forbid(unsafe_code)`, the `pledge` profile no weaker than OpenBSD's, no C copied or translated, tests that assert behaviour, the `Change:` trailer and the version bump, the manual complete |
+| `reviewer` | opus | no | no | nothing | read-only review of a branch: behaviour against DEFINITION.md and POSIX's text, the POSIX forms byte for byte to a pipe, `forbid(unsafe_code)`, the `pledge` profile the least the program needs, nothing copied or translated from another system, tests that assert behaviour, the `Change:` trailer and the version bump, the manual complete |
 | `integrator` | opus | yes | yes | branch | merge agent branches, resolve the shared files (`Cargo.toml` members, `Cargo.lock`, READMEs, `docs/PROGRAM.md` through `tools/layout.py`, agent memories), finish a stopped agent's work from its `HANDOFF.md`, `just check` and `just status` |
 
 Mechanical vs delicate (the user's split, 2026-10-03): when unsure, it is delicate (opus).
@@ -41,7 +41,7 @@ their work leaves commits unmade.
 Guard hook: the writing roles (`designer`, `implementer`, `mechanical`, `integrator`) carry a
 `PreToolUse` hook, `.claude/hooks/agent-guard.sh`, that refuses before it runs: `git push`,
 `git commit --amend`, a force of anything, any write under `upstream/` or under a `reference/`
-tree (the Kernel's OpenBSD clone, read with `git show`, never from inside), a `cd` into
+tree (the Kernel's pinned clone of the system it ports; never opened by a userland agent), a `cd` into
 either, `cargo install`, `rustup`, `brew`, `pip`, `npm`, and `curl` or `wget` (nothing is
 installed and nothing is downloaded without the user's OK; `tools/upstream.py fetch` is the
 one sanctioned download and runs from the main session). A refusal is a "STOP" like any
@@ -75,7 +75,7 @@ The definitions are generic; the prompt of each launch supplies the specifics:
 5. any authorisation the user gave for this launch, quoted ("dale" and what it answered);
 6. the block "Rules that apply to this work": the 10-15 lines that bind the task (the common
    grammar's points that matter for it, the POSIX forms that must match byte for byte, the
-   `pledge` promises OpenBSD's program uses, what is forbidden) and the files the agent reads
+   `pledge` promises the program needs, what is forbidden) and the files the agent reads
    whole: always `docs/PROGRAM.md` and this file; the reviewer reads `README.md` too.
 
 A prompt that misses one of these gets a question back, not a guess.
@@ -85,9 +85,9 @@ A prompt that misses one of these gets a question back, not a guess.
 - The main checkout is the first line of `git worktree list --porcelain`:
   `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')`. `upstream/` (fetched
   sources, gitignored) lives only there: `ln -s "$MAIN/upstream" upstream` when an import is
-  the work, unlinked before the worktree is removed. The OpenBSD reference is the Kernel's
-  clone, `$MAIN/../Kernel/reference/openbsd-src`, read with
-  `git -C <that path> show HEAD:bin/cp/cp.c`; never `cd` into it, never write there.
+  the work, unlinked before the worktree is removed. The Kernel's `reference/` trees are not
+  for the userland's written programs: no agent opens them (the user's rule of 2026-10-24:
+  the written programs owe nothing to any other system); the hook refuses a `cd` or a write.
 - `PATH=/opt/homebrew/opt/rustup/bin:$PATH` before `cargo` or `just`. Install nothing. The
   worktree has its own `target/`; the main checkout's is never used.
 - `just setup` once, so the `commit-msg` hook runs (it is `core.hooksPath`, shared by the
@@ -99,8 +99,8 @@ A prompt that misses one of these gets a question back, not a guess.
 
 - Author block: every file starts with the author's ISC block (`LICENSE`; copy the header of
   `lib/crates/cli/src/lib.rs`). Everything in the repository is in English.
-- A written program is written from scratch under its DEFINITION; OpenBSD's code is read for
-  behaviour, never copied or translated. A program parses nothing itself: its `Command`
+- A written program is written from scratch under its DEFINITION, from POSIX's text where
+  the standard defines it; no other system's code is read, copied or translated. A program parses nothing itself: its `Command`
   declares the options with their types and `cli` does the rest (`docs/PROGRAM.md`, "The
   common grammar"). `#![forbid(unsafe_code)]`; `unsafe` only in `lib/crates/sys` with a
   `// SAFETY:` proof, and only for what `std` lacks.
@@ -116,7 +116,7 @@ A prompt that misses one of these gets a question back, not a guess.
   implementer's last step before handing back, not every commit's.
 - Read cheaply: `grep`, `sed -n 'a,bp'`, long output redirected to scratchpad files. The
   program's reference C and its manual are still read completely, in ranges.
-- Behaviour: to a pipe, the POSIX forms are OpenBSD's byte for byte; to a terminal, the
+- Behaviour: to a pipe, the POSIX forms are the standard's byte for byte; to a terminal, the
   common grammar's defaults. A behaviour that cannot be kept is reported with the evidence,
   never silently changed.
 
@@ -134,5 +134,5 @@ A prompt that misses one of these gets a question back, not a guess.
 
 Branch and tip, commits in order, the evidence (`just lint` and `just test` output, test
 counts before and after, `just status` line, the release size for DELIVERY), the STATUS
-reached, deviations from the DEFINITION or from OpenBSD's behaviour with their reason, what is
+reached, deviations from the DEFINITION or from POSIX with their reason, what is
 left, the `HANDOFF.md` path.

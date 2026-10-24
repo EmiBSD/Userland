@@ -18,7 +18,7 @@
 # integrator; the `hooks:` field of their frontmatter). It makes mechanical what
 # `.claude/rules/subagents.md` says in words: a subagent never pushes, never
 # amends, never forces, never writes under `upstream/` or under a `reference/`
-# tree (the Kernel's OpenBSD clone), never cds into either, and never installs
+# tree (the Kernel's pinned clone of another system), never cds into either, and never installs
 # or downloads anything (`cargo install`, `rustup`, `brew`, `pip`, `npm`,
 # `curl`, `wget`). Exit 2 refuses the call and hands the reason to the agent;
 # anything else exits 0 at once. The main session has no such hook: pushing,

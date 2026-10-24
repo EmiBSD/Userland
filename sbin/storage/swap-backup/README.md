@@ -2,13 +2,13 @@
 
 Swap, dumps, restores and quotas.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`swapctl`](swapctl/) (sbin/swapctl)
-- [`swapon`](swapon/) (sbin/swapon)
-- [`dump`](dump/) (sbin/dump)
-- [`restore`](restore/) (sbin/restore)
-- [`savecore`](savecore/) (sbin/savecore)
-- [`quotacheck`](quotacheck/) (sbin/quotacheck)
+- [`swapctl`](swapctl/)
+- [`swapon`](swapon/)
+- [`dump`](dump/)
+- [`restore`](restore/)
+- [`savecore`](savecore/)
+- [`quotacheck`](quotacheck/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

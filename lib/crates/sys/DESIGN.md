@@ -40,7 +40,7 @@ None.
 2. **Only what `std` lacks.** `chown`, `set_times`, `set_permissions`, `symlink`, metadata are
    `std`'s and used directly by the programs; duplicating them here would spread `unsafe`.
 3. **Per-target constants, one function.** `set_flags_nofollow` is `lchflags` on macOS and
-   `chflagsat` on OpenBSD behind one signature; the programs never see the difference.
+   `chflagsat` on the `openbsd` target behind one signature; the programs never see the difference.
 
 ## Dependencies
 

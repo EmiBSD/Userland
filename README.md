@@ -2,13 +2,13 @@
 
 The monorepo of EmiBSD's own userland: the programs, libraries and configuration that run
 above the [Kernel](https://github.com/EmiBSD/Kernel). Phase 3 of the project: until the
-kernel's redesign closes at N9, EmiBSD runs OpenBSD's base system unmodified; this repository
+kernel's redesign closes at N9, EmiBSD runs an inherited base system unmodified; this repository
 is where the system that replaces it is written.
 
 ## Rules (the user's decisions of 2026-10-23)
 
 - **Two classes of program** (`docs/PROGRAM.md`). *Written*: from scratch, under a
-  definition, in Rust; nothing is a port or a translation of OpenBSD's program, which is read
+  definition, in Rust; nothing is a port or a translation of another system's program: the
   as the reference for behaviour. *Imported*: cryptography, the security and network
   protocols with a living upstream and a CVE history, and the legacy giants (`ssh`, LibreSSL,
   `unbound`, `smtpd`, `vi`, `tmux`, `mandoc`, ncurses, the compilers, ...) are compiled from
@@ -26,7 +26,7 @@ is where the system that replaces it is written.
   dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
 - **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
   patches and build glue; `compiler/rust` is rust-lang/rust at the pinned stable tag, built
-  against that LLVM, so the system builds itself (OpenBSD's `comp` set) and the OpenBSD
+  against that LLVM, so the system builds itself (the `comp` set) and the `*-unknown-openbsd`
   targets, tier 3 in Rust, get their `std` from a stable release's source, not from nightly.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
@@ -42,20 +42,20 @@ is where the system that replaces it is written.
   it calls for; the `commit-msg` hook (`just setup`) refuses it otherwise, and `just changelog`
   writes each program's `CHANGELOG.md` from the trailers (`docs/PROGRAM.md`, Versions).
 - **Performance, concurrency and security are part of every definition**: a performance
-  budget measured against OpenBSD's program on the same input (`bench/`, `just bench`); the
+  budget measured against a reference system's program on the same input (`bench/`, `just bench`); the
   concurrency model, and stress tests on four CPUs for what serves many; a threat model, the
   `pledge`/`unveil` profile, and the program's CVE history (`tests/cve/`), each entry made
   impossible by a type, a check or the language, or tested.
 
 ## Layout
 
-OpenBSD's own split at the top: `bin/` and `sbin/` are what works with only the root
+The BSD split at the top: `bin/` and `sbin/` are what works with only the root
 partition mounted (linked static), `usr/bin/` and `usr/sbin/` the rest; `bin` and `usr/bin`
 are for the user, `sbin` and `usr/sbin` for operating the system. Inside each, the programs
-are grouped by what they do. A concept that OpenBSD spreads over two trees keeps a distinct
+are grouped by what they do. A concept the tradition spreads over two trees keeps a distinct
 name in each (`bin/files` and `usr/bin/file-tools`, `sbin/network` and `usr/sbin/network/`),
 and the README of each says where its other half is. Every program is listed once, in the
-tree OpenBSD keeps it in; `tools/layout.py` regenerates the READMEs and the skeletons from
+tree the tradition keeps it in; `tools/layout.py` regenerates the READMEs and the skeletons from
 the map and refuses to write when one is missing or doubled.
 
 ```
@@ -121,10 +121,10 @@ lib/
 ├── crypto               Cryptography and authentication.
 ├── terminal             Terminal handling and line editing.
 ├── system               The rest.
-└── crates               The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar (one declaration per program with typed options, --help as text and as a record, usage and diagnostics, exit codes; records, -o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge, uid and umask, mkfifo and mknod, file flags, a link's times and mode), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no OpenBSD counterpart.
+└── crates               The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar (one declaration per program with typed options, --help as text and as a record, usage and diagnostics, exit codes; records, -o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge, uid and umask, mkfifo and mknod, file flags, a link's times and mode), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no counterpart elsewhere.
 compiler/
 ├── llvm                 LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.
-└── rust                 rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the OpenBSD targets is how the tier 3 problem is solved without nightly.
+└── rust                 rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the `*-unknown-openbsd` targets (the Kernel's ABI) is how the tier 3 problem is solved without nightly.
 etc/
 ├── rc                   The start-up scripts and the terminal table.
 └── base                 Users, groups, shells, the protocol tables, device nodes, the file-system skeleton, root's dotfiles, the per-architecture files.
@@ -140,16 +140,16 @@ distrib/
 ├── include              The recipe that assembles /usr/include from what each library of lib/ exports; no header is kept here.
 └── share                The recipe that assembles /usr/share: every program's man/ rendered, data/, share/mk; no file is kept here.
 regress/
-├── scenarios            One directory per scenario: the steps, the expected lines, the OpenBSD comparison.
+├── scenarios            One directory per scenario: the steps, the expected lines, the comparison with a reference system.
 └── harness              Booting the images, driving the console, collecting and comparing.
 ```
 
-The lists are the map to what OpenBSD's base system provides at the pin of
+The lists are the map to what a complete base system provides, taken from the names at the pin of
 `Kernel/reference/PINNED.md`, not a porting list: the written programs are EmiBSD's own.
 
 ## Open
 
-- **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are Perl in OpenBSD, and
+- **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are traditionally Perl, and
   Perl (Artistic or GPL, dual) is not in the tree: import it under the Artistic licence, or
   write those five in Rust. The user's decision; their skeletons say so.
 - `cargo audit` and `cargo deny` (`just audit`, part of `just check` when installed) are

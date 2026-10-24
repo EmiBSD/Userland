@@ -25,7 +25,7 @@ test:
 stress:
     EMIBSD_NCPU=4 cargo test --manifest-path src/Cargo.toml --test 'stress*'
 
-# Host benchmarks against OpenBSD's program on the same input.
+# Host benchmarks against a reference system's program on the same input.
 bench:
     cargo bench --manifest-path src/Cargo.toml
 

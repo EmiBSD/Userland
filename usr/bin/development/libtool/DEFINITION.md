@@ -1,7 +1,8 @@
 # libtool
 
-STATUS: see `STATUS`. Reference for behaviour: OpenBSD's `usr.bin/libtool`, manual libtool(1).
-Written from scratch under this definition; not a port (the user's decision of 2026-10-23).
+STATUS: see `STATUS`. EmiBSD's own `libtool`, written from scratch under this definition (the
+user's decision of 2026-10-23); its reference is POSIX where the standard defines the
+program, and this definition alone otherwise. No other system's code is read for it.
 
 ## What it does
 
@@ -44,12 +45,12 @@ branch on. Nothing here changes without checking every caller.
 
 ## Performance budget
 
-The measure that matters for this program and its floor: never slower than OpenBSD's
-libtool on the same machine and input (`bench/`, `just bench`).
+The measure that matters for this program and its floor: never slower than a reference
+system's libtool on the same machine and input (`bench/`, `just bench`).
 
 ## Security history
 
-The CVEs and errata of OpenBSD's libtool (and of what it derives from), each with its class
+The CVEs of the programs of this name on other systems, each with its class
 and what makes it impossible here (a type, a check, the language) or the test in
 `tests/cve/` that proves it.
 
@@ -58,4 +59,4 @@ and what makes it impossible here (a type, a check, the language) or the test in
 
 ## Open questions
 
-- In OpenBSD this program is Perl, and Perl is not in this tree (Artistic or GPL, dual): the user decides between importing Perl under the Artistic licence and writing this in Rust.
+- Traditionally this program is Perl, and Perl is not in this tree (Artistic or GPL, dual): the user decides between importing Perl under the Artistic licence and writing this in Rust.

@@ -4,10 +4,10 @@ skeleton of every program and library (docs/PROGRAM.md is the contract).
 
 usage: layout.py <openbsd-src root> <Userland root>
 
-The top level is OpenBSD's own split by install path (bin, sbin, usr/bin, usr/sbin, libexec,
+The top level is the BSD split by install path (bin, sbin, usr/bin, usr/sbin, libexec,
 lib, include, compiler, etc, share, distrib); inside each, the programs are grouped by what
-they do. Every program of OpenBSD's bin/, sbin/, usr.bin/, usr.sbin/, libexec/ and lib/ is
-mapped to exactly one leaf, in the tree OpenBSD keeps it in; the script refuses to write
+they do. Every program name of the reference tree's bin/, sbin/, usr.bin/, usr.sbin/, libexec/
+and lib/ is mapped to exactly one leaf, in the tree it lives in there; the script refuses to write
 otherwise.
 
 Two classes of program (docs/PROGRAM.md): `written` (from scratch, in Rust, under its
@@ -21,11 +21,11 @@ from pathlib import Path
 
 SRC = Path(sys.argv[1])
 OUT = Path(sys.argv[2])
-PIN_FILE = SRC.parent / "PINNED.md"          # Kernel/reference/PINNED.md: the OpenBSD pin
+PIN_FILE = SRC.parent / "PINNED.md"          # Kernel/reference/PINNED.md: the reference tree's pin
 OPENBSD_MIRROR = "https://github.com/EmiBSD/OpenBSD-src"
 OPENBSD_ORIGIN = "https://github.com/openbsd/src"
 
-# Where a top-level directory's bare names come from in OpenBSD's src.
+# Where a top-level directory's bare names come from in the reference tree.
 SOURCE_DIR = {"bin": "bin", "sbin": "sbin", "usr/bin": "usr.bin", "usr/sbin": "usr.sbin",
               "libexec": "libexec", "lib": "lib"}
 DEFAULT_SECTION = {"bin": "1", "usr/bin": "1", "sbin": "8", "usr/sbin": "8", "libexec": "8", "lib": "3"}
@@ -60,7 +60,7 @@ IMPORTED = {
     "sndiod": "openbsd:openbsd", "libsndio": "openbsd:openbsd", "aucat": "openbsd:openbsd",
 }
 
-# Programs that are not C in OpenBSD: the note goes to DEFINITION.md's open questions.
+# Programs whose traditional implementation is not C: the note goes to DEFINITION.md's open questions.
 PERL = {"pkg_add", "adduser", "libtool", "pkgconf", "security"}
 SHELL = {"rcctl", "fw_update", "syspatch", "sysupgrade", "sysmerge"}
 
@@ -74,7 +74,7 @@ ON_DISK = {"fsck", "fsck_ffs", "fsck_ext2fs", "fsck_msdos", "fsdb", "fsirand", "
 # src for the trees that are not programs (etc/rc, include, share). The compiler tree's
 # entries are imported toolchains with their own upstream (COMPILERS below).
 LAYOUT = [
-    ("bin", "What must work with only the root partition mounted, linked static: a shell and the means to move files. OpenBSD's bin/ (30).", [
+    ("bin", "What must work with only the root partition mounted, linked static: a shell and the means to move files (30).", [
         ("shells", "The shells.", ["ksh", "csh"]),
         ("files", "The basic file operations.", [
             "ls", "cp", "mv", "rm", "ln", "mkdir", "rmdir", "chmod", "cat", "dd", "df", "pwd", "pax", "ed"]),
@@ -83,7 +83,7 @@ LAYOUT = [
         ("system", "The machine's name, the terminal line, a checksum.", ["hostname", "domainname", "stty", "md5"]),
         ("tapes", "Tape and changer control.", ["mt", "chio"]),
     ]),
-    ("sbin", "What boots the system, repairs its disks and brings up its network, with only the root partition mounted. OpenBSD's sbin/ (66).", [
+    ("sbin", "What boots the system, repairs its disks and brings up its network, with only the root partition mounted (66).", [
         ("boot", "Process 1, going down, the console and the terminals.", [
             "init", "reboot", "shutdown", "nologin", "ttyflags", "kbd", "wsconsctl", "ldattach"]),
         ("storage/disks", "Partitions, labels, device nodes and controllers.", [
@@ -101,7 +101,7 @@ LAYOUT = [
         ("ipsec", "IPsec and its key daemons.", ["iked", "isakmpd", "ipsecctl"]),
         ("kernel", "Reading and setting the kernel's state.", ["sysctl", "dmesg"]),
     ]),
-    ("usr/bin", "The commands a user runs once /usr is mounted. OpenBSD's usr.bin/ (209).", [
+    ("usr/bin", "The commands a user runs once /usr is mounted (209).", [
         ("text", "Filters and transformers of text streams.", [
             "awk", "sed", "grep", "diff", "diff3", "sdiff", "cmp", "comm", "sort", "uniq", "join", "cut",
             "paste", "tr", "wc", "head", "tail", "fold", "fmt", "pr", "col", "colrm", "column", "expand",
@@ -138,7 +138,7 @@ LAYOUT = [
         ("yp-clients", "Querying the YP/NIS directory (its servers are usr/sbin/yp).", ["ypcat", "ypmatch", "ypwhich"]),
         ("misc", "What fits nowhere else.", ["banner", "tmux", "ts", "sendbug"]),
     ]),
-    ("usr/sbin", "Daemons and administration once the system is whole. OpenBSD's usr.sbin/ (151).", [
+    ("usr/sbin", "Daemons and administration once the system is whole (151).", [
         ("base-daemons", "What rc starts on every system, and rc's control program.", [
             "rcctl", "inetd", "cron", "syslogd", "syslogc", "watchdogd", "hotplugd", "sensorsd", "apmd", "apm"]),
         ("accounts", "Creating users and groups, the databases built from them, accounting, tokens (what a user does with their own identity is usr/bin/users).", [
@@ -177,7 +177,7 @@ LAYOUT = [
             "config", "crunchgen", "btrace", "acpidump", "mksuncd", "mkuboot"]),
         ("wscons", "Console screens, fonts and the console mouse.", ["wsconscfg", "wsfontload", "wsmoused"]),
     ]),
-    ("libexec", "Programs run by other programs, never by a user. OpenBSD's libexec/ (28).", [
+    ("libexec", "Programs run by other programs, never by a user (28).", [
         ("login", "The authentication back ends login(1) calls.", [
             "login_passwd", "login_chpass", "login_lchpass", "login_ldap", "login_radius", "login_reject",
             "login_skey", "login_token", "login_yubikey"]),
@@ -188,7 +188,7 @@ LAYOUT = [
         ("system", "The login prompt, the nightly security check, the kernel relinker, the traditional cpp.", [
             "getty", "security", "reorder_kernel", "tradcpp"]),
     ]),
-    ("lib", "The libraries every program links. While the kernel keeps OpenBSD's ABI, libc speaks OpenBSD's system calls: this is the layer closest to OpenBSD by necessity, and with libexec/rtld the only place `unsafe` is allowed. OpenBSD's lib/ (35).", [
+    ("lib", "The libraries every program links. libc speaks the Kernel's system calls: this is the layer bound to the Kernel's ABI by necessity, and with libexec/rtld the only place `unsafe` is allowed (35).", [
         ("libc", "The C library, its start-up files, threads and libm.", [
             "libc", "csu", "librthread", "libpthread", "libm", "check_sym"]),
         ("crypto", "Cryptography and authentication.", [
@@ -197,14 +197,14 @@ LAYOUT = [
         ("system", "The rest.", [
             "libutil", "libkvm", "libevent", "libz", "libexpat", "libelf", "libfuse", "libpcap", "libusbhid",
             "libossaudio", "libsndio", "libagentx", "librpcsvc", "libarch", "libl", "liby"]),
-        ("crates", "The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar (one declaration per program with typed options, --help as text and as a record, usage and diagnostics, exit codes; records, -o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge, uid and umask, mkfifo and mknod, file flags, a link's times and mode), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no OpenBSD counterpart.", [
+        ("crates", "The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar (one declaration per program with typed options, --help as text and as a record, usage and diagnostics, exit codes; records, -o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge, uid and umask, mkfifo and mknod, file flags, a link's times and mode), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no counterpart elsewhere.", [
             "crate:cli", "crate:sys"]),
     ]),
     ("compiler", "The toolchains, both imported: LLVM as OpenBSD ships it (clang, lld, libc++, compiler-rt; Apache-2.0 with the LLVM exception, nothing GPL) and Rust (rustc, cargo, std; Apache-2.0 and MIT), so the system builds itself, as OpenBSD's comp set does. The user's decisions of 2026-10-23.", [
         ("llvm", "LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.", ["compiler:llvm"]),
-        ("rust", "rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the OpenBSD targets is how the tier 3 problem is solved without nightly.", ["compiler:rust"]),
+        ("rust", "rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the `*-unknown-openbsd` targets (the Kernel's ABI) is how the tier 3 problem is solved without nightly.", ["compiler:rust"]),
     ]),
-    ("etc", "What the system needs before any program exists: the users and groups it is born with, the device nodes, the protocol tables, the start-up scripts. A program's own default configuration (pf.conf, ntpd.conf, syslog.conf, sshd's moduli, ...) lives in that program's etc/ and is installed from there; this tree holds only what belongs to no program. OpenBSD's etc/, reduced.", [
+    ("etc", "What the system needs before any program exists: the users and groups it is born with, the device nodes, the protocol tables, the start-up scripts. A program's own default configuration (pf.conf, ntpd.conf, syslog.conf, sshd's moduli, ...) lives in that program's etc/ and is installed from there; this tree holds only what belongs to no program.", [
         ("rc", "The start-up scripts and the terminal table.", [
             "etc/rc", "etc/rc.conf", "etc/rc.d", "etc/netstart", "etc/daily", "etc/weekly", "etc/monthly",
             "etc/changelist", "etc/gettytab", "etc/ttys.pty"]),
@@ -213,22 +213,22 @@ LAYOUT = [
             "etc/MAKEDEV.mi", "etc/MAKEDEV.common", "etc/MAKEDEV.sub", "etc/MAKEDEV.man", "etc/MAKEDEV.mansub",
             "etc/mtree", "etc/skel", "etc/root", "etc/motd", "etc/minfree", "etc/etc.<arch>"]),
     ]),
-    ("data", "Data for everyone that no program owns, imported from its upstream like a program is (an UPSTREAM.toml per entry, to be written): the time zone database, locales, dictionaries, terminal types. A program's manual lives beside the program; `share/` as a tree is generated at install time, not kept. OpenBSD's share/, reduced.", [
+    ("data", "Data for everyone that no program owns, imported from its upstream like a program is (an UPSTREAM.toml per entry, to be written): the time zone database, locales, dictionaries, terminal types. A program's manual lives beside the program; `share/` as a tree is generated at install time, not kept.", [
         ("zoneinfo", "The IANA time zone database (tzdata; zic and zdump are usr/sbin/services).", ["share/zoneinfo"]),
         ("locale", "Locale definitions and character maps.", ["share/locale"]),
         ("dict", "The word lists spell(1) and look(1) read.", ["share/dict"]),
         ("termtypes", "The terminal descriptions, source of terminfo (tic is usr/bin/docs).", ["share/termtypes", "share/tabset"]),
         ("misc", "Small tables of share/misc: ascii, airport codes, units, the magic of file(1) is in file itself.", ["share/misc"]),
     ]),
-    ("distrib", "How a release is made, and what else is generated at release time: the install sets, the installer and its ramdisk, /usr/include from the libraries' exported headers, /usr/share from every program's manual plus data/. OpenBSD's distrib/.", [
+    ("distrib", "How a release is made, and what else is generated at release time: the install sets, the installer and its ramdisk, /usr/include from the libraries' exported headers, /usr/share from every program's manual plus data/.", [
         ("sets", "The install sets and their lists; the release version is YEAR.MONTH (docs/PROGRAM.md, Versions).", ["distrib/sets", "distrib/notes", "distrib/syspatch"]),
         ("installer", "The installer, its ramdisk and the per-architecture media.", [
             "distrib/miniroot", "distrib/special", "distrib/<arch>"]),
         ("include", "The recipe that assembles /usr/include from what each library of lib/ exports; no header is kept here.", []),
         ("share", "The recipe that assembles /usr/share: every program's man/ rendered, data/, share/mk; no file is kept here.", ["share/mk", "share/man"]),
     ]),
-    ("regress", "The integration battery: what no single program's tests can see. Boots EmiBSD in QEMU and runs scenarios across programs (login over the console, rc bringing up the network, an install from the ramdisk, ssh in, pf rules, a mail delivered), each also run on OpenBSD at the pin and compared, as the kernel's diff-openbsd does. OpenBSD's regress/ is not in the clone; its scenarios are read as the reference for what to cover (the kernel's N11 organic battery draws on the same source).", [
-        ("scenarios", "One directory per scenario: the steps, the expected lines, the OpenBSD comparison.", []),
+    ("regress", "The integration battery: what no single program's tests can see. Boots EmiBSD in QEMU and runs scenarios across programs (login over the console, rc bringing up the network, an install from the ramdisk, ssh in, pf rules, a mail delivered), each also run on a reference system and compared, as the kernel's differential battery does.", [
+        ("scenarios", "One directory per scenario: the steps, the expected lines, the comparison with a reference system.", []),
         ("harness", "Booting the images, driving the console, collecting and comparing.", []),
     ]),
 ]
@@ -256,13 +256,13 @@ TOPLEVEL_README = """# EmiBSD Userland
 
 The monorepo of EmiBSD's own userland: the programs, libraries and configuration that run
 above the [Kernel](https://github.com/EmiBSD/Kernel). Phase 3 of the project: until the
-kernel's redesign closes at N9, EmiBSD runs OpenBSD's base system unmodified; this repository
+kernel's redesign closes at N9, EmiBSD runs an inherited base system unmodified; this repository
 is where the system that replaces it is written.
 
 ## Rules (the user's decisions of 2026-10-23)
 
 - **Two classes of program** (`docs/PROGRAM.md`). *Written*: from scratch, under a
-  definition, in Rust; nothing is a port or a translation of OpenBSD's program, which is read
+  definition, in Rust; nothing is a port or a translation of another system's program: the
   as the reference for behaviour. *Imported*: cryptography, the security and network
   protocols with a living upstream and a CVE history, and the legacy giants (`ssh`, LibreSSL,
   `unbound`, `smtpd`, `vi`, `tmux`, `mandoc`, ncurses, the compilers, ...) are compiled from
@@ -280,7 +280,7 @@ is where the system that replaces it is written.
   dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
 - **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
   patches and build glue; `compiler/rust` is rust-lang/rust at the pinned stable tag, built
-  against that LLVM, so the system builds itself (OpenBSD's `comp` set) and the OpenBSD
+  against that LLVM, so the system builds itself (the `comp` set) and the `*-unknown-openbsd`
   targets, tier 3 in Rust, get their `std` from a stable release's source, not from nightly.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
@@ -296,31 +296,31 @@ is where the system that replaces it is written.
   it calls for; the `commit-msg` hook (`just setup`) refuses it otherwise, and `just changelog`
   writes each program's `CHANGELOG.md` from the trailers (`docs/PROGRAM.md`, Versions).
 - **Performance, concurrency and security are part of every definition**: a performance
-  budget measured against OpenBSD's program on the same input (`bench/`, `just bench`); the
+  budget measured against a reference system's program on the same input (`bench/`, `just bench`); the
   concurrency model, and stress tests on four CPUs for what serves many; a threat model, the
   `pledge`/`unveil` profile, and the program's CVE history (`tests/cve/`), each entry made
   impossible by a type, a check or the language, or tested.
 
 ## Layout
 
-OpenBSD's own split at the top: `bin/` and `sbin/` are what works with only the root
+The BSD split at the top: `bin/` and `sbin/` are what works with only the root
 partition mounted (linked static), `usr/bin/` and `usr/sbin/` the rest; `bin` and `usr/bin`
 are for the user, `sbin` and `usr/sbin` for operating the system. Inside each, the programs
-are grouped by what they do. A concept that OpenBSD spreads over two trees keeps a distinct
+are grouped by what they do. A concept the tradition spreads over two trees keeps a distinct
 name in each (`bin/files` and `usr/bin/file-tools`, `sbin/network` and `usr/sbin/network/`),
 and the README of each says where its other half is. Every program is listed once, in the
-tree OpenBSD keeps it in; `tools/layout.py` regenerates the READMEs and the skeletons from
+tree the tradition keeps it in; `tools/layout.py` regenerates the READMEs and the skeletons from
 the map and refuses to write when one is missing or doubled.
 
 ```
 {tree}```
 
-The lists are the map to what OpenBSD's base system provides at the pin of
+The lists are the map to what a complete base system provides, taken from the names at the pin of
 `Kernel/reference/PINNED.md`, not a porting list: the written programs are EmiBSD's own.
 
 ## Open
 
-- **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are Perl in OpenBSD, and
+- **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are traditionally Perl, and
   Perl (Artistic or GPL, dual) is not in the tree: import it under the Artistic licence, or
   write those five in Rust. The user's decision; their skeletons say so.
 - `cargo audit` and `cargo deny` (`just audit`, part of `just check` when installed) are
@@ -354,8 +354,8 @@ it. There are two classes, told apart by the first word of `STATUS`.
 ├── src/              the Rust sources, a Cargo package; unit tests beside the code
 ├── tests/            integration tests; property tests for every parser; stress/ on four
 │                     CPUs for what serves many; cve/ one test per entry of the security
-│                     history; golden/ the differential tests against OpenBSD's program
-├── bench/            host benchmarks (harness = false) against OpenBSD's program on the
+│                     history; golden/ the differential tests against a reference system
+├── bench/            host benchmarks (harness = false) against a reference system's program on the
 │                     same input; `just bench` prints the ratio
 ├── man/<name>.<n>    the manual, mdoc(7) source; HTML and Markdown are rendered from it
 ├── etc/              the default configuration installed under /etc, when it has one
@@ -363,11 +363,11 @@ it. There are two classes, told apart by the first word of `STATUS`.
 └── justfile          `import` of tools/program.just
 ```
 
-The order: **planned** (the skeleton; DEFINITION names the OpenBSD reference), **defined**
+The order: **planned** (the skeleton; DEFINITION names the standard that defines the program), **defined**
 (DEFINITION complete; *Compatibility* is the section that matters most: what the rest of the
 base system expects, the flags `rc` uses, the output another program parses, the exit codes
 a script branches on), **designed** (DESIGN and schemas complete; the pledge and unveil
-profile never relaxes what OpenBSD's program restricts), **implemented** (builds; unit,
+profile is the least the program needs), **implemented** (builds; unit,
 integration, property, stress, cve and differential tests pass; bench within budget; the
 manual complete with EXAMPLES; the package joined the workspace), **shipped** (DELIVERY
 complete, `distrib/` installs it).
@@ -401,8 +401,9 @@ closes, as the kernel bumps its LZ pin.
 
 ## Rules
 
-- A written program is written from scratch under its definition; OpenBSD's code is read
-  for behaviour, never copied or translated. An imported one is never edited in place:
+- A written program is written from scratch under its definition, from POSIX where it
+  defines the program and from the definition alone otherwise; no other system's code is
+  read, copied or translated for it. An imported one is never edited in place:
   patches only, and a patch needs a reason.
 - Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc`,
   `libexec/rtld` and `lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
@@ -471,13 +472,13 @@ the effect. The `pledge` promises follow the options (`cp` adds `dpath` under `-
 
 ## Linking (the user's decision of 2026-10-24)
 
-OpenBSD's rule, kept: the programs of `bin/` and `sbin/` are linked **statically**, so
+The BSD rule, kept: the programs of `bin/` and `sbin/` are linked **statically**, so
 they run with only the root partition mounted, in single-user mode and on the installer's
 ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` is dynamic,
 so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
 program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
-is OpenBSD (no flag on the development host, where static linking does not exist); the
-toolchain's `crt-static` replaces it if `compiler/rust` finds the OpenBSD target respects
+is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
+exist); the toolchain's `crt-static` replaces it if `compiler/rust` finds that target respects
 it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
 does not pay `std` once per program: `distrib/installer` builds `bin/` and `sbin/` into one
 multi-call crate, the Rust form of `crunchgen(8)`.
@@ -496,9 +497,9 @@ Two levels, because they answer two questions.
   version is `version` in `UPSTREAM.toml`: the upstream's, plus our patch level as build
   metadata (`9.9+emibsd.2`); a new patch raises the level, a pin bump changes the base.
 - **The system: calendar, `YEAR.MONTH`** (`2027.04`), the release `distrib/` builds, like
-  OpenBSD's release every six months with the date said. The question there is "how old is
+  the BSDs' release every six months with the date said. The question there is "how old is
   what I run?". It is a level apart from the `EmiBSD 8.0` the kernel shows userland, which
-  does not move while the ABI is OpenBSD's.
+  does not move while the Kernel's ABI does not.
 
 The rule, mechanical: a commit that changes a program's code (`src/`; for an import
 `patches/`, `build/` or `UPSTREAM.toml`) carries one trailer, `Change: breaking`, `Change:
@@ -538,7 +539,7 @@ test:
 stress:
     EMIBSD_NCPU=4 cargo test --manifest-path src/Cargo.toml --test 'stress*'
 
-# Host benchmarks against OpenBSD's program on the same input.
+# Host benchmarks against a reference system's program on the same input.
 bench:
     cargo bench --manifest-path src/Cargo.toml
 
@@ -635,7 +636,7 @@ authors = ["Emilio Navarrete Lineros <enavarre@outlook.com>"]
 """
 
 TOOLCHAIN = """# Stable, pinned, the same channel as Kernel. Bumping is its own commit.
-# No targets yet: the OpenBSD targets are tier 3; compiler/rust builds their std (README).
+# No targets yet: the `*-unknown-openbsd` targets (the Kernel's ABI) are tier 3; compiler/rust builds their std (README).
 [toolchain]
 channel = "1.98.1"
 profile = "minimal"
@@ -837,8 +838,9 @@ exit 1
 
 DEFINITION = """# {name}
 
-STATUS: see `STATUS`. Reference for behaviour: OpenBSD's `{origin}`, manual {name}({section}).
-Written from scratch under this definition; not a port (the user's decision of 2026-10-23).
+STATUS: see `STATUS`. EmiBSD's own `{name}`, written from scratch under this definition (the
+user's decision of 2026-10-23); its reference is POSIX where the standard defines the
+program, and this definition alone otherwise. No other system's code is read for it.
 
 ## What it does
 
@@ -881,12 +883,12 @@ branch on. Nothing here changes without checking every caller.
 
 ## Performance budget
 
-The measure that matters for this program and its floor: never slower than OpenBSD's
-{name} on the same machine and input (`bench/`, `just bench`).
+The measure that matters for this program and its floor: never slower than a reference
+system's {name} on the same machine and input (`bench/`, `just bench`).
 
 ## Security history
 
-The CVEs and errata of OpenBSD's {name} (and of what it derives from), each with its class
+The CVEs of the programs of this name on other systems, each with its class
 and what makes it impossible here (a type, a check, the language) or the test in
 `tests/cve/` that proves it.
 
@@ -948,7 +950,7 @@ flowchart LR
 
 ## Concurrency
 
-The model (single-threaded, a process per privilege or connection as OpenBSD's daemons do,
+The model (single-threaded, a process per privilege or connection as the BSD daemons do,
 a thread pool, an event loop); what is shared and how; whether and how it uses more than one
 core. What serves many has stress tests in `tests/stress/` on four CPUs.
 
@@ -959,8 +961,8 @@ attacker gains from each failure, and what bounds it.
 
 ## Security
 
-`pledge(2)` promises, `unveil(2)` paths, privilege separation, setuid. Never less than
-OpenBSD's {name}({section}) restricts.
+`pledge(2)` promises, `unveil(2)` paths, privilege separation, setuid: the least the
+program needs, and never relaxed afterwards.
 
 ## Data
 
@@ -1014,7 +1016,7 @@ DELIVERY = """# {name}: delivery
 | Default configuration | none / etc/ |
 """
 
-MAN = """.\\" {name}({section}): written from scratch; OpenBSD's {name}({section}) is the behavioural reference.
+MAN = """.\\" {name}({section}): EmiBSD's own, written from scratch under its definition.
 .Dd $Mdocdate$
 .Dt {NAME} {section}
 .Os
@@ -1084,7 +1086,7 @@ def pin() -> str:
 
 
 def man_section(top: str, src_dir: str, name: str) -> str:
-    """The section of OpenBSD's manual for this program: <name>.<n> in its directory (one
+    """The manual section of this program in the reference tree: <name>.<n> in its directory (one
     level of subdirectories too), else the tree's default."""
     base = SRC / src_dir / name
     candidates = []
@@ -1108,13 +1110,13 @@ def man_section(top: str, src_dir: str, name: str) -> str:
 def notes_for(name: str) -> str:
     out = []
     if name in PERL:
-        out.append("- In OpenBSD this program is Perl, and Perl is not in this tree (Artistic or GPL, dual): "
+        out.append("- Traditionally this program is Perl, and Perl is not in this tree (Artistic or GPL, dual): "
                    "the user decides between importing Perl under the Artistic licence and writing this in Rust.")
     if name in SHELL:
-        out.append("- In OpenBSD this is a shell script: here Rust, or a script for our ksh; decided at `defined`.")
+        out.append("- Traditionally this is a shell script: here Rust, or a script for our ksh; decided at `defined`.")
     if name in ON_DISK:
         out.append("- Writes or repairs an on-disk format: a bug corrupts a file system. The differential tests "
-                   "against OpenBSD's program compare the resulting image bit for bit; a condition of `implemented`.")
+                   "against a reference system's program compare the resulting image bit for bit; a condition of `implemented`.")
     return ("\n" + "\n".join(out) + "\n") if out else "\n"
 
 
@@ -1135,7 +1137,7 @@ def put(path: Path, text: str, force: bool) -> int:
 
 
 def crate_skeleton(leaf: str, name: str) -> int:
-    """A shared Rust crate: a written program with no OpenBSD counterpart, section 3."""
+    """A shared Rust crate: a written program with no counterpart elsewhere, section 3."""
     d = OUT / "lib" / leaf / name
     force = regenerable(d)
     rel = os.path.relpath(OUT / "tools" / "program.just", d)
@@ -1144,7 +1146,7 @@ def crate_skeleton(leaf: str, name: str) -> int:
     n += put(d / "justfile", f"import '{rel}'\n", force)
     n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section="3"), force)
     n += put(d / "DEFINITION.md", DEFINITION.format(name=name, origin="none: EmiBSD's own crate", section="3",
-                                                     notes="\n- No OpenBSD counterpart: the reference is its first user's needs.\n"), force)
+                                                     notes="\n- No counterpart elsewhere: the reference is its first user's needs.\n"), force)
     n += put(d / "DESIGN.md", DESIGN.format(name=name, section="3"), force)
     n += put(d / "man" / f"{name}.3", MAN.format(name=name, NAME=name.upper(), section="3"), force)
     for sub in ("schemas", "src", "tests", "bench"):
@@ -1250,7 +1252,7 @@ def main() -> int:
     if dup or unknown or misplaced or missing or unknown_imports:
         print("duplicates:", dup)
         print("unknown:", unknown)
-        print("misplaced (name not in that tree in OpenBSD):", misplaced)
+        print("misplaced (name not in that tree of the reference):", misplaced)
         print("missing:", missing)
         print("IMPORTED names that are no program:", unknown_imports)
         return 1
@@ -1268,7 +1270,7 @@ def main() -> int:
             d = OUT / top / leaf
             d.mkdir(parents=True, exist_ok=True)
             lines = [f"# {top}/{leaf}", "", what, "",
-                     "Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):", ""]
+                     "Programs of this group:", ""]
             for p in progs:
                 if p.startswith("crate:"):
                     name = p.split(":", 1)[1]
@@ -1287,7 +1289,7 @@ def main() -> int:
                 name = origin.rsplit("/", 1)[-1]
                 if src is not None:
                     tag = " (imported)" if name in IMPORTED else ""
-                    lines.append(f"- [`{name}`]({name}/) ({origin}){tag}")
+                    lines.append(f"- [`{name}`]({name}/){tag}")
                     created += skeleton(top, leaf, name, src, the_pin)
                     programs += 1
                     imported += name in IMPORTED

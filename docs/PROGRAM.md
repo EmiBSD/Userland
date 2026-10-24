@@ -20,8 +20,8 @@ it. There are two classes, told apart by the first word of `STATUS`.
 ├── src/              the Rust sources, a Cargo package; unit tests beside the code
 ├── tests/            integration tests; property tests for every parser; stress/ on four
 │                     CPUs for what serves many; cve/ one test per entry of the security
-│                     history; golden/ the differential tests against OpenBSD's program
-├── bench/            host benchmarks (harness = false) against OpenBSD's program on the
+│                     history; golden/ the differential tests against a reference system
+├── bench/            host benchmarks (harness = false) against a reference system's program on the
 │                     same input; `just bench` prints the ratio
 ├── man/<name>.<n>    the manual, mdoc(7) source; HTML and Markdown are rendered from it
 ├── etc/              the default configuration installed under /etc, when it has one
@@ -29,11 +29,11 @@ it. There are two classes, told apart by the first word of `STATUS`.
 └── justfile          `import` of tools/program.just
 ```
 
-The order: **planned** (the skeleton; DEFINITION names the OpenBSD reference), **defined**
+The order: **planned** (the skeleton; DEFINITION names the standard that defines the program), **defined**
 (DEFINITION complete; *Compatibility* is the section that matters most: what the rest of the
 base system expects, the flags `rc` uses, the output another program parses, the exit codes
 a script branches on), **designed** (DESIGN and schemas complete; the pledge and unveil
-profile never relaxes what OpenBSD's program restricts), **implemented** (builds; unit,
+profile is the least the program needs), **implemented** (builds; unit,
 integration, property, stress, cve and differential tests pass; bench within budget; the
 manual complete with EXAMPLES; the package joined the workspace), **shipped** (DELIVERY
 complete, `distrib/` installs it).
@@ -67,8 +67,9 @@ closes, as the kernel bumps its LZ pin.
 
 ## Rules
 
-- A written program is written from scratch under its definition; OpenBSD's code is read
-  for behaviour, never copied or translated. An imported one is never edited in place:
+- A written program is written from scratch under its definition, from POSIX where it
+  defines the program and from the definition alone otherwise; no other system's code is
+  read, copied or translated for it. An imported one is never edited in place:
   patches only, and a patch needs a reason.
 - Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc`,
   `libexec/rtld` and `lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
@@ -137,13 +138,13 @@ the effect. The `pledge` promises follow the options (`cp` adds `dpath` under `-
 
 ## Linking (the user's decision of 2026-10-24)
 
-OpenBSD's rule, kept: the programs of `bin/` and `sbin/` are linked **statically**, so
+The BSD rule, kept: the programs of `bin/` and `sbin/` are linked **statically**, so
 they run with only the root partition mounted, in single-user mode and on the installer's
 ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` is dynamic,
 so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
 program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
-is OpenBSD (no flag on the development host, where static linking does not exist); the
-toolchain's `crt-static` replaces it if `compiler/rust` finds the OpenBSD target respects
+is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
+exist); the toolchain's `crt-static` replaces it if `compiler/rust` finds that target respects
 it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
 does not pay `std` once per program: `distrib/installer` builds `bin/` and `sbin/` into one
 multi-call crate, the Rust form of `crunchgen(8)`.
@@ -162,9 +163,9 @@ Two levels, because they answer two questions.
   version is `version` in `UPSTREAM.toml`: the upstream's, plus our patch level as build
   metadata (`9.9+emibsd.2`); a new patch raises the level, a pin bump changes the base.
 - **The system: calendar, `YEAR.MONTH`** (`2027.04`), the release `distrib/` builds, like
-  OpenBSD's release every six months with the date said. The question there is "how old is
+  the BSDs' release every six months with the date said. The question there is "how old is
   what I run?". It is a level apart from the `EmiBSD 8.0` the kernel shows userland, which
-  does not move while the ABI is OpenBSD's.
+  does not move while the Kernel's ABI does not.
 
 The rule, mechanical: a commit that changes a program's code (`src/`; for an import
 `patches/`, `build/` or `UPSTREAM.toml`) carries one trailer, `Change: breaking`, `Change:

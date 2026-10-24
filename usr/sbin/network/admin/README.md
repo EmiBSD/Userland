@@ -2,18 +2,18 @@
 
 Neighbours, traces, captures, link state (the root-partition tools are sbin/network).
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`arp`](arp/) (usr.sbin/arp)
-- [`ndp`](ndp/) (usr.sbin/ndp)
-- [`rarpd`](rarpd/) (usr.sbin/rarpd)
-- [`traceroute`](traceroute/) (usr.sbin/traceroute)
-- [`tcpdump`](tcpdump/) (usr.sbin/tcpdump) (imported)
-- [`tcpdrop`](tcpdrop/) (usr.sbin/tcpdrop)
-- [`trpt`](trpt/) (usr.sbin/trpt)
-- [`lldp`](lldp/) (usr.sbin/lldp)
-- [`lldpd`](lldpd/) (usr.sbin/lldpd)
-- [`ifstated`](ifstated/) (usr.sbin/ifstated)
-- [`bpflogd`](bpflogd/) (usr.sbin/bpflogd)
+- [`arp`](arp/)
+- [`ndp`](ndp/)
+- [`rarpd`](rarpd/)
+- [`traceroute`](traceroute/)
+- [`tcpdump`](tcpdump/) (imported)
+- [`tcpdrop`](tcpdrop/)
+- [`trpt`](trpt/)
+- [`lldp`](lldp/)
+- [`lldpd`](lldpd/)
+- [`ifstated`](ifstated/)
+- [`bpflogd`](bpflogd/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

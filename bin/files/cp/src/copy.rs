@@ -14,7 +14,7 @@
 
 //! Performing one operation, and saying what happened as a [`Record`].
 //!
-//! What OpenBSD's `cp` knows and this one keeps, without its shape: a new file gets the
+//! What every careful `cp` knows and this one does too, in its own shape: a new file gets the
 //! source's mode shaped by the umask with the set-id bits dropped (kept only when the owner
 //! and group match and `-p` is off); an existing file is written over and keeps its mode and
 //! owner; `-f` removes it first; `-i` asks; runs of zero bytes become holes; a directory is

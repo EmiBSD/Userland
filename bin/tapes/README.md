@@ -2,9 +2,9 @@
 
 Tape and changer control.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`mt`](mt/) (bin/mt)
-- [`chio`](chio/) (bin/chio)
+- [`mt`](mt/)
+- [`chio`](chio/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

@@ -2,9 +2,9 @@
 
 The shells.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`ksh`](ksh/) (bin/ksh)
-- [`csh`](csh/) (bin/csh)
+- [`ksh`](ksh/)
+- [`csh`](csh/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

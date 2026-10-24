@@ -9,7 +9,7 @@ flowchart LR
 
 ## Concurrency
 
-The model (single-threaded, a process per privilege or connection as OpenBSD's daemons do,
+The model (single-threaded, a process per privilege or connection as the BSD daemons do,
 a thread pool, an event loop); what is shared and how; whether and how it uses more than one
 core. What serves many has stress tests in `tests/stress/` on four CPUs.
 
@@ -20,8 +20,8 @@ attacker gains from each failure, and what bounds it.
 
 ## Security
 
-`pledge(2)` promises, `unveil(2)` paths, privilege separation, setuid. Never less than
-OpenBSD's head(1) restricts.
+`pledge(2)` promises, `unveil(2)` paths, privilege separation, setuid: the least the
+program needs, and never relaxed afterwards.
 
 ## Data
 

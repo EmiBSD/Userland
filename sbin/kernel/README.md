@@ -2,9 +2,9 @@
 
 Reading and setting the kernel's state.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`sysctl`](sysctl/) (sbin/sysctl)
-- [`dmesg`](dmesg/) (sbin/dmesg)
+- [`sysctl`](sysctl/)
+- [`dmesg`](dmesg/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

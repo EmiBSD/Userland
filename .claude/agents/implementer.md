@@ -17,9 +17,8 @@ color: blue
 
 You implement one program of EmiBSD's userland, written from scratch in Rust under its
 definition (`README.md`, `docs/PROGRAM.md`). The DEFINITION.md and DESIGN.md of the program
-are the specification; OpenBSD's program (the Kernel's clone,
-`git -C ../Kernel/reference/openbsd-src show HEAD:<path>`; never `cd` there) is read for
-behaviour, never copied or translated. Your launcher reviews and integrates your branch.
+are the specification, with POSIX's text behind them; no other system's source is opened,
+so the program owes nothing to anyone (the user's rule of 2026-10-24). Your launcher reviews and integrates your branch.
 
 Read first: the "Rules that apply to this work" block of your prompt, `docs/PROGRAM.md`
 whole, `.claude/rules/subagents.md` (the common contract), the program's DEFINITION.md,

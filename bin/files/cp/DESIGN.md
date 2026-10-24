@@ -22,7 +22,7 @@ operations, errors as refusals), `copy` (each operation performed, as a record),
 (what the user sees). `main` parses through `cli`, pledges what the configuration needs,
 walks, copies, reports, exits.
 
-What OpenBSD's `cp` knows and this one keeps, without its shape: the two shapes of the
+What every careful `cp` knows and this one does too, in its own shape: the two shapes of the
 command line and the `dir/..` edge; a new file's mode is the source's shaped by the umask
 with the set-id bits dropped, kept only for the owner in the same group; an existing file
 keeps its mode and owner; a directory is created owner-writable and given its real mode
@@ -48,14 +48,13 @@ under `-R`; `-f` unlinks the target and creates anew, never writes through; set-
 survive only for the owner in the same group; cycles are detected by `(dev, ino)`; names are
 never interpreted, only copied; `pledge` makes anything beyond the declared file operations
 a kill. The time-of-check gap between `stat` and `open` is the kernel's to close
-(`O_NOFOLLOW` is not used, as OpenBSD's does not; recorded, not closed).
+(`O_NOFOLLOW` is not used; recorded, not closed).
 
 ## Security
 
 `pledge` with promises derived from the options, before the first operand is examined:
 `stdio rpath wpath cpath fattr` always; `dpath` only with `-R` (`mkfifo`, `mknod`); `chown`
-only with `-p`. OpenBSD's `cp` pledges the first four without `-R` and `-p`, and nothing at
-all with them; this one never runs unpledged. No `unveil`: the operands are what the user
+only with `-p`. This one never runs unpledged, whatever the options. No `unveil`: the operands are what the user
 named. No privileges, not setuid.
 
 ## Data
@@ -76,11 +75,11 @@ follows `lib/crates/cli/schemas/command-help.v1.json`.
 3. **`-r` is refused**, not accepted and discouraged: it is `-R` with links and specials done
    wrong, and a script that uses it gets a usage error (`unknown option -- r`, exit 2) rather
    than a wrong copy; the manual's STANDARDS names the fix.
-4. **A socket is a failure.** OpenBSD warns and exits 0; a copy that silently left something
+4. **A socket is a failure.** The tradition warns and exits 0; a copy that silently left something
    out is the kind of half-truth the record model exists to avoid. Documented as the one
    visible difference.
-5. **Pledge follows the options.** OpenBSD drops pledge entirely under `-R` or `-p`; this one
-   adds exactly `dpath` and `chown`. The first instance of a profile derived from what the
+5. **Pledge follows the options.** Instead of one wide profile for every run, this one
+   adds exactly `dpath` and `chown` when `-R` and `-p` ask for them. The first instance of a profile derived from what the
    program declared it would do; `cli` may grow a general form of it.
 6. **A walker of its own, not `fts`**, as `ls` decided; `cp`'s pre- and post-order visits are
    `EnterDir` and `LeaveDir`. `cp` and `ls` now each carry a `Meta` and a `(dev, ino)` cycle

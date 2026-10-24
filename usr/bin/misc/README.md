@@ -2,11 +2,11 @@
 
 What fits nowhere else.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`banner`](banner/) (usr.bin/banner)
-- [`tmux`](tmux/) (usr.bin/tmux) (imported)
-- [`ts`](ts/) (usr.bin/ts)
-- [`sendbug`](sendbug/) (usr.bin/sendbug)
+- [`banner`](banner/)
+- [`tmux`](tmux/) (imported)
+- [`ts`](ts/)
+- [`sendbug`](sendbug/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

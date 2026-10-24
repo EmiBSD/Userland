@@ -21,7 +21,7 @@
 //! zone, `pledge(2)`, the caller's uid and umask, and the file-system calls `std` has no
 //! safe wrapper for (`mkfifo`, `mknod`, the file flags, times and mode of a symbolic link).
 //!
-//! The layouts below are those of OpenBSD and of macOS (where the programs are developed
+//! The layouts below are those of the `openbsd` target (the Kernel's ABI) and of macOS (where the programs are developed
 //! and tested before they run on EmiBSD); any other target is refused at compile time.
 
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -36,15 +36,15 @@ use std::path::Path;
 
 #[cfg(not(any(target_os = "macos", target_os = "openbsd")))]
 compile_error!(
-    "sys: the struct layouts below are OpenBSD's and macOS's; add this target deliberately"
+    "sys: the struct layouts below are the openbsd target's and macOS's; add this target deliberately"
 );
 
 mod ffi {
     use std::ffi::{c_char, c_int, c_long, c_ulong};
 
-    /// `time_t` on both targets (OpenBSD: 64 bits everywhere; macOS: `long`, 64 bits).
+    /// `time_t` on both targets (`openbsd`: 64 bits everywhere; macOS: `long`, 64 bits).
     pub type TimeT = i64;
-    /// `mode_t`: 32 bits on OpenBSD, 16 on macOS.
+    /// `mode_t`: 32 bits on the `openbsd` target, 16 on macOS.
     #[cfg(target_os = "openbsd")]
     pub type ModeT = u32;
     #[cfg(target_os = "macos")]
@@ -69,7 +69,7 @@ mod ffi {
         pub tv_nsec: c_long,
     }
 
-    /// `struct passwd`: the same ten fields in the same order on OpenBSD and macOS.
+    /// `struct passwd`: the same ten fields in the same order on both targets.
     #[repr(C)]
     pub struct Passwd {
         pub pw_name: *mut c_char,
@@ -302,7 +302,7 @@ pub fn local_time(secs: i64) -> Option<LocalTime> {
     })
 }
 
-/// `pledge(2)` with the given promises. On OpenBSD a refusal is an error; on a development
+/// `pledge(2)` with the given promises. On EmiBSD a refusal is an error; on a development
 /// host without pledge it is a no-op, so the call sits in every program unconditionally.
 pub fn pledge(promises: &str) -> io::Result<()> {
     #[cfg(target_os = "openbsd")]
@@ -325,7 +325,7 @@ pub fn pledge(promises: &str) -> io::Result<()> {
 }
 
 /// The file flags of `chflags(2)` as the comma-separated names `ls -lo` and `chflags(1)`
-/// use; empty when no flag is set. The bits are OpenBSD's; macOS shares them and adds a few,
+/// use; empty when no flag is set. The bits are the BSDs'; macOS shares them and adds a few,
 /// listed so a development host prints something sensible.
 pub fn flags_to_string(flags: u32) -> String {
     const NAMES: &[(u32, &str)] = &[
@@ -405,7 +405,7 @@ pub fn set_flags_fd(fd: std::os::fd::RawFd, flags: u32) -> io::Result<()> {
 }
 
 /// The file flags of `path` itself, a symbolic link not followed (`lchflags(2)` on macOS,
-/// `chflagsat(2)` with `AT_SYMLINK_NOFOLLOW` on OpenBSD).
+/// `chflagsat(2)` with `AT_SYMLINK_NOFOLLOW` on the `openbsd` target).
 pub fn set_flags_nofollow(path: &Path, flags: u32) -> io::Result<()> {
     let c = c_path(path)?;
     #[cfg(target_os = "macos")]

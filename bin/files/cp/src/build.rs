@@ -13,7 +13,7 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 //! A program of `bin/` or `sbin/` is linked statically (docs/PROGRAM.md, "Linking"): it must
-//! run with only the root partition mounted, without `/usr/lib` or `ld.so`, as OpenBSD links
+//! run with only the root partition mounted, without `/usr/lib` or `ld.so`, as the BSDs link
 //! those two trees. On the development host (macOS) static linking does not exist and the
 //! flag is not emitted.
 

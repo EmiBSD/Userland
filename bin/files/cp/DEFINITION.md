@@ -1,9 +1,9 @@
 # cp
 
-STATUS: see `STATUS`. Reference for behaviour: OpenBSD's `bin/cp` (cp.c, utils.c, 820 lines)
-and its manual cp(1), read whole on 2026-10-24. Written from scratch under this definition;
-not a port (the user's decision of 2026-10-23). The second program of the repository, and the
-one that proved the common grammar fits an action, not only a query: every copy is a record.
+STATUS: see `STATUS`. EmiBSD's own `cp`, written from scratch under this definition (the
+user's decision of 2026-10-23); its reference is POSIX.1-2024's `cp` and the BSD habits its
+users have. No other system's code is read for it. The second program of the repository, and
+the one that proved the common grammar fits an action, not only a query: every copy is a record.
 
 ## What it does
 
@@ -16,11 +16,11 @@ replaced, merged, skipped, planned, failed), rendered as `-v` or `-o` asks.
 ## Scope
 
 In: everything POSIX's `cp` does with the same short flags (`-R`, `-H -L -P`, `-f`, `-i`,
-`-p`), OpenBSD's `-a` and `-v`, the common grammar (`-o`, `--no-headers`), `--dry-run`, and
+`-p`), the BSD `-a` and `-v`, the common grammar (`-o`, `--no-headers`), `--dry-run`, and
 `--help` as text or as a record. Out, deliberately: the historic `-r` (it copied links and
-special files wrongly; OpenBSD discourages it, this one refuses it); GNU's `-n`, `-u`, `-l`,
-`-s`, `--reflink`, `--backup`. Hard links are not preserved (`pax`'s and `tar`'s job, as in
-OpenBSD). Colour is out until the common grammar has a policy.
+special files wrongly; this one refuses it); GNU's `-n`, `-u`, `-l`,
+`-s`, `--reflink`, `--backup`. Hard links are not preserved (`pax`'s and `tar`'s job).
+Colour is out until the common grammar has a policy.
 
 ## Constraints
 
@@ -83,7 +83,7 @@ with a target that is not a directory, is a usage error.
 ## Signals and failure behaviour
 
 No signal handling of its own: SIGINT and SIGTERM end it, and a file half written stays
-half written, as with OpenBSD's. A closed pipe on the records ends the output quietly. Disk
+half written, as with every `cp`. A closed pipe on the records ends the output quietly. Disk
 full and permission denied are per-file failures: reported, the rest is copied, exit 1. A
 directory that cannot be created is reported and its tree skipped. Under `-L`, a link that
 leads back to a directory being copied is reported once as a cycle and not entered. A
@@ -96,23 +96,24 @@ configuration), `rc` and `rc.d` scripts, `sysmerge`, `security(8)`, every Makefi
 `install` fallback, every user's muscle memory. What they expect: the POSIX flags with their
 meaning, silence on success, exit 0 or 1, the modes and times that `-p` and `-R` give. All
 kept; the conscious additions (`-o`, `--dry-run`, long flags, exit 2 for a wrong command
-line) touch no script that was correct. The visible differences from OpenBSD's, all in
-failure paths: a socket among the sources is a failure (exit 1) here, where OpenBSD's warns
-and exits 0; a directory that cannot be created, and a directory source over a target that is
-not a directory, are per-source failures here (reported, the rest copied, exit 1) where
-OpenBSD's aborts at once with exit 1; and `-r` is refused instead of discouraged. `tests/golden` copies a fixed tree with every POSIX form
-through this `cp` and through OpenBSD's and compares the resulting trees (`ls -lR`, contents).
+line) touch no script that was correct. The visible differences from the traditional `cp`,
+all in failure paths: a socket among the sources is a failure (exit 1) here, where the
+tradition warns and exits 0; a directory that cannot be created, and a directory source over
+a target that is not a directory, are per-source failures here (reported, the rest copied,
+exit 1) where the tradition aborts at once with exit 1; and `-r` is refused instead of
+discouraged. `tests/golden` copies a fixed tree with every POSIX form through this `cp` and
+through a reference system's and compares the resulting trees (`ls -lR`, contents).
 
 ## Performance budget
 
-Two measures against OpenBSD's `cp` on the same image (`bench/`, `just bench`): one 1 GB
+Two measures against a reference system's `cp` on the same image (`bench/`, `just bench`): one 1 GB
 file (the 64 KB loop, holes skipped), and `cp -R` of a tree of 100,000 small files (one
 `stat` per source, one per target, the directory read once). Floor: never slower. Memory: one
 64 KB buffer and the path stack; the tree is never held.
 
 ## Security history
 
-OpenBSD's `cp` has no CVE of its own. The family's known problems are the ones this
+No `cp` has a CVE of its own. The family's known problems are the ones this
 definition closes by construction: a set-user-ID copy made by someone else (the bits are
 dropped unless owner and group match), a directory created world-writable while it is
 filled (created owner-writable only, its real mode set after), a symbolic link followed
@@ -131,13 +132,13 @@ through a link under `-f` (the link is unlinked, never written through).
   `cp -v a b >&-` exits 0 with nothing printed. Detecting it would need the descriptor
   outside `std`; whether that is worth an `unsafe` line in `sys` is open.
 
-- `tests/golden` against OpenBSD's `cp` needs the EmiBSD image; `bench/` its two measures;
+- `tests/golden` against a reference system's `cp` needs the EmiBSD image; `bench/` its two measures;
   `tests/cve/setid.rs` a second user to run as. Until then STATUS stays `designed`: the code,
   its unit and integration tests, clippy and fmt are done on the development host (macOS).
 - Hard links: a `--hard-links` that keeps them by `(dev, ino)` would be cheap with the record
   model; not in POSIX's `cp`, left out until someone needs it.
 - Copying across file systems carries flags that the target may not support; `-p` reports
-  the refusal when flags were set, as OpenBSD's does. Whether to downgrade that to a note is
+  the refusal when flags were set. Whether to downgrade that to a note is
   open.
-- The 64 KB buffer is OpenBSD's `_MAXBSIZE`; `copy_file_range`-like kernel copies would be
+- The 64 KB buffer is the file system's largest block; `copy_file_range`-like kernel copies would be
   a `sys` addition when the kernel offers one.

@@ -2,9 +2,9 @@
 
 Printing.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`lpd`](lpd/) (usr.sbin/lpd)
-- [`lpr`](lpr/) (usr.sbin/lpr)
+- [`lpd`](lpd/)
+- [`lpr`](lpr/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

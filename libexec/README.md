@@ -1,6 +1,6 @@
 # libexec
 
-Programs run by other programs, never by a user. OpenBSD's libexec/ (28).
+Programs run by other programs, never by a user (28).
 
 | Directory | What |
 |---|---|

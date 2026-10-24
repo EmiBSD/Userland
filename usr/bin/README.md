@@ -1,6 +1,6 @@
 # usr/bin
 
-The commands a user runs once /usr is mounted. OpenBSD's usr.bin/ (209).
+The commands a user runs once /usr is mounted (209).
 
 | Directory | What |
 |---|---|

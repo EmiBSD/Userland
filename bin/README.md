@@ -1,6 +1,6 @@
 # bin
 
-What must work with only the root partition mounted, linked static: a shell and the means to move files. OpenBSD's bin/ (30).
+What must work with only the root partition mounted, linked static: a shell and the means to move files (30).
 
 | Directory | What |
 |---|---|

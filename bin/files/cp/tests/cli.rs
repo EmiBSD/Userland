@@ -13,7 +13,7 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 //! Integration tests: the binary on a small tree, output to a pipe. The differential tests
-//! against OpenBSD's cp (tests/golden) run on EmiBSD, not here.
+//! against a reference system's cp (tests/golden) run on EmiBSD, not here.
 
 use std::fs::{self, File, FileTimes};
 use std::io::Write;
@@ -386,7 +386,7 @@ fn verbose_dry_run_and_the_records() {
 fn a_failed_standard_output_is_a_failure() {
     // Only a device that refuses writes shows it: std's stdout swallows EBADF (a closed or
     // read-only descriptor is written to "successfully"), and a closed pipe is a quiet exit
-    // by design. /dev/full exists on Linux and NetBSD, not on macOS or OpenBSD; without it
+    // by design. /dev/full exists on Linux and NetBSD, not on macOS or EmiBSD; without it
     // the test checks only that the copy itself is made.
     let t = Tree::new("stdout");
     let Ok(full) = File::options().write(true).open("/dev/full") else {

@@ -1,6 +1,6 @@
 # sys
 
-STATUS: see `STATUS`. No OpenBSD counterpart: it wraps the libc calls the written programs
+STATUS: see `STATUS`. No counterpart elsewhere: it wraps the libc calls the written programs
 need and `std` lacks. Written from scratch with `ls` (2026-10-24) and extended with `cp`.
 
 ## What it does
@@ -21,7 +21,7 @@ which is used directly; anything with a safe crate of its own in the repository.
 
 ## Constraints
 
-Targets: OpenBSD and macOS (the development host); any other is a compile error, because
+Targets: `openbsd` (the Kernel's ABI) and macOS (the development host); any other is a compile error, because
 the `#[repr(C)]` layouts (`passwd`, `group`, `winsize`, `tm`, `timespec`) and the constants
 (`TIOCGWINSZ`, `AT_FDCWD`, `AT_SYMLINK_NOFOLLOW`, `mode_t`'s width) are those two systems'.
 `#![deny(unsafe_op_in_unsafe_fn)]`; no `static mut`; the caches are thread-local.
@@ -46,12 +46,12 @@ None: a library.
 ## Signals and failure behaviour
 
 `pledge` on a host without it is a no-op, so the call sits in every program
-unconditionally; on OpenBSD a refusal is an error the program reports before doing anything.
+unconditionally; on EmiBSD a refusal is an error the program reports before doing anything.
 
 ## Compatibility
 
 Every written program that needs libc. A change here is `Change:` on this crate; the
-struct layouts must match the kernel's ABI, which is OpenBSD's and does not move.
+struct layouts must match the Kernel's ABI, which does not move.
 
 ## Performance budget
 

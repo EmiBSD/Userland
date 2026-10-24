@@ -21,7 +21,7 @@ parser, the help and the usage; and the `Config` whose enums cannot contradict e
 POSIX, RFC 3339, pure over `sys::LocalTime`), `render` (the three shapes a listing takes
 and the machine formats through `cli`). `main` pledges, parses, walks, renders, exits.
 
-What OpenBSD's `ls` knows and this one keeps, without its shape: `stat` only when a flag,
+What every careful `ls` knows and this one does too, in its own shape: `stat` only when a flag,
 a sort or a format needs it, and `d_type` otherwise; symbolic link operands followed unless
 `-d`, `-F` or `-l`; non-directories listed before directories; `total` only for directories;
 the six-month rule; `-l` beats `-g`. What it does not keep: `fts(3)`, the twenty global
@@ -30,7 +30,7 @@ flags, the two-pass width computation per printer, the five printers.
 ## Concurrency
 
 Single-threaded, one listing in memory at a time. A directory of a hundred thousand entries
-is one `Vec`, as in OpenBSD's `ls`; `-R` holds only the path stack. Nothing to stress.
+is one `Vec`; `-R` holds only the path stack. Nothing to stress.
 
 ## Threat model
 
@@ -45,7 +45,7 @@ terminal; cycles are detected by `(dev, ino)`; a name is shown lossy, never inte
 
 `pledge("stdio rpath getpw")` before the first argument is read; a development host
 without pledge runs the same call as a no-op. No `unveil`: `ls` lists what it is asked.
-No privileges, not setuid. Never less than OpenBSD's ls(1) restricts: the same promises.
+No privileges, not setuid. The promises are the least a listing needs, never relaxed.
 
 ## Data
 
@@ -55,11 +55,11 @@ json` follows `lib/crates/cli/schemas/command-help.v1.json`.
 
 ## Decisions
 
-1. **`-o` is the output selector**, as in kubectl; OpenBSD's `-o` (file flags) becomes
+1. **`-o` is the output selector**, as in kubectl; the BSD `-o` (file flags) becomes
    `--flags`. The one conscious break with POSIX XSI; it pays for the whole model. (The
    user, 2026-10-24.)
 2. **POSIX to a pipe, modern to a terminal.** Scripts never see a terminal, so the long
-   format to a pipe is byte for byte OpenBSD's, and a human gets ISO dates, human sizes and
+   format to a pipe is byte for byte POSIX's, and a human gets ISO dates, human sizes and
    a header. Rejected: POSIX everywhere (the modern defaults would need a flag nobody types)
    and modern everywhere (breaks every `ls -l | awk`).
 3. **The record first, the renderers after.** Five printers over a linked list became one

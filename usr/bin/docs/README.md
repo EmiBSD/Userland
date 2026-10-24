@@ -2,12 +2,12 @@
 
 Manual pages and terminal descriptions.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`mandoc`](mandoc/) (usr.bin/mandoc) (imported)
-- [`tic`](tic/) (usr.bin/tic) (imported)
-- [`infocmp`](infocmp/) (usr.bin/infocmp) (imported)
-- [`tput`](tput/) (usr.bin/tput) (imported)
-- [`tset`](tset/) (usr.bin/tset) (imported)
+- [`mandoc`](mandoc/) (imported)
+- [`tic`](tic/) (imported)
+- [`infocmp`](infocmp/) (imported)
+- [`tput`](tput/) (imported)
+- [`tset`](tset/) (imported)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

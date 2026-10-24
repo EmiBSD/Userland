@@ -4,7 +4,7 @@
 usage: cve.py <program dir> [--since YEAR] [--json]
 
 Reads the CPE: `[security] cpe` of UPSTREAM.toml for an imported program, or the
-`cpe = "vendor:product"` line of a written program's DEFINITION.md (its OpenBSD reference,
+`cpe = "vendor:product"` line of a written program's DEFINITION.md (the CPE of its namesakes,
 e.g. `cpe = "openbsd:openbsd"` with a `cve-keyword = "grep"` to narrow). Queries NVD's API 2.0
 (network; set NVD_API_KEY for the higher rate limit), caches the raw answer under
 target/cve/<program>.json, and prints Markdown rows: CVE, year, CVSS, class (the CWE), summary.

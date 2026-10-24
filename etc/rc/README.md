@@ -2,7 +2,7 @@
 
 The start-up scripts and the terminal table.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
 - `rc` (etc/rc)
 - `rc.conf` (etc/rc.conf)

@@ -16,8 +16,8 @@
 //!
 //! An action whose every step is a record: the sources are walked into operations, each
 //! operation is performed and becomes a [`copy::Record`] with the schema of
-//! `schemas/copy.v1.json`, and the records are shown as `-v` or `-o` asks. OpenBSD's `cp(1)`
-//! is the reference for what the POSIX flags mean; nothing of its code is here.
+//! `schemas/copy.v1.json`, and the records are shown as `-v` or `-o` asks. POSIX's `cp` is the
+//! reference for what the short flags mean; no other system's code is here.
 
 #![forbid(unsafe_code)]
 

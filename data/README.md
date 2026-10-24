@@ -1,6 +1,6 @@
 # data
 
-Data for everyone that no program owns, imported from its upstream like a program is (an UPSTREAM.toml per entry, to be written): the time zone database, locales, dictionaries, terminal types. A program's manual lives beside the program; `share/` as a tree is generated at install time, not kept. OpenBSD's share/, reduced.
+Data for everyone that no program owns, imported from its upstream like a program is (an UPSTREAM.toml per entry, to be written): the time zone database, locales, dictionaries, terminal types. A program's manual lives beside the program; `share/` as a tree is generated at install time, not kept.
 
 | Directory | What |
 |---|---|

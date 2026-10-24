@@ -1,8 +1,8 @@
 # regress/scenarios
 
-One directory per scenario: the steps, the expected lines, the OpenBSD comparison.
+One directory per scenario: the steps, the expected lines, the comparison with a reference system.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
 
 Nothing written yet.

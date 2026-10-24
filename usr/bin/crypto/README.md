@@ -2,11 +2,11 @@
 
 Certificates, signatures and keys from the command line.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`openssl`](openssl/) (usr.bin/openssl) (imported)
-- [`signify`](signify/) (usr.bin/signify)
-- [`htpasswd`](htpasswd/) (usr.bin/htpasswd)
-- [`keynote`](keynote/) (usr.bin/keynote)
+- [`openssl`](openssl/) (imported)
+- [`signify`](signify/)
+- [`htpasswd`](htpasswd/)
+- [`keynote`](keynote/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

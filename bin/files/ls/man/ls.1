@@ -12,7 +12,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.\" ls(1): written from scratch; OpenBSD's ls(1) is the behavioural reference.
+.\" ls(1): EmiBSD's own, written from scratch under its definition.
 .Dd $Mdocdate$
 .Dt LS 1
 .Os
@@ -191,7 +191,7 @@ When standard output is not a terminal the output of
 .Fl l , 1 , i
 and
 .Fl s
-is POSIX's, byte for byte what OpenBSD's
+is POSIX's, byte for byte what the standard's
 .Nm
 prints, so scripts that parse it keep working:
 a
@@ -227,8 +227,9 @@ The time zone dates are shown in.
 .El
 .Sh EXIT STATUS
 .Nm
-exits 0 when every operand and entry was listed, and 1 when an operand or an entry
-could not be listed, the options were wrong, or standard output failed.
+exits 0 when every operand and entry was listed; 1 when an operand or an
+entry could not be listed, or standard output failed, the rest having been
+listed; and 2 when the command line was wrong, nothing having been listed.
 .Sh EXAMPLES
 The classic long listing:
 .Pp
@@ -261,13 +262,14 @@ prints what
 .St -p1003.1-2008
 specifies for the flags it shares with it.
 .Fl o
-is the output selector of this system's common grammar and differs from the X/Open
+is the output selector of this system's common grammar and differs from the
+X/Open
 .Fl o .
 .Fl -sort-by , -type , -since , -max-depth , -no-headers , -flags
 and the terminal defaults are extensions.
 .Sh HISTORY
 This
 .Nm
-was written for EmiBSD in 2026, from a definition, with OpenBSD's
+was written for EmiBSD in 2026, from a definition, with POSIX's
 .Nm
 as the reference for behaviour.

@@ -45,7 +45,7 @@ Read first: the "Rules that apply to this work" block of your prompt, `docs/PROG
 ## Escalate, do not improvise
 
 If the work turns out to need a decision (a flag's meaning, a schema field, a `Kind` that
-does not exist, any `unsafe`, a dependency, a behaviour that differs from OpenBSD's), stop,
+does not exist, any `unsafe`, a dependency, a behaviour that differs from the DEFINITION), stop,
 commit what is done and report it: it belongs to `designer`, `implementer` or the launcher.
 Never `todo!()`, never an empty stand-in, never a weakened test.
 

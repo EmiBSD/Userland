@@ -1,6 +1,6 @@
 # sbin
 
-What boots the system, repairs its disks and brings up its network, with only the root partition mounted. OpenBSD's sbin/ (66).
+What boots the system, repairs its disks and brings up its network, with only the root partition mounted (66).
 
 | Directory | What |
 |---|---|

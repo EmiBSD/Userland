@@ -2,7 +2,7 @@
 
 Users, groups, shells, the protocol tables, device nodes, the file-system skeleton, root's dotfiles, the per-architecture files.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
 - `master.passwd` (etc/master.passwd)
 - `group` (etc/group)

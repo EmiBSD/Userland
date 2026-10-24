@@ -2,12 +2,12 @@
 
 Calculators and calendars.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`bc`](bc/) (usr.bin/bc) (imported)
-- [`dc`](dc/) (usr.bin/dc) (imported)
-- [`units`](units/) (usr.bin/units)
-- [`cal`](cal/) (usr.bin/cal)
-- [`calendar`](calendar/) (usr.bin/calendar)
+- [`bc`](bc/) (imported)
+- [`dc`](dc/) (imported)
+- [`units`](units/)
+- [`cal`](cal/)
+- [`calendar`](calendar/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

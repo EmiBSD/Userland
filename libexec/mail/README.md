@@ -2,12 +2,12 @@
 
 Local delivery and the spam daemon.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`mail.local`](mail.local/) (libexec/mail.local)
-- [`lockspool`](lockspool/) (libexec/lockspool)
-- [`spamd`](spamd/) (libexec/spamd)
-- [`spamd-setup`](spamd-setup/) (libexec/spamd-setup)
-- [`spamlogd`](spamlogd/) (libexec/spamlogd)
+- [`mail.local`](mail.local/)
+- [`lockspool`](lockspool/)
+- [`spamd`](spamd/)
+- [`spamd-setup`](spamd-setup/)
+- [`spamlogd`](spamlogd/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

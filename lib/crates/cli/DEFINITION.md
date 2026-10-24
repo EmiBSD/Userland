@@ -1,6 +1,6 @@
 # cli
 
-STATUS: see `STATUS`. No OpenBSD counterpart: the reference is its users' needs, `ls` first
+STATUS: see `STATUS`. No counterpart elsewhere: the reference is its users' needs, `ls` first
 (2026-10-24) and `cp` second, the same day. Written from scratch; the one library every
 written program links.
 

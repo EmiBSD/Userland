@@ -19,7 +19,7 @@
 //! `cp -R dir newdir`). Each source is examined (following a symbolic link only when the
 //! configuration says so), paired with its target, and the pair becomes an [`Op`]: a node
 //! to copy, a directory to enter and later to leave (its mode and times are set on the way
-//! out, after its contents, as `fts(3)`'s post-order visit let OpenBSD's `cp` do), or a
+//! out, after its contents, a post-order visit), or a
 //! refusal with its reason. Refusals are records too: the rest is copied and the exit status
 //! says so. A cycle under `-L` is detected by `(dev, ino)` of the directories being entered.
 
@@ -188,7 +188,7 @@ fn stat(path: &Path, follow: bool) -> std::io::Result<Meta> {
 }
 
 /// `stat` of a source, following a link when asked and falling back to the link itself when
-/// it dangles (so a broken link is copied as a link, as OpenBSD's `cp` does).
+/// it dangles (so a broken link is copied as a link).
 fn stat_source(path: &Path, follow: bool) -> std::io::Result<Meta> {
     match stat(path, follow) {
         Ok(m) => Ok(m),
@@ -228,7 +228,7 @@ pub fn shape(cfg: &Config) -> Result<Shape, ShapeError> {
 }
 
 /// The target of a source under the directory form: the directory plus the source's last
-/// component, read from the text as OpenBSD's `cp` does (never through `Path::file_name`,
+/// component, read from the text (never through `Path::file_name`,
 /// which drops a trailing `.`). A source whose last component is `.` or `..` (`src/.`,
 /// `src/./`, `..`) goes to the directory itself, so `cp -R src/. dir` fills `dir`.
 fn under(dir: &Path, source: &str) -> PathBuf {

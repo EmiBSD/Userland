@@ -1,9 +1,9 @@
 # ls
 
-STATUS: see `STATUS`. Reference for behaviour: OpenBSD's `bin/ls` (ls.c, print.c, cmp.c,
-util.c, 1,250 lines) and its manual ls(1), read whole on 2026-10-24. Written from scratch
-under this definition; not a port (the user's decision of 2026-10-23). The first program of
-the repository, and the one that set the common grammar (docs/PROGRAM.md).
+STATUS: see `STATUS`. EmiBSD's own `ls`, written from scratch under this definition (the
+user's decision of 2026-10-23); its reference is POSIX.1-2024's `ls` and the BSD habits its
+users have. No other system's code is read for it. The first program of the repository, and
+the one that set the common grammar (docs/PROGRAM.md).
 
 ## What it does
 
@@ -18,7 +18,7 @@ JSON, YAML or the columns the user chooses.
 
 In: everything POSIX's `ls` does, with the same short flags; the common grammar (`-o`,
 `--sort-by`, `--type`, `--since`, `--max-depth`, `--no-headers`); `--help` as text or as a
-record. Out, deliberately: OpenBSD's `-m` (comma stream), `-x` (columns across), `-T` (full
+record. Out, deliberately: the BSD `-m` (comma stream), `-x` (columns across), `-T` (full
 time), `-f` (unsorted), `-o` as file flags: what they did is `-o`, `--sort-by` or `--flags`.
 Colour is out until the common grammar has a colour policy. No `-X`, `--group-directories-
 first` or other GNU additions.
@@ -72,7 +72,7 @@ Of a group of exclusive options the last one wins, except that `-l` beats `-g`. 
 
 - `name` to a pipe: one name per line. To a terminal: a grid down the page, as wide as the
   terminal allows; one column when two do not fit.
-- `table` to a pipe: POSIX's long format, byte for byte what OpenBSD prints (`total N`
+- `table` to a pipe: POSIX's long format, byte for byte as the standard specifies it (`total N`
   first for a directory; mode, links, owner, group padded with two blanks, size or
   `major, minor`, the date as `Mon dd HH:MM` within six months and `Mon dd  YYYY` beyond
   or in the future, the name, ` -> target`). To a terminal: a header, ISO 8601 dates, human
@@ -106,22 +106,22 @@ Who depends on `ls` in the base system: shell scripts everywhere (`ls -1`, `ls -
 the installer's `install.sub`, `security(8)`'s nightly report, `rc.d` scripts, every user's
 muscle memory. What they expect is POSIX's output to a pipe, and that is kept byte for
 byte: `tests/golden` lists a fixed tree with every POSIX form through this `ls` and through
-OpenBSD's, on EmiBSD and on the OpenBSD snapshot, and the outputs must match. The three
-conscious breaks: `-o` is the output selector (OpenBSD's `-o` showed file flags; `--flags`
-does now), to a terminal the defaults are modern, and a wrong command line exits 2 where
-OpenBSD's exits 1 (the shared convention of docs/PROGRAM.md; a script that branches on
+a reference system's, and the outputs must match. The three conscious breaks: `-o` is the
+output selector (the BSD `-o` showed file flags; `--flags` does now), to a terminal the
+defaults are modern, and a wrong command line exits 2 where the tradition exits 1 (the
+shared convention of docs/PROGRAM.md; a script that branches on
 "non-zero" sees no difference). No script sees a terminal.
 
 ## Performance budget
 
-Two measures against OpenBSD's `ls` on the same image (`bench/`, `just bench`):
+Two measures against a reference system's `ls` on the same image (`bench/`, `just bench`):
 `ls` of a directory of 100,000 files, which must stay free of `stat` (names and `d_type`
-only), and `ls -lR /usr`. Floor: never slower. Memory: one listing in memory at a time, as
-OpenBSD's; `-R` does not hold the tree.
+only), and `ls -lR /usr`. Floor: never slower. Memory: one listing in memory at a time;
+`-R` does not hold the tree.
 
 ## Security history
 
-OpenBSD's `ls` has no CVE. The family's known problem is the terminal: a file name carrying
+No `ls` has a CVE of its own. The family's known problem is the terminal: a file name carrying
 an escape sequence reaches the screen and drives it. That is why `-q` is the terminal
 default and why a listing to a terminal never prints a control character. `tests/cve/`
 carries it as a test without a number.
@@ -135,6 +135,6 @@ carries it as a test without a number.
 - Non-UTF-8 file names are shown lossy (U+FFFD); the record should carry the bytes too.
 - `display_width` counts characters, not columns: East Asian wide characters misalign the
   grid until `data/locale` gives `wcwidth`.
-- Missing for `implemented`: `tests/golden` against OpenBSD's `ls` (needs the EmiBSD image),
+- Missing for `implemented`: `tests/golden` against a reference system's `ls` (needs the EmiBSD image),
   `bench/` with its two measures, `tests/cve/escape.rs`, and the manual's EXAMPLES. The code,
   its unit and integration tests, clippy and fmt are done on the development host (macOS).

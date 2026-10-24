@@ -1,5 +1,5 @@
 # Stable, pinned, the same channel as Kernel. Bumping is its own commit.
-# No targets yet: the OpenBSD targets are tier 3 (README, Open).
+# No targets yet: the `*-unknown-openbsd` targets (the Kernel's ABI) are tier 3 (README, Open).
 [toolchain]
 channel = "1.98.1"
 profile = "minimal"

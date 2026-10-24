@@ -2,10 +2,10 @@
 
 Running things later.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`crontab`](crontab/) (usr.bin/crontab)
-- [`at`](at/) (usr.bin/at)
-- [`leave`](leave/) (usr.bin/leave)
+- [`crontab`](crontab/)
+- [`at`](at/)
+- [`leave`](leave/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

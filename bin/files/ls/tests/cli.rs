@@ -13,7 +13,7 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 //! Integration tests: the binary on a small tree, output to a pipe (so the POSIX shapes).
-//! The differential tests against OpenBSD's ls (tests/golden) run on EmiBSD, not here.
+//! The differential tests against a reference system's ls (tests/golden) run on EmiBSD, not here.
 
 use std::fs;
 use std::os::unix::fs::{PermissionsExt, symlink};

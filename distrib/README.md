@@ -1,6 +1,6 @@
 # distrib
 
-How a release is made, and what else is generated at release time: the install sets, the installer and its ramdisk, /usr/include from the libraries' exported headers, /usr/share from every program's manual plus data/. OpenBSD's distrib/.
+How a release is made, and what else is generated at release time: the install sets, the installer and its ramdisk, /usr/include from the libraries' exported headers, /usr/share from every program's manual plus data/.
 
 | Directory | What |
 |---|---|

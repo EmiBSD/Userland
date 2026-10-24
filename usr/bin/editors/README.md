@@ -2,10 +2,10 @@
 
 Editors and the pager.
 
-Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
+Programs of this group:
 
-- [`vi`](vi/) (usr.bin/vi) (imported)
-- [`mg`](mg/) (usr.bin/mg)
-- [`less`](less/) (usr.bin/less) (imported)
+- [`vi`](vi/) (imported)
+- [`mg`](mg/)
+- [`less`](less/) (imported)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

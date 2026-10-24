@@ -16,7 +16,7 @@
 //!
 //! A query over file records: the operands are walked into [`entry::Entry`] records with the
 //! schema of `schemas/entry.v1.json`, filtered, sorted, and handed to the renderer `-o`
-//! chose. OpenBSD's `ls(1)` is the reference for what the POSIX flags mean; nothing of its
+//! chose. POSIX's `ls` is the reference for what the short flags mean; no other system's
 //! code is here.
 
 #![forbid(unsafe_code)]
