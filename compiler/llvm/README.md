@@ -1,6 +1,6 @@
-# gnu/compiler
+# compiler/llvm
 
-clang, lld and the C++ and compiler runtimes.
+The pinned LLVM release and how it is built for the system.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 

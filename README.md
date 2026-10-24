@@ -81,8 +81,8 @@ lib/
 └── system               The rest.
 include/
 └── headers              The exported headers.
-gnu/
-└── compiler             clang, lld and the C++ and compiler runtimes.
+compiler/
+└── llvm                 The pinned LLVM release and how it is built for the system.
 etc/
 ├── rc                   The start-up scripts and the terminal table.
 └── base                 Users, groups, services, device nodes, skeletons, examples and the default configuration files.

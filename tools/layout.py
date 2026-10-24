@@ -150,8 +150,8 @@ LAYOUT = [
     ("include", "The headers installed under /usr/include. OpenBSD's include/.", [
         ("headers", "The exported headers.", ["include"]),
     ]),
-    ("gnu", "The compiler and its runtime, kept apart as OpenBSD keeps them (Apache-2.0 with LLVM exception). OpenBSD's gnu/.", [
-        ("compiler", "clang, lld and the C++ and compiler runtimes.", [
+    ("compiler", "The LLVM toolchain: clang, lld, libc++ and compiler-rt, Apache-2.0 with the LLVM exception, nothing GPL (the user's decision of 2026-10-23). OpenBSD keeps it under the historical name gnu/; the sources are a pinned dependency, not written here: this tree holds the pin and the build glue, as OpenBSD's gnu/usr.bin/clang does.", [
+        ("llvm", "The pinned LLVM release and how it is built for the system.", [
             "gnu/usr.bin/clang", "gnu/lib/libcxx", "gnu/lib/libcxxabi", "gnu/lib/libclang_rt", "gnu/lib/libcompiler_rt"]),
     ]),
     ("etc", "The configuration the system is born with. OpenBSD's etc/.", [
