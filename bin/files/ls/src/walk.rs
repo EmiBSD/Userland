@@ -26,6 +26,8 @@ use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use cli::os_error;
+
 use crate::entry::{Entry, Meta};
 use crate::mode;
 use crate::options::{Config, Follow, Hidden, Sort, TypeFilter};
@@ -82,15 +84,6 @@ fn stat(path: &str, follow: bool) -> Result<Meta, String> {
         fs::symlink_metadata(path)
     };
     r.map(|m| Meta::from_std(&m)).map_err(|e| os_error(&e))
-}
-
-fn os_error(e: &std::io::Error) -> String {
-    // The text of strerror(3), without the "(os error N)" std appends.
-    let s = e.to_string();
-    match s.find(" (os error") {
-        Some(i) => s[..i].to_string(),
-        None => s,
-    }
 }
 
 fn type_matches(e: &Entry, types: &[TypeFilter]) -> bool {

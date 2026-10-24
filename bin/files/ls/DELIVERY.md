@@ -9,7 +9,7 @@
 | MAKEDEV | none |
 | Manual | `man/ls.1`, installed as `/usr/share/man/man1/ls.1` |
 | Default configuration | none |
-| Size | 722 KB dynamic in release on macOS (the development host); the static size on OpenBSD is measured when the target exists |
+| Size | 760 KB dynamic in release on macOS (the development host, 2026-10-24, with cli 0.2; 722 KB with cli 0.1); the static size on OpenBSD is measured when the target exists |
 
 The installer's ramdisk does not carry one static binary per program: `distrib/installer`
 builds the `bin/` and `sbin/` programs into one multi-call crate with `std` linked once, the

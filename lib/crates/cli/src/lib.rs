@@ -14,24 +14,36 @@
 
 //! `cli`: the common grammar of the written programs (docs/PROGRAM.md, "The common grammar").
 //!
-//! A program is a query over records. This crate gives it the pieces every program shares:
-//! option parsing with POSIX's rules ([`args`]), a [`Value`] that is the record, the
-//! renderers `-o` selects ([`Output`], [`render`]), sorting by a field path ([`sort_by`]),
-//! and the text helpers a terminal needs ([`text`]).
+//! A program is a query over records, or an action whose every step is a record. This crate
+//! gives it the pieces every program shares: one declaration of the program ([`Command`])
+//! from which come the parser with typed values, `--help` as text and as a record, the usage
+//! line, the `name: message` diagnostics and the exit codes ([`exit`]); a [`Value`] that is
+//! the record; the renderers `-o` selects ([`Output`], [`render`]); sorting by a field path
+//! ([`sort_by`]); and the text helpers a terminal needs ([`text`]).
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 pub mod args;
-pub mod help;
+pub mod command;
 pub mod render;
 pub mod text;
 pub mod value;
 
-pub use args::{ArgError, Opt, Parsed, Spec};
-pub use help::{Help, OptDoc};
+pub use args::ArgError;
+pub use command::{Command, Given, Kind, OptSpec, Parsed, Typed, exit};
 pub use render::{Align, Column, Output, Table};
 pub use value::Value;
+
+/// The text of `strerror(3)` for an I/O error, without the ` (os error N)` std appends: what
+/// a diagnostic shows after the operand's name.
+pub fn os_error(e: &std::io::Error) -> String {
+    let s = e.to_string();
+    match s.find(" (os error") {
+        Some(i) => s[..i].to_string(),
+        None => s,
+    }
+}
 
 /// Sorts records by the field `path` names, stable, numbers numerically and strings byte by
 /// byte; records without the field go last. `reverse` flips the whole order.
@@ -83,5 +95,11 @@ mod tests {
         ];
         sort_by(&mut v, ".size", false);
         assert_eq!(v[0].get("name").unwrap().to_cell(), "a");
+    }
+
+    #[test]
+    fn os_error_text_has_no_number() {
+        let e = std::io::Error::from_raw_os_error(2);
+        assert_eq!(os_error(&e), "No such file or directory");
     }
 }

@@ -96,6 +96,23 @@ scripts keep working. To a terminal, the defaults are modern: ISO 8601 dates, hu
 a header on tables. BSD extensions nobody remembers are not carried (`ls -m`, `-x`, `-T`);
 what they did is `-o` or `--sort-by`. `-o` itself is the one conscious break with POSIX
 XSI: it is the output selector, as in kubectl.
+
+**One declaration per program** (the user's decision of 2026-10-24, taken with `cli` 0.2 and
+`cp`): a `Command` in `src/options.rs` names every option once, with its type (`Flag`,
+`Str`, `Choice`, `List`, `Int {min, max}`, `Duration`, `Size`, `Path`, `Field`, `Format`).
+From that one table `cli` derives the parser (values arrive converted and checked, the
+error already worded: `ls: --max-depth: x is not a whole number`), `--help` as text,
+`--help -o json` as a `CommandHelp` record (`lib/crates/cli/schemas/command-help.v1.json`,
+with the type of every option, so an agent can drive the program without reading prose), the
+usage line, and the `name: message` prefix of every diagnostic. No program declares `--help`
+or writes a `parse::<usize>()` of its own. The exit codes are shared: **0** everything asked
+was done, **1** something could not be done and the rest was, **2** the command line was
+wrong and nothing was done; a program may define more above 2 and lists them in its
+`Command`. An action is a stream of records too: `cp` makes one record per source examined,
+with `action` saying what happened (created, replaced, merged, skipped, planned, failed);
+`-v` and `-o` are two renderings of the same records, and `--dry-run` produces them without
+the effect. The `pledge` promises follow the options (`cp` adds `dpath` under `-R` and
+`chown` under `-p`); `cli` may grow a general form of that.
 - A new crate dependency needs the user's OK and a row in the allowlist (to be written with
   the first program). Fuzzing: property tests on stable (`cargo-fuzz` needs nightly).
 - Performance: a commit that moves a benchmark more than 10 % carries `Bench:` lines and a

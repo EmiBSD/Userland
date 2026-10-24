@@ -13,7 +13,7 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 //! Text for a terminal: widths, the replacement of what must not reach it, sizes a human
-//! reads, durations a human types.
+//! reads and types, durations a human types.
 
 /// The columns `s` takes on a terminal. Control characters count one, since they are
 /// printed as `?`; everything else one per character. East Asian wide characters are not
@@ -90,6 +90,36 @@ pub fn parse_duration(s: &str) -> Result<u64, String> {
     Ok(n * mult)
 }
 
+/// A size a human types: `512`, `4K`, `10M`, `1G`, `2T`, the unit a power of two and its
+/// case free; an optional trailing `B` (`10MB`) is accepted. Returns bytes.
+pub fn parse_size(s: &str) -> Result<u64, String> {
+    let t = s.trim().trim_end_matches(['b', 'B']);
+    let (num, unit) = match t.char_indices().find(|(_, c)| !c.is_ascii_digit()) {
+        Some((i, _)) => t.split_at(i),
+        None => (t, ""),
+    };
+    let n: u64 = num
+        .parse()
+        .map_err(|_| format!("`{s}` is not a size like 512, 4K, 10M, 1G"))?;
+    let shift = match unit.to_ascii_uppercase().as_str() {
+        "" => 0,
+        "K" => 10,
+        "M" => 20,
+        "G" => 30,
+        "T" => 40,
+        "P" => 50,
+        "E" => 60,
+        _ => {
+            return Err(format!(
+                "`{s}`: unit `{unit}` is not one of K, M, G, T, P, E"
+            ));
+        }
+    };
+    n.checked_shl(shift)
+        .filter(|v| shift == 0 || v >> shift == n)
+        .ok_or_else(|| format!("`{s}` does not fit in 64 bits"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,6 +151,17 @@ mod tests {
         assert_eq!(parse_duration("2w"), Ok(14 * 86_400));
         assert!(parse_duration("3y").is_err());
         assert!(parse_duration("d").is_err());
+    }
+
+    #[test]
+    fn sizes_typed() {
+        assert_eq!(parse_size("512"), Ok(512));
+        assert_eq!(parse_size("4K"), Ok(4096));
+        assert_eq!(parse_size("10m"), Ok(10 * 1024 * 1024));
+        assert_eq!(parse_size("1GB"), Ok(1 << 30));
+        assert!(parse_size("1X").is_err());
+        assert!(parse_size("K").is_err());
+        assert!(parse_size("99999999999E").is_err());
     }
 
     #[test]

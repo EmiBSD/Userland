@@ -1,7 +1,7 @@
 [package]
 name = "cli"
-version = "0.1.0"
-description = "The common grammar and renderers of the written programs: option parsing, records with a schema, -o name|table|wide|json|yaml|custom-columns, --sort-by, columns and tables."
+version = "0.2.0"
+description = "The common grammar of the written programs: one declaration per program (typed options, --help as text and as a record, usage, diagnostics, exit codes), records with a schema, -o name|table|wide|json|yaml|custom-columns, --sort-by, columns and tables."
 edition.workspace = true
 license.workspace = true
 authors.workspace = true

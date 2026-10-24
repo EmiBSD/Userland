@@ -34,8 +34,7 @@ follows a symbolic link it was not asked to follow.
 
 - Arguments: options, then operands; no operand means `.`.
 - Environment: `BLOCKSIZE` (unit of `-s` and `total`, 512 unless `-k`), `COLUMNS` (width of
-  the grid), `TZ` (the zone of the dates), `USER` (root's `-A` default, until `sys` has
-  `getuid`).
+  the grid), `TZ` (the zone of the dates). Root's `-A` default comes from `getuid`.
 - The terminal: whether standard output is one (the defaults below) and its width.
 - Files: directory entries and `stat` of each, `readlink` of symbolic links, the passwd and
   group databases. Nothing else is read.
@@ -91,7 +90,8 @@ Of a group of exclusive options the last one wins, except that `-l` beats `-g`. 
 | Code | Meaning |
 |---|---|
 | 0 | every operand and entry was listed |
-| 1 | an operand or an entry could not be listed, the options were wrong, or standard output failed |
+| 1 | an operand or an entry could not be listed, or standard output failed; the rest was listed |
+| 2 | the command line was wrong (an unknown option, a value of the wrong type); nothing was listed |
 
 ## Signals and failure behaviour
 
@@ -106,9 +106,11 @@ Who depends on `ls` in the base system: shell scripts everywhere (`ls -1`, `ls -
 the installer's `install.sub`, `security(8)`'s nightly report, `rc.d` scripts, every user's
 muscle memory. What they expect is POSIX's output to a pipe, and that is kept byte for
 byte: `tests/golden` lists a fixed tree with every POSIX form through this `ls` and through
-OpenBSD's, on EmiBSD and on the OpenBSD snapshot, and the outputs must match. The two
+OpenBSD's, on EmiBSD and on the OpenBSD snapshot, and the outputs must match. The three
 conscious breaks: `-o` is the output selector (OpenBSD's `-o` showed file flags; `--flags`
-does now), and to a terminal the defaults are modern. No script sees a terminal.
+does now), to a terminal the defaults are modern, and a wrong command line exits 2 where
+OpenBSD's exits 1 (the shared convention of docs/PROGRAM.md; a script that branches on
+"non-zero" sees no difference). No script sees a terminal.
 
 ## Performance budget
 
@@ -133,7 +135,6 @@ carries it as a test without a number.
 - Non-UTF-8 file names are shown lossy (U+FFFD); the record should carry the bytes too.
 - `display_width` counts characters, not columns: East Asian wide characters misalign the
   grid until `data/locale` gives `wcwidth`.
-- Root's `-A` default reads `USER`; `sys` should grow `getuid`.
 - Missing for `implemented`: `tests/golden` against OpenBSD's `ls` (needs the EmiBSD image),
   `bench/` with its two measures, `tests/cve/escape.rs`, and the manual's EXAMPLES. The code,
   its unit and integration tests, clippy and fmt are done on the development host (macOS).

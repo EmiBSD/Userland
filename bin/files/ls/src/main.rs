@@ -31,24 +31,22 @@ mod walk;
 use std::io::{self, BufWriter, Write};
 use std::process::ExitCode;
 
+use cli::exit;
+
+use crate::options::COMMAND;
+
 fn main() -> ExitCode {
     // Before anything else: standard I/O, reading the file system, the passwd database.
     if let Err(e) = sys::pledge("stdio rpath getpw") {
-        eprintln!("ls: pledge: {e}");
-        return ExitCode::from(1);
+        COMMAND.report("pledge", e);
+        return ExitCode::from(exit::FAILURE);
     }
-    let config = match options::Config::from_args(std::env::args().skip(1)) {
-        Ok(c) => c,
-        Err(options::Usage::Help(format)) => {
-            print!("{}", options::HELP.render(&format));
-            return ExitCode::SUCCESS;
-        }
-        Err(options::Usage::Error(msg)) => {
-            eprintln!("ls: {msg}");
-            eprintln!("{}", options::USAGE);
-            return ExitCode::from(1);
-        }
+    // `--help` and a wrong command line are handled by `cli`, alike for every program.
+    let parsed = match COMMAND.from_env() {
+        Ok(p) => p,
+        Err(code) => return code,
     };
+    let config = options::Config::from_parsed(parsed);
     let stdout = io::stdout();
     let mut out = BufWriter::new(stdout.lock());
     let mut failed = false;
@@ -59,7 +57,7 @@ fn main() -> ExitCode {
         }
         if let Err(e) = renderer.listing(listing) {
             if e.kind() != io::ErrorKind::BrokenPipe {
-                eprintln!("ls: stdout: {e}");
+                COMMAND.report("stdout", e);
             }
             failed = true;
         }
@@ -67,13 +65,13 @@ fn main() -> ExitCode {
     if let Err(e) = renderer.finish()
         && e.kind() != io::ErrorKind::BrokenPipe
     {
-        eprintln!("ls: stdout: {e}");
+        COMMAND.report("stdout", e);
         failed = true;
     }
     let _ = out.flush();
     if failed {
-        ExitCode::from(1)
+        ExitCode::from(exit::FAILURE)
     } else {
-        ExitCode::SUCCESS
+        ExitCode::from(exit::OK)
     }
 }

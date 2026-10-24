@@ -23,7 +23,7 @@ use cli::{Column, Output, Table, Value};
 
 use crate::entry::Entry;
 use crate::mode;
-use crate::options::Config;
+use crate::options::{COMMAND, Config};
 use crate::time;
 use crate::walk::Listing;
 
@@ -72,10 +72,10 @@ impl<'a> Renderer<'a> {
     pub fn listing(&mut self, mut listing: Listing) -> io::Result<()> {
         for f in &listing.failed {
             let what = f.error.as_deref().unwrap_or("error");
-            eprintln!("ls: {}: {}", f.name, what);
+            COMMAND.report(&f.name, what);
         }
         if let Some(e) = &listing.error {
-            eprintln!("ls: {}: {}", listing.dir.as_deref().unwrap_or(""), e);
+            COMMAND.report(listing.dir.as_deref().unwrap_or(""), e);
             return Ok(());
         }
         if self.machine() {

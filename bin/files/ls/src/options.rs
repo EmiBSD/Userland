@@ -12,210 +12,140 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-//! The command line, turned into a [`Config`] whose fields cannot contradict each other.
+//! The program's one declaration, and the command line turned into a [`Config`] whose fields
+//! cannot contradict each other.
 //!
-//! The POSIX short flags keep their meaning; the common grammar adds `-o`, `--sort-by`,
-//! `--type`, `--since`, `--max-depth`, `--no-headers`, `--flags`. Where OpenBSD's `ls`
-//! keeps twenty integers that override each other in a `switch`, the mutually exclusive
-//! flags here collapse into enums: the last one given wins, and `-l` always beats `-g`.
+//! [`COMMAND`] is the only place `ls` says what it accepts: from it `cli` derives the parser
+//! (values arrive typed), `--help` as text and as a record, the usage line and the error
+//! prefix. The POSIX short flags keep their meaning; the common grammar adds `-o`,
+//! `--sort-by`, `--type`, `--since`, `--max-depth`, `--no-headers`, `--flags`. Where
+//! OpenBSD's `ls` keeps twenty integers that override each other in a `switch`, the mutually
+//! exclusive flags here collapse into enums: the last one given wins, and `-l` always beats
+//! `-g`.
 
 use std::io::IsTerminal;
 
-use cli::text::parse_duration;
-use cli::{Help, OptDoc, Output, Spec};
+use cli::{Command, Kind, OptSpec, Output, Parsed, Typed};
 
-pub const USAGE: &str = "usage: ls [-1AacdFghiklnpqRrSstuHL] [-o format] [--sort-by=.field] [--type=t,...]\n          [--since=duration] [--max-depth=n] [--no-headers] [--flags] [file ...]";
-
-const fn opt(
-    short: Option<char>,
-    long: Option<&'static str>,
-    value: Option<&'static str>,
-    doc: &'static str,
-) -> OptDoc {
-    OptDoc {
-        short,
-        long,
-        value,
-        doc,
-        choices: &[],
-        group: None,
-    }
-}
-
-const fn grouped(
-    short: Option<char>,
-    long: Option<&'static str>,
-    doc: &'static str,
-    group: &'static str,
-) -> OptDoc {
-    OptDoc {
-        short,
-        long,
-        value: None,
-        doc,
-        choices: &[],
-        group: Some(group),
-    }
-}
+const KINDS: &[&str] = &["file", "dir", "symlink", "fifo", "socket", "char", "block"];
 
 /// The program's own description: `--help` prints it as text, `--help -o json` as a record.
-pub const HELP: Help = Help {
+pub const COMMAND: Command = Command {
     name: "ls",
     summary: "list directory contents",
     synopsis: "[-1AacdFghiklnpqRrSstuHL] [-o format] [--sort-by=.field] [--type=t,...] [--since=duration] [--max-depth=n] [--no-headers] [--flags] [file ...]",
     options: &[
-        OptDoc {
-            short: Some('o'),
-            long: Some("output"),
-            value: Some("FORMAT"),
-            doc: "what to print",
-            choices: &[
-                "name",
-                "table",
-                "wide",
-                "json",
-                "yaml",
-                "custom-columns=NAME:.path,...",
-            ],
-            group: Some("format"),
-        },
-        grouped(Some('1'), None, "one name per line", "format"),
-        grouped(Some('C'), None, "names in columns", "format"),
-        grouped(
+        OptSpec::value(Some('o'), Some("output"), Kind::Format, "what to print").in_group("format"),
+        OptSpec::flag(Some('1'), None, "one name per line").in_group("format"),
+        OptSpec::flag(Some('C'), None, "names in columns").in_group("format"),
+        OptSpec::flag(
             Some('l'),
             None,
             "the long table: mode, links, owner, group, size, time, name",
-            "format",
-        ),
-        grouped(
-            Some('g'),
-            None,
-            "the long table without the owner",
-            "format",
-        ),
-        grouped(
+        )
+        .in_group("format"),
+        OptSpec::flag(Some('g'), None, "the long table without the owner").in_group("format"),
+        OptSpec::flag(
             Some('n'),
             None,
             "the long table with numeric owner and group",
-            "format",
-        ),
-        opt(
+        )
+        .in_group("format"),
+        OptSpec::value(
             None,
             Some("sort-by"),
-            Some(".FIELD"),
+            Kind::Field(".FIELD"),
             "sort by any field of the record (.name, .size, .mtime, .atime, .ctime, .mode, .owner, ...)",
-        ),
-        grouped(Some('t'), None, "sort by time, newest first", "sort"),
-        grouped(Some('S'), None, "sort by size, largest first", "sort"),
-        opt(Some('r'), Some("reverse"), None, "reverse the order"),
-        grouped(
+        )
+        .in_group("sort"),
+        OptSpec::flag(Some('t'), None, "sort by time, newest first").in_group("sort"),
+        OptSpec::flag(Some('S'), None, "sort by size, largest first").in_group("sort"),
+        OptSpec::flag(Some('r'), Some("reverse"), "reverse the order"),
+        OptSpec::flag(
             Some('c'),
             None,
             "use the time of last status change for sorting and the table",
-            "time",
-        ),
-        grouped(
+        )
+        .in_group("time"),
+        OptSpec::flag(
             Some('u'),
             None,
             "use the time of last access for sorting and the table",
-            "time",
-        ),
-        opt(
+        )
+        .in_group("time"),
+        OptSpec::flag(
             Some('a'),
             Some("all"),
-            None,
             "include entries whose name begins with a dot, and . and ..",
-        ),
-        opt(
+        )
+        .in_group("hidden"),
+        OptSpec::flag(
             Some('A'),
             Some("almost-all"),
-            None,
             "include dot entries except . and .. (always on for root)",
-        ),
-        opt(
+        )
+        .in_group("hidden"),
+        OptSpec::flag(
             Some('d'),
             Some("directory"),
-            None,
             "list a directory itself, not its contents",
-        ),
-        opt(
-            Some('R'),
-            Some("recursive"),
-            None,
-            "list subdirectories recursively",
-        ),
-        opt(
+        )
+        .in_group("depth"),
+        OptSpec::flag(Some('R'), Some("recursive"), "list subdirectories recursively").in_group("depth"),
+        OptSpec::value(
             None,
             Some("max-depth"),
-            Some("N"),
+            Kind::Int {
+                name: "N",
+                min: 0,
+                max: 1024,
+            },
             "with -R, descend at most N levels",
         ),
-        OptDoc {
-            short: None,
-            long: Some("type"),
-            value: Some("T,..."),
-            doc: "only entries of these kinds",
-            choices: &["file", "dir", "symlink", "fifo", "socket", "char", "block"],
-            group: None,
-        },
-        opt(
+        OptSpec::value(
+            None,
+            Some("type"),
+            Kind::List("T,...", KINDS),
+            "only entries of these kinds",
+        ),
+        OptSpec::value(
             None,
             Some("since"),
-            Some("DURATION"),
+            Kind::Duration("DURATION"),
             "only entries modified within the last 7d, 12h, 30m, 45s",
         ),
-        opt(
+        OptSpec::flag(
             Some('F'),
-            None,
             None,
             "append / to directories, * to executables, @ to symlinks, = to sockets, | to FIFOs",
         ),
-        opt(Some('p'), None, None, "append / to directories"),
-        opt(Some('i'), None, None, "print the inode number"),
-        opt(
-            Some('s'),
-            None,
-            None,
-            "print the blocks used, in BLOCKSIZE units",
-        ),
-        opt(
-            Some('k'),
-            None,
-            None,
-            "blocks of 1024 bytes for -s and total",
-        ),
-        opt(
+        OptSpec::flag(Some('p'), None, "append / to directories"),
+        OptSpec::flag(Some('i'), None, "print the inode number"),
+        OptSpec::flag(Some('s'), None, "print the blocks used, in BLOCKSIZE units"),
+        OptSpec::flag(Some('k'), None, "blocks of 1024 bytes for -s and total"),
+        OptSpec::flag(
             Some('h'),
             Some("human"),
-            None,
             "sizes with K, M, G suffixes (default on a terminal)",
         ),
-        opt(
+        OptSpec::flag(
             None,
             Some("flags"),
-            None,
             "show the file flags of chflags(1) in the table",
         ),
-        grouped(
+        OptSpec::flag(
             Some('H'),
             None,
             "follow symbolic links named on the command line",
-            "follow",
-        ),
-        grouped(Some('L'), None, "follow all symbolic links", "follow"),
-        opt(
+        )
+        .in_group("follow"),
+        OptSpec::flag(Some('L'), None, "follow all symbolic links").in_group("follow"),
+        OptSpec::flag(
             Some('q'),
-            None,
             None,
             "print ? for non-printable characters (default on a terminal)",
         ),
-        opt(None, Some("no-headers"), None, "no header line on tables"),
-        opt(
-            None,
-            Some("help"),
-            None,
-            "this description; with -o json or -o yaml, as a record",
-        ),
+        OptSpec::flag(None, Some("no-headers"), "no header line on tables"),
     ],
     outputs: &[
         ("name", "one name per line to a pipe, columns on a terminal"),
@@ -233,7 +163,7 @@ pub const HELP: Help = Help {
         (0, "every operand was listed"),
         (
             1,
-            "an operand or an entry could not be listed, or the options were wrong",
+            "an operand or an entry could not be listed, or standard output failed",
         ),
     ],
     examples: &[
@@ -267,23 +197,6 @@ pub const HELP: Help = Help {
         ("TZ", "the zone dates are shown in"),
     ],
     notes: "To a pipe the output of -l, -1, -i and -s is POSIX's, so scripts keep working; to a terminal, dates are ISO 8601, sizes human-readable and tables carry a header. Of a group of exclusive options the last one given wins, except that -l beats -g.",
-};
-
-const SPEC: Spec = Spec {
-    short_flags: "1ACacdFghiklnpqRrSstuHL",
-    short_with_value: "o",
-    long_flags: &[
-        "no-headers",
-        "flags",
-        "help",
-        "all",
-        "almost-all",
-        "recursive",
-        "directory",
-        "human",
-        "reverse",
-    ],
-    long_with_value: &["output", "sort-by", "type", "since", "max-depth"],
 };
 
 /// Which time of the record `-t` sorts by and the table shows.
@@ -332,6 +245,12 @@ pub struct LongOptions {
     pub flags: bool,
 }
 
+const LONG_DEFAULT: LongOptions = LongOptions {
+    owner: true,
+    numeric_ids: false,
+    flags: false,
+};
+
 /// A kind of file `--type` can select.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeFilter {
@@ -345,21 +264,17 @@ pub enum TypeFilter {
 }
 
 impl TypeFilter {
-    fn parse(s: &str) -> Result<TypeFilter, String> {
-        Ok(match s {
-            "file" | "f" => TypeFilter::File,
-            "dir" | "d" | "directory" => TypeFilter::Dir,
-            "symlink" | "l" | "link" => TypeFilter::Symlink,
-            "fifo" | "p" | "pipe" => TypeFilter::Fifo,
-            "socket" | "s" => TypeFilter::Socket,
-            "char" | "c" => TypeFilter::Char,
-            "block" | "b" => TypeFilter::Block,
-            _ => {
-                return Err(format!(
-                    "--type: `{s}` is not file, dir, symlink, fifo, socket, char or block"
-                ));
-            }
-        })
+    /// From one of [`KINDS`], which the parser already checked.
+    fn of(s: &str) -> TypeFilter {
+        match s {
+            "file" => TypeFilter::File,
+            "dir" => TypeFilter::Dir,
+            "symlink" => TypeFilter::Symlink,
+            "fifo" => TypeFilter::Fifo,
+            "socket" => TypeFilter::Socket,
+            "char" => TypeFilter::Char,
+            _ => TypeFilter::Block,
+        }
     }
 }
 
@@ -393,16 +308,10 @@ pub struct Config {
     pub since_seconds: Option<u64>,
 }
 
-/// Why the command line was not accepted.
-pub enum Usage {
-    /// `--help`, in the output format given with it.
-    Help(Output),
-    Error(String),
-}
-
 impl Config {
-    pub fn from_args<I: IntoIterator<Item = String>>(args: I) -> Result<Config, Usage> {
-        let parsed = SPEC.parse(args).map_err(|e| Usage::Error(e.to_string()))?;
+    /// From a command line `COMMAND` accepted: every value is already of its type, so
+    /// nothing here can fail.
+    pub fn from_parsed(parsed: Parsed) -> Config {
         let tty = std::io::stdout().is_terminal();
         let mut c = Config {
             operands: parsed.operands,
@@ -415,7 +324,7 @@ impl Config {
             sort: Sort::Name,
             reverse: false,
             time: TimeField::Modified,
-            hidden: if is_root() {
+            hidden: if sys::getuid() == 0 {
                 Hidden::AlmostAll
             } else {
                 Hidden::None
@@ -437,137 +346,107 @@ impl Config {
         let mut follow_explicit = false;
         let mut long_wins = false; // -l always overrides -g
         let mut output_explicit = false;
-        let mut help = false;
-        for opt in parsed.opts {
-            let v = opt.value.as_deref().unwrap_or("");
-            match opt.name.as_str() {
-                "1" => {
+        for g in parsed.given {
+            match (g.key(), g.value) {
+                ("1", _) => {
                     c.output = Output::Name;
                     c.single_column = true;
                     c.long = None;
                     output_explicit = true;
                 }
-                "C" => {
+                ("C", _) => {
                     c.output = Output::Name;
                     c.single_column = false;
                     c.long = None;
                     output_explicit = true;
                 }
-                "l" => {
+                ("l", _) => {
                     c.output = Output::Table;
-                    let numeric = c.long.map(|l| l.numeric_ids).unwrap_or(false);
                     c.long = Some(LongOptions {
                         owner: true,
-                        numeric_ids: numeric,
-                        flags: c.long.map(|l| l.flags).unwrap_or(false),
+                        ..c.long.unwrap_or(LONG_DEFAULT)
                     });
                     long_wins = true;
                     output_explicit = true;
                 }
-                "g" => {
+                ("g", _) => {
                     c.output = Output::Table;
-                    let prev = c.long.unwrap_or(LongOptions {
-                        owner: true,
-                        numeric_ids: false,
-                        flags: false,
-                    });
                     c.long = Some(LongOptions {
                         owner: long_wins,
-                        ..prev
+                        ..c.long.unwrap_or(LONG_DEFAULT)
                     });
                     output_explicit = true;
                 }
-                "n" => {
+                ("n", _) => {
                     c.output = Output::Table;
-                    let prev = c.long.unwrap_or(LongOptions {
-                        owner: true,
-                        numeric_ids: false,
-                        flags: false,
-                    });
                     c.long = Some(LongOptions {
                         numeric_ids: true,
-                        ..prev
+                        ..c.long.unwrap_or(LONG_DEFAULT)
                     });
                     output_explicit = true;
                 }
-                "o" | "output" => {
-                    c.output = Output::parse(v).map_err(Usage::Error)?;
+                ("output", Typed::Format(o)) => {
+                    c.output = o;
                     if c.output == Output::Table && c.long.is_none() {
-                        c.long = Some(LongOptions {
-                            owner: true,
-                            numeric_ids: false,
-                            flags: false,
-                        });
+                        c.long = Some(LONG_DEFAULT);
                     }
                     output_explicit = true;
                 }
-                "a" | "all" => c.hidden = Hidden::All,
-                "A" | "almost-all" => c.hidden = Hidden::AlmostAll,
-                "c" => c.time = TimeField::Changed,
-                "u" => c.time = TimeField::Accessed,
-                "d" | "directory" => {
+                ("all", _) => c.hidden = Hidden::All,
+                ("almost-all", _) => c.hidden = Hidden::AlmostAll,
+                ("c", _) => c.time = TimeField::Changed,
+                ("u", _) => c.time = TimeField::Accessed,
+                ("directory", _) => {
                     c.directory = true;
                     c.recursive = false;
                 }
-                "R" | "recursive" => {
+                ("recursive", _) => {
                     c.recursive = true;
                     c.directory = false;
                 }
-                "F" => c.indicator_all = true,
-                "p" => c.indicator_dirs = true,
-                "H" => {
+                ("F", _) => c.indicator_all = true,
+                ("p", _) => c.indicator_dirs = true,
+                ("H", _) => {
                     c.follow = Follow::CommandLine;
                     follow_explicit = true;
                 }
-                "L" => {
+                ("L", _) => {
                     c.follow = Follow::Always;
                     follow_explicit = true;
                 }
-                "h" | "human" => c.human = true,
-                "i" => c.inode = true,
-                "s" => c.blocks = true,
-                "k" => c.block_size = 1024,
-                "q" => c.sanitize = true,
-                "r" | "reverse" => c.reverse = true,
-                "S" => c.sort = Sort::Size,
-                "t" => c.sort = Sort::Time,
-                "sort-by" => c.sort = Sort::Field(v.trim_start_matches('.').to_string()),
-                "no-headers" => c.headers = false,
-                "flags" => {
-                    let prev = c.long.unwrap_or(LongOptions {
-                        owner: true,
-                        numeric_ids: false,
-                        flags: false,
-                    });
+                ("human", _) => c.human = true,
+                ("i", _) => c.inode = true,
+                ("s", _) => c.blocks = true,
+                ("k", _) => c.block_size = 1024,
+                ("q", _) => c.sanitize = true,
+                ("reverse", _) => c.reverse = true,
+                ("S", _) => c.sort = Sort::Size,
+                ("t", _) => c.sort = Sort::Time,
+                ("sort-by", Typed::Field(f)) => c.sort = Sort::Field(f),
+                ("no-headers", _) => c.headers = false,
+                ("flags", _) => {
                     c.long = Some(LongOptions {
                         flags: true,
-                        ..prev
+                        ..c.long.unwrap_or(LONG_DEFAULT)
                     });
                     if c.output == Output::Name && !output_explicit {
                         c.output = Output::Table;
                     }
                 }
-                "type" => {
-                    for t in v.split(',').filter(|s| !s.is_empty()) {
-                        c.types.push(TypeFilter::parse(t).map_err(Usage::Error)?);
-                    }
+                ("type", Typed::List(kinds)) => {
+                    c.types.extend(kinds.iter().map(|k| TypeFilter::of(k)));
                 }
-                "since" => c.since_seconds = Some(parse_duration(v).map_err(Usage::Error)?),
-                "max-depth" => {
-                    c.max_depth = Some(v.parse().map_err(|_| {
-                        Usage::Error(format!("--max-depth: `{v}` is not a number"))
-                    })?);
+                ("since", Typed::Duration(secs)) => c.since_seconds = Some(secs),
+                ("max-depth", Typed::Int(n)) => {
+                    c.max_depth = Some(n as usize);
                     if !c.directory {
                         c.recursive = true;
                     }
                 }
-                "help" => help = true,
-                other => return Err(Usage::Error(format!("unknown option -- {other}"))),
+                // The declaration and this match name the same options; a value of another
+                // type cannot arrive, since `cli` checked it against the declared kind.
+                _ => {}
             }
-        }
-        if help {
-            // `--help -o json` and `-o json --help` alike: the format wherever it was given.
-            return Err(Usage::Help(c.output));
         }
         // POSIX: without -d, -F or -l, a symbolic link operand is followed; with any of them,
         // the link itself is listed, unless -H or -L said otherwise.
@@ -578,7 +457,7 @@ impl Config {
         if !tty {
             c.headers = false;
         }
-        Ok(c)
+        c
     }
 
     /// Whether the walk needs `stat` of every entry, or names and types suffice.
@@ -614,23 +493,10 @@ fn block_size_from_env() -> u64 {
     let Ok(s) = std::env::var("BLOCKSIZE") else {
         return 512;
     };
-    let s = s.trim();
-    let (num, mult) = match s.chars().last() {
-        Some('k' | 'K') => (&s[..s.len() - 1], 1024u64),
-        Some('m' | 'M') => (&s[..s.len() - 1], 1024 * 1024),
-        Some('g' | 'G') => (&s[..s.len() - 1], 1024 * 1024 * 1024),
-        _ => (s, 1),
-    };
-    match num.parse::<u64>() {
-        Ok(n) if (512..=1024 * 1024 * 1024).contains(&(n * mult)) => n * mult,
+    match cli::text::parse_size(&s) {
+        Ok(n) if (512..=1024 * 1024 * 1024).contains(&n) => n,
         _ => 512,
     }
-}
-
-fn is_root() -> bool {
-    // Root sees dotfiles without -A, as OpenBSD's ls does. std has no getuid; the
-    // environment's USER is a proxy good enough for the listing's default.
-    std::env::var("USER").map(|u| u == "root").unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -638,9 +504,17 @@ mod tests {
     use super::*;
 
     fn cfg(s: &str) -> Config {
-        Config::from_args(s.split_whitespace().map(String::from))
-            .ok()
-            .expect("parses")
+        Config::from_parsed(
+            COMMAND
+                .parse(s.split_whitespace().map(String::from))
+                .expect("parses"),
+        )
+    }
+
+    fn refused(s: &str) -> bool {
+        COMMAND
+            .parse(s.split_whitespace().map(String::from))
+            .is_err()
     }
 
     #[test]
@@ -688,8 +562,13 @@ mod tests {
             [TypeFilter::Dir, TypeFilter::Symlink]
         );
         assert_eq!(cfg("--since=2h").since_seconds, Some(7200));
-        assert!(Config::from_args(["--type=zzz".to_string()]).is_err());
-        assert!(Config::from_args(["-Z".to_string()]).is_err());
+        assert_eq!(cfg("--max-depth=2").max_depth, Some(2));
+        assert!(cfg("--max-depth=2").recursive);
+        assert!(refused("--type=zzz"));
+        assert!(refused("--max-depth=x"));
+        assert!(refused("--since=3y"));
+        assert!(refused("-o xml"));
+        assert!(refused("-Z"));
     }
 
     #[test]

@@ -15,8 +15,8 @@ flowchart LR
     R -->|json / yaml| J["FileList document<br/>cli::Value"]
 ```
 
-Modules, one each: `options` (the command line into a `Config` whose enums cannot
-contradict each other), `walk` (operands and directories into listings; errors are entries),
+Modules, one each: `options` (the one declaration, `COMMAND`, from which `cli` derives the
+parser, the help and the usage; and the `Config` whose enums cannot contradict each other), `walk` (operands and directories into listings; errors are entries),
 `entry` (the record and its `Value`), `mode` (strmode, indicators, kinds), `time` (ISO,
 POSIX, RFC 3339, pure over `sys::LocalTime`), `render` (the three shapes a listing takes
 and the machine formats through `cli`). `main` pledges, parses, walks, renders, exits.
@@ -72,6 +72,10 @@ json` follows `lib/crates/cli/schemas/command-help.v1.json`.
    itself; `serde` would be the first row of an allowlist that does not exist yet.
 6. **Time formatting is pure.** `time.rs` formats a `LocalTime`; only `sys` touches `TZ`,
    so the program's tests never set environment variables (which is `unsafe` in Rust 2024).
+7. **One declaration** (`cli` 0.2, 2026-10-24). 0.1 carried a `SPEC` and a `HELP` that had to
+   agree by hand, and validated `--since`, `--max-depth` and `--type` itself; now `COMMAND`
+   declares each option with its type and `Config::from_parsed` cannot fail. 703 lines of
+   `options.rs` became 560, none of them a `parse::<usize>()` or an error message.
 
 ## Dependencies
 

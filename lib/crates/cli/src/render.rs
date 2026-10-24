@@ -61,7 +61,7 @@ impl Output {
                     Ok(Output::Custom(cols))
                 } else {
                     Err(format!(
-                        "unknown output format `{s}`; one of name, table, wide, json, yaml, custom-columns="
+                        "`{s}` is not one of name, table, wide, json, yaml, custom-columns=NAME:.path,..."
                     ))
                 }
             }

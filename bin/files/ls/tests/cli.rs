@@ -190,10 +190,34 @@ fn errors_are_reported_and_the_rest_is_listed() {
     assert_eq!(rc, 1);
     assert_eq!(out, "a.txt\n");
     assert_eq!(err, "ls: nope: No such file or directory\n");
-    let (rc, _, err) = ls(&t.0, &["-Z"]);
-    assert_eq!(rc, 1);
+    // A wrong command line is exit 2, nothing listed; wrong values name the option.
+    let (rc, out, err) = ls(&t.0, &["-Z"]);
+    assert_eq!(rc, 2);
+    assert_eq!(out, "");
     assert!(
         err.starts_with("ls: unknown option -- Z\nusage: ls"),
         "{err}"
     );
+    let (rc, _, err) = ls(&t.0, &["--max-depth=deep"]);
+    assert_eq!(rc, 2);
+    assert!(
+        err.starts_with("ls: --max-depth: `deep` is not a whole number\n"),
+        "{err}"
+    );
+}
+
+#[test]
+fn help_is_text_or_a_record() {
+    let t = Tree::new("help");
+    let (rc, out, _) = ls(&t.0, &["--help"]);
+    assert_eq!(rc, 0);
+    assert!(
+        out.starts_with("ls: list directory contents\n\nusage: ls "),
+        "{out}"
+    );
+    assert!(out.contains("\n  --help "), "{out}");
+    let (rc, out, _) = ls(&t.0, &["-o", "json", "--help"]);
+    assert_eq!(rc, 0);
+    assert!(out.contains("\"kind\": \"CommandHelp\""), "{out}");
+    assert!(out.contains("\"type\": \"duration\""), "{out}");
 }

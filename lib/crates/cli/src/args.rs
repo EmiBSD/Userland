@@ -12,31 +12,19 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-//! Option parsing with POSIX's rules, plus long options.
+//! The lexical half of option parsing, with POSIX's rules plus long options.
 //!
 //! Short options cluster (`-la`), a short option's value may be attached or the next word
 //! (`-ojson`, `-o json`), a long option's value is attached with `=` or the next word
 //! (`--sort-by=.size`, `--sort-by .size`), `--` ends the options, and the first word that
 //! is not an option ends them too, as `getopt(3)` does on the BSDs: what follows are the
-//! operands. Options are returned in the order given, because for many programs the last
-//! of a group wins.
+//! operands. Options come back in the order given, because for many programs the last of a
+//! group wins. What each option is, and what its value means, is [`crate::Command`]'s
+//! business: this module only asks it whether a name is a flag, takes a value, or is unknown.
 
 use std::fmt;
 
-/// What a program accepts.
-#[derive(Debug, Clone, Copy)]
-pub struct Spec {
-    /// Short options that take no value, e.g. `"1AacdFghiklnpqRrSstuHL"`.
-    pub short_flags: &'static str,
-    /// Short options that take a value, e.g. `"o"`.
-    pub short_with_value: &'static str,
-    /// Long options that take no value, without the dashes.
-    pub long_flags: &'static [&'static str],
-    /// Long options that take a value, without the dashes.
-    pub long_with_value: &'static [&'static str],
-}
-
-/// One option as given: its name (a single character for a short one) and its value.
+/// One option as given: its name (a single character for a short one) and its raw value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Opt {
     /// `"l"` for `-l`, `"sort-by"` for `--sort-by`.
@@ -45,9 +33,9 @@ pub struct Opt {
     pub value: Option<String>,
 }
 
-/// The options in order, then the operands.
+/// The options in order, then the operands, before any value is typed.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Parsed {
+pub struct Raw {
     /// The options, in the order given.
     pub opts: Vec<Opt>,
     /// Everything after the options.
@@ -63,6 +51,14 @@ pub enum ArgError {
     MissingValue(String),
     /// A long option given a value it does not take.
     UnexpectedValue(String),
+    /// A value that is not of the option's type: `option` as the user wrote it (`-o`,
+    /// `--max-depth`), `message` what was expected.
+    Invalid {
+        /// The option, with its dashes.
+        option: String,
+        /// What is wrong with the value, a complete sentence fragment.
+        message: String,
+    },
 }
 
 impl fmt::Display for ArgError {
@@ -71,28 +67,35 @@ impl fmt::Display for ArgError {
             ArgError::Unknown(o) => write!(f, "unknown option -- {o}"),
             ArgError::MissingValue(o) => write!(f, "option requires an argument -- {o}"),
             ArgError::UnexpectedValue(o) => write!(f, "option does not take an argument -- {o}"),
+            ArgError::Invalid { option, message } => write!(f, "{option}: {message}"),
         }
     }
 }
 
 impl std::error::Error for ArgError {}
 
-impl Spec {
-    /// Parses `args` (without the program name) against this spec.
-    pub fn parse<I: IntoIterator<Item = String>>(&self, args: I) -> Result<Parsed, ArgError> {
-        let mut it = args.into_iter().peekable();
-        let mut out = Parsed::default();
-        while let Some(word) = it.next() {
-            if word == "--" {
-                out.operands.extend(it);
-                break;
-            }
-            if let Some(long) = word.strip_prefix("--") {
-                let (name, attached) = match long.split_once('=') {
-                    Some((n, v)) => (n.to_string(), Some(v.to_string())),
-                    None => (long.to_string(), None),
-                };
-                if self.long_with_value.contains(&name.as_str()) {
+/// Splits `args` (without the program name) into options and operands. `classify(name)`
+/// answers for the long name or the one-character short name: `Some(true)` for an option
+/// that takes a value, `Some(false)` for a flag, `None` for an option the program lacks.
+pub fn lex<I, F>(args: I, classify: F) -> Result<Raw, ArgError>
+where
+    I: IntoIterator<Item = String>,
+    F: Fn(&str) -> Option<bool>,
+{
+    let mut it = args.into_iter();
+    let mut out = Raw::default();
+    while let Some(word) = it.next() {
+        if word == "--" {
+            out.operands.extend(it);
+            break;
+        }
+        if let Some(long) = word.strip_prefix("--") {
+            let (name, attached) = match long.split_once('=') {
+                Some((n, v)) => (n.to_string(), Some(v.to_string())),
+                None => (long.to_string(), None),
+            };
+            match classify(&name) {
+                Some(true) => {
                     let value = match attached {
                         Some(v) => v,
                         None => it
@@ -103,64 +106,63 @@ impl Spec {
                         name,
                         value: Some(value),
                     });
-                } else if self.long_flags.contains(&name.as_str()) {
+                }
+                Some(false) => {
                     if attached.is_some() {
                         return Err(ArgError::UnexpectedValue(name));
                     }
                     out.opts.push(Opt { name, value: None });
-                } else {
-                    return Err(ArgError::Unknown(name));
                 }
-                continue;
+                None => return Err(ArgError::Unknown(name)),
             }
-            if word.len() > 1 && word.starts_with('-') {
-                let mut chars = word[1..].chars();
-                while let Some(c) = chars.next() {
-                    if self.short_with_value.contains(c) {
+            continue;
+        }
+        if word.len() > 1 && word.starts_with('-') {
+            let mut chars = word[1..].chars();
+            while let Some(c) = chars.next() {
+                let name = c.to_string();
+                match classify(&name) {
+                    Some(true) => {
                         let rest: String = chars.collect();
                         let value = if rest.is_empty() {
                             it.next()
-                                .ok_or_else(|| ArgError::MissingValue(c.to_string()))?
+                                .ok_or_else(|| ArgError::MissingValue(name.clone()))?
                         } else {
                             rest
                         };
                         out.opts.push(Opt {
-                            name: c.to_string(),
+                            name,
                             value: Some(value),
                         });
                         break;
-                    } else if self.short_flags.contains(c) {
-                        out.opts.push(Opt {
-                            name: c.to_string(),
-                            value: None,
-                        });
-                    } else {
-                        return Err(ArgError::Unknown(c.to_string()));
                     }
+                    Some(false) => out.opts.push(Opt { name, value: None }),
+                    None => return Err(ArgError::Unknown(name)),
                 }
-                continue;
             }
-            out.operands.push(word);
-            out.operands.extend(it);
-            break;
+            continue;
         }
-        Ok(out)
+        out.operands.push(word);
+        out.operands.extend(it);
+        break;
     }
+    Ok(out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const LS: Spec = Spec {
-        short_flags: "la1",
-        short_with_value: "o",
-        long_flags: &["no-headers"],
-        long_with_value: &["sort-by"],
-    };
+    fn classify(name: &str) -> Option<bool> {
+        match name {
+            "l" | "a" | "1" | "no-headers" => Some(false),
+            "o" | "sort-by" => Some(true),
+            _ => None,
+        }
+    }
 
-    fn parse(s: &str) -> Result<Parsed, ArgError> {
-        LS.parse(s.split_whitespace().map(String::from))
+    fn parse(s: &str) -> Result<Raw, ArgError> {
+        lex(s.split_whitespace().map(String::from), classify)
     }
 
     #[test]
@@ -206,6 +208,14 @@ mod tests {
             Err(ArgError::UnexpectedValue("no-headers".into()))
         );
         assert_eq!(parse("--bogus"), Err(ArgError::Unknown("bogus".into())));
+        assert_eq!(
+            ArgError::Invalid {
+                option: "--max-depth".into(),
+                message: "`x` is not a whole number".into()
+            }
+            .to_string(),
+            "--max-depth: `x` is not a whole number"
+        );
     }
 
     #[test]

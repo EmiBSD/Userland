@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://emibsd.org/schemas/cli/command-help.v1.json",
   "title": "CommandHelp",
-  "description": "What `<program> --help -o json` prints: the program's options, output formats, schema, exit codes, environment and examples, for a tool or an agent that drives it.",
+  "description": "What `<program> --help -o json` prints: the program's options with their types, output formats, schema, exit codes, environment and examples, for a tool or an agent that drives it. Every program has --help and exit code 2 (wrong command line); both appear in the record.",
   "type": "object",
   "required": ["apiVersion", "kind", "name", "summary", "synopsis", "options", "outputs", "exitCodes"],
   "properties": {
@@ -15,14 +15,17 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["short", "long", "takesValue", "value", "description"],
+        "required": ["short", "long", "type", "takesValue", "value", "description"],
         "properties": {
           "short": { "type": ["string", "null"], "pattern": "^-.$" },
           "long": { "type": ["string", "null"], "pattern": "^--[a-z0-9-]+$" },
+          "type": { "enum": ["flag", "string", "choice", "list", "int", "duration", "size", "path", "field", "format"], "description": "The type of the value the parser checks: a list is comma-separated choices, a duration is 7d/12h/30m/45s, a size is 4K/10M/1G, a field is a path into the record, a format is one of the -o renderers." },
           "takesValue": { "type": "boolean" },
           "value": { "type": ["string", "null"], "description": "The placeholder of the value, when one is taken." },
           "description": { "type": "string" },
           "choices": { "type": "array", "items": { "type": "string" }, "description": "The fixed set of values, when there is one." },
+          "min": { "type": "integer", "description": "Integers: the smallest value accepted." },
+          "max": { "type": "integer", "description": "Integers: the largest value accepted." },
           "exclusiveGroup": { "type": "string", "description": "Options of one group exclude each other; the last given wins." }
         }
       }
