@@ -1,0 +1,16 @@
+# The pin of an imported program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.
+[upstream]
+name    = "sasyncd"
+kind    = "git"
+repo    = "https://github.com/EmiBSD/OpenBSD-src"           # the organisation's mirror, always
+origin  = "https://github.com/openbsd/src"          # what the mirror is fed from
+path    = ["usr.sbin/sasyncd"]
+commit  = "3ce1f3f79392ae4d60ce67bea5835d517caaa2ca"
+version = ""                 # the human version; to fill from the source when empty
+license = []   # the families; the texts stay in the source
+
+[security]
+cpe     = "openbsd:openbsd"            # NVD product, for tools/cve.py
+
+[patches]
+series  = []                              # patches/NNNN-*.patch, in order; each with its reason

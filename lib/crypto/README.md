@@ -4,11 +4,11 @@ Cryptography and authentication.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- [`libcrypto`](libcrypto/) (lib/libcrypto)
-- [`libssl`](libssl/) (lib/libssl)
-- [`libtls`](libtls/) (lib/libtls)
-- [`libfido2`](libfido2/) (lib/libfido2)
-- [`libcbor`](libcbor/) (lib/libcbor)
+- [`libcrypto`](libcrypto/) (lib/libcrypto) (imported)
+- [`libssl`](libssl/) (lib/libssl) (imported)
+- [`libtls`](libtls/) (lib/libtls) (imported)
+- [`libfido2`](libfido2/) (lib/libfido2) (imported)
+- [`libcbor`](libcbor/) (lib/libcbor) (imported)
 - [`libskey`](libskey/) (lib/libskey)
 - [`libkeynote`](libkeynote/) (lib/libkeynote)
 - [`libradius`](libradius/) (lib/libradius)

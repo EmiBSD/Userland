@@ -8,7 +8,7 @@ Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 - [`ndp`](ndp/) (usr.sbin/ndp)
 - [`rarpd`](rarpd/) (usr.sbin/rarpd)
 - [`traceroute`](traceroute/) (usr.sbin/traceroute)
-- [`tcpdump`](tcpdump/) (usr.sbin/tcpdump)
+- [`tcpdump`](tcpdump/) (usr.sbin/tcpdump) (imported)
 - [`tcpdrop`](tcpdrop/) (usr.sbin/tcpdrop)
 - [`trpt`](trpt/) (usr.sbin/trpt)
 - [`lldp`](lldp/) (usr.sbin/lldp)

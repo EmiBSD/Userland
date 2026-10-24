@@ -4,12 +4,12 @@ Network clients a user runs.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- [`ssh`](ssh/) (usr.bin/ssh)
+- [`ssh`](ssh/) (usr.bin/ssh) (imported)
 - [`nc`](nc/) (usr.bin/nc)
 - [`ftp`](ftp/) (usr.bin/ftp)
 - [`tftp`](tftp/) (usr.bin/tftp)
-- [`telnet`](telnet/) (usr.bin/telnet)
-- [`dig`](dig/) (usr.bin/dig)
+- [`telnet`](telnet/) (usr.bin/telnet) (imported)
+- [`dig`](dig/) (usr.bin/dig) (imported)
 - [`whois`](whois/) (usr.bin/whois)
 - [`netstat`](netstat/) (usr.bin/netstat)
 - [`tcpbench`](tcpbench/) (usr.bin/tcpbench)

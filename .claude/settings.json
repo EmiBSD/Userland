@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(just:*)",
+      "Bash(cargo:*)"
+    ],
+    "deny": [
+      "Edit(upstream/**)",
+      "Write(upstream/**)",
+      "Edit(**/upstream/**)",
+      "Write(**/upstream/**)"
+    ]
+  }
+}

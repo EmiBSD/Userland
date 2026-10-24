@@ -26,6 +26,6 @@ Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 - [`mrinfo`](mrinfo/) (usr.sbin/mrinfo)
 - [`mtrace`](mtrace/) (usr.sbin/mtrace)
 - [`map-mbone`](map-mbone/) (usr.sbin/map-mbone)
-- [`rpki-client`](rpki-client/) (usr.sbin/rpki-client)
+- [`rpki-client`](rpki-client/) (usr.sbin/rpki-client) (imported)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

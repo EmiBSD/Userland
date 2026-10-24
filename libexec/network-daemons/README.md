@@ -12,6 +12,6 @@ Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 - [`rpc.rstatd`](rpc.rstatd/) (libexec/rpc.rstatd)
 - [`rpc.rusersd`](rpc.rusersd/) (libexec/rpc.rusersd)
 - [`rpc.rwalld`](rpc.rwalld/) (libexec/rpc.rwalld)
-- [`snmpd`](snmpd/) (libexec/snmpd)
+- [`snmpd`](snmpd/) (libexec/snmpd) (imported)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

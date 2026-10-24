@@ -6,7 +6,7 @@ Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
 - [`find`](find/) (usr.bin/find)
 - [`xargs`](xargs/) (usr.bin/xargs)
-- [`file`](file/) (usr.bin/file)
+- [`file`](file/) (usr.bin/file) (imported)
 - [`stat`](stat/) (usr.bin/stat)
 - [`du`](du/) (usr.bin/du)
 - [`touch`](touch/) (usr.bin/touch)

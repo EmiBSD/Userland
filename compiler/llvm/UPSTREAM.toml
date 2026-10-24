@@ -1,0 +1,18 @@
+# The pin of an imported program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.
+[upstream]
+name    = "LLVM, as OpenBSD ships it"
+kind    = "git"
+repo    = "https://github.com/EmiBSD/OpenBSD-src"           # the organisation's mirror, always
+origin  = "https://github.com/openbsd/src"          # what the mirror is fed from
+path    = ["gnu/llvm", "gnu/usr.bin/clang", "gnu/lib/libcxx", "gnu/lib/libcxxabi", "gnu/lib/libclang_rt", "gnu/lib/libcompiler_rt"]
+commit  = "3ce1f3f79392ae4d60ce67bea5835d517caaa2ca"
+version = ""                 # the human version; to fill from the source when empty
+license = ["Apache-2.0 WITH LLVM-exception"]   # the families; the texts stay in the source
+
+[security]
+cpe     = "llvm:llvm"            # NVD product, for tools/cve.py
+
+[patches]
+series  = []                              # patches/NNNN-*.patch, in order; each with its reason
+
+# OpenBSD's patches (RETGUARD, -fret-clean, the fixed X18, BTI and PAC defaults) and its BSD-make build glue come with the tree; Kernel's `just comp` builds it this way today. The longest build of the repository: built once, cached.

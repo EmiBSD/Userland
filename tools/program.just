@@ -1,15 +1,33 @@
 # Shared recipes for every program and library; each one's justfile imports this file.
-# The program's name is its directory's name.
+# The program's name is its directory's name; the class is the first word of STATUS.
 
 name := file_name(justfile_directory())
+root := justfile_directory() / "../../.."
 
-# Build the package (once src/Cargo.toml exists).
+# Build: a written program through cargo; an imported one through build/ after fetch.
 build:
-    cargo build --manifest-path src/Cargo.toml
+    #!/bin/sh
+    set -e
+    case "$(cat STATUS)" in
+      imported*) python3 -I "{{root}}/tools/upstream.py" check . && sh build/build.sh ;;
+      *) cargo build --manifest-path src/Cargo.toml ;;
+    esac
 
-# Unit and integration tests.
+# Fetch and verify the upstream source (imported programs).
+fetch:
+    python3 -I "{{root}}/tools/upstream.py" fetch .
+
+# Unit and integration tests (tests/, with stress/, cve/ and golden/ inside).
 test:
     cargo test --manifest-path src/Cargo.toml
+
+# The stress tests alone, on four CPUs.
+stress:
+    EMIBSD_NCPU=4 cargo test --manifest-path src/Cargo.toml --test 'stress*'
+
+# Host benchmarks against OpenBSD's program on the same input.
+bench:
+    cargo bench --manifest-path src/Cargo.toml
 
 # Format check and clippy with warnings denied.
 lint:

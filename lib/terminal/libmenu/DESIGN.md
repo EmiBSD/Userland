@@ -1,25 +1,24 @@
-# libmenu: design
+# libmenu: integration
 
-## Architecture
+## How it is built
 
-```mermaid
-flowchart LR
-    A[input] --> B[libmenu] --> C[output]
-```
+The source at the pin, copied to `target/`, `patches/` applied, built by `build/build.sh`
+against this repository's libc and libraries. Flags that differ from OpenBSD's build, with
+the reason.
 
-## Security
+## Patches
 
-`pledge(2)` promises, `unveil(2)` paths, privilege separation, setuid. Never less than
-OpenBSD's libmenu(3) restricts.
+One line per patch of `patches/`: what it changes and why it could not stay upstream.
 
-## Data
+## Concurrency
 
-The schemas in `schemas/`; their versions; who consumes them.
+As upstream has it; nothing added.
 
-## Decisions
+## Threat model and security
 
-Numbered, each with its reason and what was rejected.
+What the upstream restricts (pledge, unveil, privilege separation) and the proof we kept it:
+the tests that run it under our kernel.
 
 ## Dependencies
 
-Crates used, each with why; the allowlist governs.
+The libraries of this repository it links, and any other upstream it needs.

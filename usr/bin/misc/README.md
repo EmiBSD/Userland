@@ -5,7 +5,7 @@ What fits nowhere else.
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
 - [`banner`](banner/) (usr.bin/banner)
-- [`tmux`](tmux/) (usr.bin/tmux)
+- [`tmux`](tmux/) (usr.bin/tmux) (imported)
 - [`ts`](ts/) (usr.bin/ts)
 - [`sendbug`](sendbug/) (usr.bin/sendbug)
 

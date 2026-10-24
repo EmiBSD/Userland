@@ -4,12 +4,12 @@ Filters and transformers of text streams.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- [`awk`](awk/) (usr.bin/awk)
+- [`awk`](awk/) (usr.bin/awk) (imported)
 - [`sed`](sed/) (usr.bin/sed)
 - [`grep`](grep/) (usr.bin/grep)
-- [`diff`](diff/) (usr.bin/diff)
-- [`diff3`](diff3/) (usr.bin/diff3)
-- [`sdiff`](sdiff/) (usr.bin/sdiff)
+- [`diff`](diff/) (usr.bin/diff) (imported)
+- [`diff3`](diff3/) (usr.bin/diff3) (imported)
+- [`sdiff`](sdiff/) (usr.bin/sdiff) (imported)
 - [`cmp`](cmp/) (usr.bin/cmp)
 - [`comm`](comm/) (usr.bin/comm)
 - [`sort`](sort/) (usr.bin/sort)

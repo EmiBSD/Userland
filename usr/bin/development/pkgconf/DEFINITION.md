@@ -42,4 +42,20 @@ What the rest of the base system expects of this program: who calls it (rc, othe
 programs, the installer), with which flags, which output they parse, which exit codes they
 branch on. Nothing here changes without checking every caller.
 
+## Performance budget
+
+The measure that matters for this program and its floor: never slower than OpenBSD's
+pkgconf on the same machine and input (`bench/`, `just bench`).
+
+## Security history
+
+The CVEs and errata of OpenBSD's pkgconf (and of what it derives from), each with its class
+and what makes it impossible here (a type, a check, the language) or the test in
+`tests/cve/` that proves it.
+
+| CVE | Class | Here |
+|---|---|---|
+
 ## Open questions
+
+- In OpenBSD this program is Perl, and Perl is not in this tree (Artistic or GPL, dual): the user decides between importing Perl under the Artistic licence and writing this in Rust.

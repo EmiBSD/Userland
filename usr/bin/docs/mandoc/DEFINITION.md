@@ -1,45 +1,40 @@
-# mandoc
+# mandoc (imported)
 
-STATUS: see `STATUS`. Reference for behaviour: OpenBSD's `usr.bin/mandoc`, manual mandoc(1).
-Written from scratch under this definition; not a port (the user's decision of 2026-10-23).
+STATUS: see `STATUS`. Compiled from its upstream at the pin of `UPSTREAM.toml`, never
+rewritten (the user's decision of 2026-10-23). OpenBSD's `usr.bin/mandoc`; manual mandoc(1).
 
-## What it does
+## What it gives us
 
-## Scope
+## What we build of it
 
-What is in, what is out, and why.
+The targets, libraries and tools taken from the source; what is left out and why.
 
 ## Constraints
 
-Root partition only (static) or not; privileges; what it may never do.
-
-## Inputs
-
-Arguments, standard input, environment variables, files it reads, configuration.
-
-## Parameters
-
-| Flag | Argument | Meaning | Default |
-|---|---|---|---|
-
-## Outputs
-
-Human output; `-o json` / `-o yaml` (`schemas/output.v1.json`); what goes to stderr.
-
-## Exit codes
-
-| Code | Meaning |
-|---|---|
-| 0 | success |
-
-## Signals and failure behaviour
-
-SIGHUP, SIGTERM, SIGINT; disk full, permission denied, interrupted.
+Which libc, libtls and other libraries of this repository it must link; static or dynamic;
+privileges.
 
 ## Compatibility
 
-What the rest of the base system expects of this program: who calls it (rc, other
-programs, the installer), with which flags, which output they parse, which exit codes they
-branch on. Nothing here changes without checking every caller.
+Who in the base system depends on it and how (flags, output, exit codes, configuration
+paths). Our patches, if any, never change what callers see.
+
+## Configuration we ship
+
+The defaults installed under /etc, and how they differ from upstream's.
+
+## Performance budget
+
+As OpenBSD builds it, on the same machine and input; a build flag that changes it is a
+decision in DESIGN.
+
+## Security history
+
+Tracked against the upstream (`UPSTREAM.toml` `[security] cpe`): open advisories at the pin,
+what the pin bump that closes them is, and `tests/cve/` for what we patched ourselves.
+
+| CVE | Upstream fix | Here |
+|---|---|---|
 
 ## Open questions
+

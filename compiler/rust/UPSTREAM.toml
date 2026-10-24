@@ -1,0 +1,18 @@
+# The pin of an imported program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.
+[upstream]
+name    = "Rust"
+kind    = "git"
+repo    = "https://github.com/EmiBSD/rust"           # the organisation's mirror, always
+origin  = "https://github.com/rust-lang/rust"          # what the mirror is fed from
+path    = []
+tag     = "1.98.1"                 # resolved to a commit at fetch, recorded in upstream/.pin
+version = "1.98.1"                 # the human version; to fill from the source when empty
+license = ["Apache-2.0", "MIT"]   # the families; the texts stay in the source
+
+[security]
+cpe     = "rust-lang:rust"            # NVD product, for tools/cve.py
+
+[patches]
+series  = []                              # patches/NNNN-*.patch, in order; each with its reason
+
+# The mirror EmiBSD/rust is to be created (with its submodules: cargo lives inside). Built with x.py against compiler/llvm (llvm-config), host first, then target aarch64-unknown-openbsd: the std for the tier 3 target is built as part of the toolchain, from a stable release's source, without nightly. Needs a stage0 rustc: rustup's on the host; on EmiBSD, the previous build.

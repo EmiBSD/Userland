@@ -1,15 +1,25 @@
 # EmiBSD Userland: the recipes over the whole monorepo. Each program has its own justfile
 # importing tools/program.just; these run across all of them.
 
-# Progress: how many programs sit at each STATUS.
+trees := "bin sbin usr libexec lib compiler"
+
+# Progress: how many programs sit at each STATUS (written: planned..shipped; imported: imported..).
 status:
-    @find bin sbin usr libexec lib -name STATUS | xargs cat | sort | uniq -c | sort -rn
+    @find {{trees}} -name STATUS | xargs cat | sort | uniq -c | sort -rn
 
-# Every program at a given status: `just at implemented`.
+# Every program at a given status: `just at implemented`, `just at imported`.
 at s:
-    @find bin sbin usr libexec lib -name STATUS | while read f; do [ "$(cat "$f")" = "{{s}}" ] && dirname "$f"; done | sort
+    @find {{trees}} -name STATUS | while read f; do [ "$(cat "$f")" = "{{s}}" ] && dirname "$f"; done | sort
 
-# Regenerate the READMEs and the missing skeletons from the map (needs Kernel's reference tree).
+# Fetch and verify every upstream named by an UPSTREAM.toml (shared clones under upstream/).
+fetch:
+    python3 -I tools/upstream.py fetch
+
+# Check every fetched upstream against its pin.
+fetch-check:
+    python3 -I tools/upstream.py check
+
+# Regenerate the READMEs and the skeletons still at planned/imported (needs Kernel's reference tree).
 layout src="../Kernel/reference/openbsd-src":
     python3 -I tools/layout.py {{src}} .
 

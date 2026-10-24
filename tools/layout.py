@@ -8,7 +8,12 @@ The top level is OpenBSD's own split by install path (bin, sbin, usr/bin, usr/sb
 lib, include, compiler, etc, share, distrib); inside each, the programs are grouped by what
 they do. Every program of OpenBSD's bin/, sbin/, usr.bin/, usr.sbin/, libexec/ and lib/ is
 mapped to exactly one leaf, in the tree OpenBSD keeps it in; the script refuses to write
-otherwise. Skeleton files are created only when missing, so refinement survives a rerun.
+otherwise.
+
+Two classes of program (docs/PROGRAM.md): `written` (from scratch, in Rust, under its
+definition) and `imported` (compiled from its upstream at the pin of UPSTREAM.toml, never
+rewritten). A skeleton whose STATUS is still `planned` or `imported` is regenerated from the
+templates; one that moved on is left alone.
 """
 import os
 import sys
@@ -16,15 +21,58 @@ from pathlib import Path
 
 SRC = Path(sys.argv[1])
 OUT = Path(sys.argv[2])
+PIN_FILE = SRC.parent / "PINNED.md"          # Kernel/reference/PINNED.md: the OpenBSD pin
+OPENBSD_MIRROR = "https://github.com/EmiBSD/OpenBSD-src"
+OPENBSD_ORIGIN = "https://github.com/openbsd/src"
 
 # Where a top-level directory's bare names come from in OpenBSD's src.
 SOURCE_DIR = {"bin": "bin", "sbin": "sbin", "usr/bin": "usr.bin", "usr/sbin": "usr.sbin",
               "libexec": "libexec", "lib": "lib"}
 DEFAULT_SECTION = {"bin": "1", "usr/bin": "1", "sbin": "8", "usr/sbin": "8", "libexec": "8", "lib": "3"}
 
+# The imported programs (the user's decision of 2026-10-23): cryptography, security protocols
+# with a living upstream, and the legacy giants. name -> NVD CPE (product) when known.
+IMPORTED = {
+    # cryptography: never our own
+    "libcrypto": "openbsd:libressl", "libssl": "openbsd:libressl", "libtls": "openbsd:libressl",
+    "libfido2": "yubico:libfido2", "libcbor": "pjk:libcbor",
+    "openssl": "openbsd:libressl", "ocspcheck": "openbsd:openbsd", "acme-client": "openbsd:openbsd",
+    # security and network protocols with a history
+    "ssh": "openbsd:openssh", "unbound": "nlnetlabs:unbound", "nsd": "nlnetlabs:nsd",
+    "iked": "openbsd:openbsd", "isakmpd": "openbsd:openbsd", "ipsecctl": "openbsd:openbsd",
+    "ikectl": "openbsd:openbsd", "sasyncd": "openbsd:openbsd",
+    "smtpd": "opensmtpd:opensmtpd", "httpd": "openbsd:openbsd", "relayd": "openbsd:openbsd",
+    "relayctl": "openbsd:openbsd", "tcpdump": "tcpdump:tcpdump", "libpcap": "tcpdump:libpcap",
+    "pflogd": "openbsd:openbsd", "dhcpd": "isc:dhcp", "dhcrelay": "isc:dhcp", "dhcrelay6": "isc:dhcp",
+    "rpki-client": "openbsd:rpki-client", "ntpd": "openbsd:openntpd", "ldapd": "openbsd:openbsd",
+    "radiusd": "openbsd:openbsd", "npppd": "openbsd:openbsd", "pppd": "openbsd:openbsd",
+    "snmpd": "openbsd:openbsd", "dig": "isc:bind", "telnet": "openbsd:openbsd",
+    # the legacy giants
+    "vi": "nvi:nvi", "less": "gnu:less", "tmux": "tmux_project:tmux", "mandoc": "mandoc:mandoc",
+    "awk": "onetrueawk:awk", "bc": "openbsd:openbsd", "dc": "openbsd:openbsd", "m4": "openbsd:openbsd",
+    "yacc": "byacc:byacc", "lex": "flex_project:flex", "make": "openbsd:openbsd", "patch": "openbsd:openbsd",
+    "diff": "openbsd:openbsd", "diff3": "openbsd:openbsd", "sdiff": "openbsd:openbsd",
+    "rcs": "openbsd:openrcs", "cvs": "openbsd:opencvs",
+    "libcurses": "gnu:ncurses", "libform": "gnu:ncurses", "libmenu": "gnu:ncurses", "libpanel": "gnu:ncurses",
+    "tic": "gnu:ncurses", "infocmp": "gnu:ncurses", "tput": "gnu:ncurses", "tset": "gnu:ncurses",
+    "libedit": "libedit:libedit", "file": "file_project:file", "zic": "iana:tzcode", "zdump": "iana:tzcode",
+    "libz": "zlib:zlib", "libexpat": "libexpat_project:libexpat", "libevent": "libevent_project:libevent",
+    "sndiod": "openbsd:openbsd", "libsndio": "openbsd:openbsd", "aucat": "openbsd:openbsd",
+}
+
+# Programs that are not C in OpenBSD: the note goes to DEFINITION.md's open questions.
+PERL = {"pkg_add", "adduser", "libtool", "pkgconf", "security"}
+SHELL = {"rcctl", "fw_update", "syspatch", "sysupgrade", "sysmerge"}
+
+# Programs whose output is an on-disk format: a from-scratch bug corrupts a file system.
+ON_DISK = {"fsck", "fsck_ffs", "fsck_ext2fs", "fsck_msdos", "fsdb", "fsirand", "newfs", "newfs_ext2fs",
+           "newfs_msdos", "growfs", "tunefs", "dumpfs", "scan_ffs", "ncheck_ffs", "dump", "restore",
+           "disklabel", "fdisk", "pdisk", "installboot", "makefs", "badsect", "clri"}
+
 # (top-level, purpose, [(leaf, purpose, [programs])]); a leaf may nest ("storage/disks").
 # A program is a bare name (looked up in the top-level's source directory) or a path under
-# src for the trees that are not programs (etc/rc, gnu/usr.bin/clang, include, share).
+# src for the trees that are not programs (etc/rc, include, share). The compiler tree's
+# entries are imported toolchains with their own upstream (COMPILERS below).
 LAYOUT = [
     ("bin", "What must work with only the root partition mounted, linked static: a shell and the means to move files. OpenBSD's bin/ (30).", [
         ("shells", "The shells.", ["ksh", "csh"]),
@@ -153,9 +201,9 @@ LAYOUT = [
     ("include", "The headers installed under /usr/include. OpenBSD's include/.", [
         ("headers", "The exported headers.", ["include"]),
     ]),
-    ("compiler", "The LLVM toolchain: clang, lld, libc++ and compiler-rt, Apache-2.0 with the LLVM exception, nothing GPL (the user's decision of 2026-10-23). OpenBSD keeps it under the historical name gnu/; the sources are a pinned dependency, not written here: this tree holds the pin and the build glue, as OpenBSD's gnu/usr.bin/clang does.", [
-        ("llvm", "The pinned LLVM release and how it is built for the system.", [
-            "gnu/usr.bin/clang", "gnu/lib/libcxx", "gnu/lib/libcxxabi", "gnu/lib/libclang_rt", "gnu/lib/libcompiler_rt"]),
+    ("compiler", "The toolchains, both imported: LLVM as OpenBSD ships it (clang, lld, libc++, compiler-rt; Apache-2.0 with the LLVM exception, nothing GPL) and Rust (rustc, cargo, std; Apache-2.0 and MIT), so the system builds itself, as OpenBSD's comp set does. The user's decisions of 2026-10-23.", [
+        ("llvm", "LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.", ["compiler:llvm"]),
+        ("rust", "rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the OpenBSD targets is how the tier 3 problem is solved without nightly.", ["compiler:rust"]),
     ]),
     ("etc", "The configuration the system is born with. OpenBSD's etc/.", [
         ("rc", "The start-up scripts and the terminal table.", [
@@ -180,6 +228,18 @@ LAYOUT = [
     ]),
 ]
 
+# The compiler tree's imports: (name, upstream description for UPSTREAM.toml).
+COMPILERS = {
+    "llvm": dict(name="LLVM, as OpenBSD ships it", kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN,
+                 path=["gnu/llvm", "gnu/usr.bin/clang", "gnu/lib/libcxx", "gnu/lib/libcxxabi",
+                       "gnu/lib/libclang_rt", "gnu/lib/libcompiler_rt"],
+                 commit="@PIN@", version="", license=["Apache-2.0 WITH LLVM-exception"], cpe="llvm:llvm",
+                 note="OpenBSD's patches (RETGUARD, -fret-clean, the fixed X18, BTI and PAC defaults) and its BSD-make build glue come with the tree; Kernel's `just comp` builds it this way today. The longest build of the repository: built once, cached."),
+    "rust": dict(name="Rust", kind="git", repo="https://github.com/EmiBSD/rust", origin="https://github.com/rust-lang/rust",
+                 path=[], commit="", tag="1.98.1", version="1.98.1", license=["Apache-2.0", "MIT"], cpe="rust-lang:rust",
+                 note="The mirror EmiBSD/rust is to be created (with its submodules: cargo lives inside). Built with x.py against compiler/llvm (llvm-config), host first, then target aarch64-unknown-openbsd: the std for the tier 3 target is built as part of the toolchain, from a stable release's source, without nightly. Needs a stage0 rustc: rustup's on the host; on EmiBSD, the previous build."),
+}
+
 TOPLEVEL_README = """# EmiBSD Userland
 
 The monorepo of EmiBSD's own userland: the programs, libraries and configuration that run
@@ -189,21 +249,33 @@ is where the system that replaces it is written.
 
 ## Rules (the user's decisions of 2026-10-23)
 
-- **Written from scratch, under a definition.** Nothing here is a port or a translation of
-  OpenBSD's programs. Each program is specified first (what it does, its inputs, outputs,
-  exit codes, what the rest of the system expects of it), then designed, then written.
-  OpenBSD's program and its manual are the reference for behaviour, read, not copied.
-- **Rust.** Everything written here is Rust; C only where the ABI demands it, assembly only
-  in the syscall stubs of libc. `#![forbid(unsafe_code)]` in every program; `unsafe` only in
-  `lib/libc` and `libexec/rtld`, each site with a written proof, as the kernel's `hal`.
-- **LLVM, nothing GPL.** The toolchain is clang and lld (`compiler/`).
+- **Two classes of program** (`docs/PROGRAM.md`). *Written*: from scratch, under a
+  definition, in Rust; nothing is a port or a translation of OpenBSD's program, which is read
+  as the reference for behaviour. *Imported*: cryptography, the security and network
+  protocols with a living upstream and a CVE history, and the legacy giants (`ssh`, LibreSSL,
+  `unbound`, `smtpd`, `vi`, `tmux`, `mandoc`, ncurses, the compilers, ...) are compiled from
+  their upstream at the pin of their `UPSTREAM.toml`, never rewritten; our patches are a
+  numbered series, ideally empty. `just status` counts both.
+- **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
+  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `lib/libc` and
+  `libexec/rtld`, each site with a written proof, as the kernel's `hal`.
+- **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
+  patches and build glue; `compiler/rust` is rust-lang/rust at the pinned stable tag, built
+  against that LLVM, so the system builds itself (OpenBSD's `comp` set) and the OpenBSD
+  targets, tier 3 in Rust, get their `std` from a stable release's source, not from nightly.
+- **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
+  so an upstream that moves or disappears does not take the build with it. A tarball upstream
+  gets a repository where each release is one commit. Fetched sources live under `upstream/`,
+  gitignored and read-only; a build applies `patches/` to a copy under `target/`, never to
+  `upstream/`. `tools/upstream.py` fetches, verifies (commit, SHA-256, signature) and pins.
 - **`just`.** Every program carries a `justfile` that imports `tools/program.just`; the root
-  `justfile` runs over all of them. `cargo` builds; `just` is the recipes. Not make: the
-  build is Cargo's, and BSD make is itself one of the programs to write
-  (`usr/bin/development/make`).
-- **One contract per program**: `docs/PROGRAM.md`. Every program directory holds `STATUS`,
-  `DEFINITION.md`, `DESIGN.md`, `DELIVERY.md`, `schemas/`, `src/`, `tests/`, `man/` and a
-  `justfile`; `just status` counts the STATUS files.
+  `justfile` runs over all of them. `cargo` builds; `just` is the recipes. Not make: the build
+  is Cargo's, and BSD make is itself one of the programs (imported).
+- **Performance, concurrency and security are part of every definition**: a performance
+  budget measured against OpenBSD's program on the same input (`bench/`, `just bench`); the
+  concurrency model, and stress tests on four CPUs for what serves many; a threat model, the
+  `pledge`/`unveil` profile, and the program's CVE history (`tests/cve/`), each entry made
+  impossible by a type, a check or the language, or tested.
 
 ## Layout
 
@@ -220,18 +292,18 @@ the map and refuses to write when one is missing or doubled.
 {tree}```
 
 The lists are the map to what OpenBSD's base system provides at the pin of
-`Kernel/reference/PINNED.md`, not a porting list: the programs written here are EmiBSD's own.
+`Kernel/reference/PINNED.md`, not a porting list: the written programs are EmiBSD's own.
 
 ## Open
 
-- **The Rust target.** `aarch64-unknown-openbsd` and `x86_64-unknown-openbsd` are tier 3 in
-  Rust: no prebuilt `std`, and building it needs nightly's `-Zbuild-std`, which the no-nightly
-  rule excludes. The options (a custom target over our own libc with `no_std` + `alloc`,
-  `std` built once by a pinned script, rustc bootstrapped on EmiBSD itself) are decided with
-  the first slice, `lib/libc`.
+- **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are Perl in OpenBSD, and
+  Perl (Artistic or GPL, dual) is not in the tree: import it under the Artistic licence, or
+  write those five in Rust. The user's decision; their skeletons say so.
 - `include/` and `share/` are generated from the libraries and the programs; `etc/` shrinks
   to what the system needs before any program exists; `regress/` holds the integration
   battery. Pending the user's word.
+- `cargo audit`, `cargo deny` and `tools/cve.py` (NVD by CPE) need tools installed outside
+  the repository and network access: pending the user's OK.
 
 New code is ISC (`LICENSE`).
 """
@@ -239,50 +311,85 @@ New code is ISC (`LICENSE`).
 PROGRAM_DOC = """# The contract of a program
 
 Every program and library directory of this repository (`bin/`, `sbin/`, `usr/bin/`,
-`usr/sbin/`, `libexec/`, `lib/`) is one solution, laid out the same way. `tools/layout.py`
-creates the skeleton; the people and agents who work on the program fill it, in this order.
+`usr/sbin/`, `libexec/`, `lib/`, `compiler/`) is one solution, laid out the same way.
+`tools/layout.py` creates the skeleton; the people and agents who work on the program fill
+it. There are two classes, told apart by the first word of `STATUS`.
+
+## Written (from scratch, in Rust)
 
 ```
 <group>/<name>/
-├── STATUS            one word: planned | defined | designed | implemented | shipped
+├── STATUS            planned | defined | designed | implemented | shipped
 ├── DEFINITION.md     the functional design: what it does, scope, constraints, inputs,
-│                     parameters, outputs, exit codes, signals, compatibility
-├── DESIGN.md         the architecture: mermaid diagrams, security (pledge, unveil,
-│                     privileges), decisions with their reasons, dependencies
+│                     parameters, outputs, exit codes, signals, compatibility, the
+│                     performance budget, the security history (CVEs of the reference)
+├── DESIGN.md         the architecture: mermaid diagrams, concurrency model, threat model,
+│                     security (pledge, unveil, privileges), decisions, dependencies
 ├── schemas/          the machine-readable contracts: output.v1.json, config.v1.json
 │                     (what `-o json` / `-o yaml` emit; versioned, kubectl's apiVersion)
 ├── src/              the Rust sources, a Cargo package; unit tests beside the code
-├── tests/            integration tests, property tests for every parser, and golden/,
-│                     the differential tests: the same input to ours and to OpenBSD's
+├── tests/            integration tests; property tests for every parser; stress/ on four
+│                     CPUs for what serves many; cve/ one test per entry of the security
+│                     history; golden/ the differential tests against OpenBSD's program
+├── bench/            host benchmarks (harness = false) against OpenBSD's program on the
+│                     same input; `just bench` prints the ratio
 ├── man/<name>.<n>    the manual, mdoc(7) source; HTML and Markdown are rendered from it
 ├── etc/              the default configuration installed under /etc, when it has one
 ├── DELIVERY.md       the install set, path, static or dynamic, owner and mode, MAKEDEV
-└── justfile          `import` of tools/program.just: build, test, lint, man, status
+└── justfile          `import` of tools/program.just
 ```
 
-## The order
+The order: **planned** (the skeleton; DEFINITION names the OpenBSD reference), **defined**
+(DEFINITION complete; *Compatibility* is the section that matters most: what the rest of the
+base system expects, the flags `rc` uses, the output another program parses, the exit codes
+a script branches on), **designed** (DESIGN and schemas complete; the pledge and unveil
+profile never relaxes what OpenBSD's program restricts), **implemented** (builds; unit,
+integration, property, stress, cve and differential tests pass; bench within budget; the
+manual complete with EXAMPLES; the package joined the workspace), **shipped** (DELIVERY
+complete, `distrib/` installs it).
 
-1. **planned**: the skeleton exists. `DEFINITION.md` names the OpenBSD program and manual
-   that are the reference for behaviour.
-2. **defined**: `DEFINITION.md` is complete. Its *Compatibility* section is the one that
-   matters most: what the rest of the base system expects of this program (the flags `rc`
-   calls it with, the output another program parses, the exit codes a script branches on).
-   The base system is an ecosystem; a program that works but breaks `netstart` is a failure.
-3. **designed**: `DESIGN.md` and `schemas/` are complete; the security section says which
-   `pledge(2)` promises and `unveil(2)` paths the program lives under, and whether it
-   separates privileges or runs setuid. Nothing OpenBSD's program restricts may be relaxed.
-4. **implemented**: `src/` builds, the unit, integration, property and differential tests
-   pass, `man/` is complete with EXAMPLES. The package joined the workspace `Cargo.toml`.
-5. **shipped**: `DELIVERY.md` is complete and `distrib/` installs it.
+## Imported (compiled from upstream, never rewritten)
+
+```
+<group>/<name>/
+├── STATUS            imported | imported-built | imported-shipped
+├── UPSTREAM.toml     the pin: mirror, origin, path, commit or tag, version, licence, CPE
+├── patches/          our patches, a numbered series, each with its reason in its header
+├── build/            the glue: what is built, with which flags, against which libc and libtls
+├── DEFINITION.md     what it gives us, what we build of it, compatibility, configuration we
+│                     ship, the security history tracked against the upstream's CPE
+├── DESIGN.md         the integration: pledge kept, privileges, concurrency as upstream has it
+├── tests/            our integration: it builds against our libc, starts under our rc, and
+│                     behaves as OpenBSD's binary (golden/); cve/ for what we patched
+├── man/              the upstream manual; a change to it is one more patch
+├── DELIVERY.md
+└── justfile
+```
+
+The source itself lives under `upstream/`, gitignored and read-only, fetched by
+`tools/upstream.py fetch` and verified against `UPSTREAM.toml` (commit for git, SHA-256 and
+signature for a tarball); a build copies it to `target/`, applies `patches/`, builds there.
+`upstream/.pin` must match the TOML or `just build` refuses. Most imports point at
+`EmiBSD/OpenBSD-src` at the Kernel's pin (OpenSSH, LibreSSL, `unbound`, `smtpd`, `nvi`,
+`mandoc`, ncurses, LLVM all live in that tree): one shared clone, one fetch. Moving an
+import to a newer version is a `upstream:` commit that bumps the pin and lists the CVEs it
+closes, as the kernel bumps its LZ pin.
 
 ## Rules
 
-- Written from scratch under the definition; OpenBSD's code is read for behaviour, never
-  copied or translated (the user's decision of 2026-10-23).
+- A written program is written from scratch under its definition; OpenBSD's code is read
+  for behaviour, never copied or translated. An imported one is never edited in place:
+  patches only, and a patch needs a reason.
 - Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc` and
-  `libexec/rtld`, each site with a `// SAFETY:` proof.
-- A new dependency needs the user's OK and a row in the allowlist (to be written with the
-  first program).
+  `libexec/rtld`, each site with a `// SAFETY:` proof. Miri on their host tests.
+- A new crate dependency needs the user's OK and a row in the allowlist (to be written with
+  the first program). Fuzzing: property tests on stable (`cargo-fuzz` needs nightly).
+- Performance: a commit that moves a benchmark more than 10 % carries `Bench:` lines and a
+  reason, or stops (the kernel's decision 43).
+- Security: three layers. What the program forbids itself (pledge, unveil, privileges,
+  verified by running its tests on EmiBSD, where a violation kills the process); the CVE
+  history of the reference or upstream (a table in DEFINITION, a test per entry in
+  `tests/cve/`); and our dependencies (`cargo audit`, `cargo deny` in `just check`, pending).
 - The manual's source is mdoc(7), the format of the system; `mandoc -T markdown` and
   `-T html` render it for the site. EXAMPLES is not optional.
 - Every file starts with the author's ISC block (`LICENSE`).
@@ -291,17 +398,35 @@ creates the skeleton; the people and agents who work on the program fill it, in 
 """
 
 PROGRAM_JUST = """# Shared recipes for every program and library; each one's justfile imports this file.
-# The program's name is its directory's name.
+# The program's name is its directory's name; the class is the first word of STATUS.
 
 name := file_name(justfile_directory())
+root := justfile_directory() / "../../.."
 
-# Build the package (once src/Cargo.toml exists).
+# Build: a written program through cargo; an imported one through build/ after fetch.
 build:
-    cargo build --manifest-path src/Cargo.toml
+    #!/bin/sh
+    set -e
+    case "$(cat STATUS)" in
+      imported*) python3 -I "{{root}}/tools/upstream.py" check . && sh build/build.sh ;;
+      *) cargo build --manifest-path src/Cargo.toml ;;
+    esac
 
-# Unit and integration tests.
+# Fetch and verify the upstream source (imported programs).
+fetch:
+    python3 -I "{{root}}/tools/upstream.py" fetch .
+
+# Unit and integration tests (tests/, with stress/, cve/ and golden/ inside).
 test:
     cargo test --manifest-path src/Cargo.toml
+
+# The stress tests alone, on four CPUs.
+stress:
+    EMIBSD_NCPU=4 cargo test --manifest-path src/Cargo.toml --test 'stress*'
+
+# Host benchmarks against OpenBSD's program on the same input.
+bench:
+    cargo bench --manifest-path src/Cargo.toml
 
 # Format check and clippy with warnings denied.
 lint:
@@ -320,15 +445,25 @@ status:
 ROOT_JUST = """# EmiBSD Userland: the recipes over the whole monorepo. Each program has its own justfile
 # importing tools/program.just; these run across all of them.
 
-# Progress: how many programs sit at each STATUS.
+trees := "bin sbin usr libexec lib compiler"
+
+# Progress: how many programs sit at each STATUS (written: planned..shipped; imported: imported..).
 status:
-    @find bin sbin usr libexec lib -name STATUS | xargs cat | sort | uniq -c | sort -rn
+    @find {{trees}} -name STATUS | xargs cat | sort | uniq -c | sort -rn
 
-# Every program at a given status: `just at implemented`.
+# Every program at a given status: `just at implemented`, `just at imported`.
 at s:
-    @find bin sbin usr libexec lib -name STATUS | while read f; do [ "$(cat "$f")" = "{{s}}" ] && dirname "$f"; done | sort
+    @find {{trees}} -name STATUS | while read f; do [ "$(cat "$f")" = "{{s}}" ] && dirname "$f"; done | sort
 
-# Regenerate the READMEs and the missing skeletons from the map (needs Kernel's reference tree).
+# Fetch and verify every upstream named by an UPSTREAM.toml (shared clones under upstream/).
+fetch:
+    python3 -I tools/upstream.py fetch
+
+# Check every fetched upstream against its pin.
+fetch-check:
+    python3 -I tools/upstream.py check
+
+# Regenerate the READMEs and the skeletons still at planned/imported (needs Kernel's reference tree).
 layout src="../Kernel/reference/openbsd-src":
     python3 -I tools/layout.py {{src}} .
 
@@ -352,11 +487,192 @@ authors = ["Emilio Navarrete Lineros <enavarre@outlook.com>"]
 """
 
 TOOLCHAIN = """# Stable, pinned, the same channel as Kernel. Bumping is its own commit.
-# No targets yet: the OpenBSD targets are tier 3 (README, Open).
+# No targets yet: the OpenBSD targets are tier 3; compiler/rust builds their std (README).
 [toolchain]
 channel = "1.98.1"
 profile = "minimal"
 components = ["rustfmt", "clippy", "rust-src"]
+"""
+
+GITIGNORE = """# Fetched upstream sources (tools/upstream.py), read-only, never committed.
+upstream/
+# Build output.
+target/
+"""
+
+SETTINGS = """{
+  "permissions": {
+    "allow": [
+      "Bash(just:*)",
+      "Bash(cargo:*)"
+    ],
+    "deny": [
+      "Edit(upstream/**)",
+      "Write(upstream/**)",
+      "Edit(**/upstream/**)",
+      "Write(**/upstream/**)"
+    ]
+  }
+}
+"""
+
+UPSTREAM_PY = r'''#!/usr/bin/env python3
+"""Fetch, verify and pin the upstream sources of the imported programs (docs/PROGRAM.md).
+
+usage: upstream.py fetch [<program dir>...]     fetch what the UPSTREAM.toml files name
+       upstream.py check [<program dir>...]     every fetched upstream matches its pin
+
+Git upstreams are cloned sparse, blob-less, into upstream/<mirror name>/ at the repository
+root, one clone per mirror shared by every program that names it (EmiBSD/OpenBSD-src holds
+most of them), checked out at the pinned commit (or the commit a pinned tag resolves to).
+Tarball upstreams are downloaded into upstream/<name>/, their SHA-256 verified before
+extraction. Everything fetched is made read-only; upstream/<key>/.pin records the hash.
+Stdlib only.
+"""
+import hashlib
+import os
+import stat
+import subprocess
+import sys
+import tomllib
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+UPSTREAM = ROOT / "upstream"
+
+
+def tomls(args):
+    dirs = [Path(a).resolve() for a in args] or [p.parent for p in ROOT.rglob("UPSTREAM.toml")
+                                                   if "upstream" not in p.parts and "target" not in p.parts]
+    for d in dirs:
+        f = d / "UPSTREAM.toml"
+        if f.exists():
+            with open(f, "rb") as fh:
+                yield d, tomllib.load(fh)["upstream"]
+
+
+def key_of(up):
+    return up["repo"].rstrip("/").rsplit("/", 1)[-1] if up["kind"] == "git" else up["name"]
+
+
+def git(cwd, *args):
+    return subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def readonly(path: Path):
+    for root, dirs, files in os.walk(path):
+        for n in dirs + files:
+            p = Path(root) / n
+            if not p.is_symlink():
+                p.chmod(p.stat().st_mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
+
+
+def fetch_git(key, ups):
+    dest = UPSTREAM / key
+    repo = ups[0]["repo"]
+    commits = {u.get("commit") or u.get("tag") for u in ups}
+    if len(commits) != 1:
+        raise SystemExit(f"upstream: {key}: programs disagree on the pin: {sorted(commits)}")
+    want = commits.pop()
+    if not want:
+        raise SystemExit(f"upstream: {key}: no commit or tag pinned")
+    paths = sorted({p for u in ups for p in u.get("path", [])})
+    if not dest.exists():
+        UPSTREAM.mkdir(exist_ok=True)
+        subprocess.run(["git", "clone", "--no-checkout", "--filter=blob:none", repo, str(dest)], check=True)
+        if paths:
+            git(dest, "sparse-checkout", "set", "--no-cone", *paths)
+    else:
+        for p in paths:
+            readonly_off(dest / ".git")
+        if paths:
+            git(dest, "sparse-checkout", "set", "--no-cone", *paths)
+    readonly_off(dest)
+    git(dest, "fetch", "--filter=blob:none", "origin", want)
+    git(dest, "checkout", "--detach", "FETCH_HEAD" if not all(c in "0123456789abcdef" for c in want) else want)
+    head = git(dest, "rev-parse", "HEAD")
+    (dest / ".pin").write_text(head + "\n")
+    readonly(dest)
+    print(f"upstream: {key}: {head[:12]} ({len(paths)} paths) pinned")
+
+
+def readonly_off(path: Path):
+    for root, dirs, files in os.walk(path):
+        for n in dirs + files:
+            p = Path(root) / n
+            if not p.is_symlink():
+                p.chmod(p.stat().st_mode | stat.S_IWUSR)
+    path.chmod(path.stat().st_mode | stat.S_IWUSR)
+
+
+def fetch_tarball(key, up):
+    dest = UPSTREAM / key
+    if dest.exists():
+        readonly_off(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    url = up.get("mirror") or up["url"]
+    archive = dest / url.rsplit("/", 1)[-1]
+    if not archive.exists():
+        print(f"upstream: {key}: downloading {url}")
+        urllib.request.urlretrieve(url, archive)
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    if digest != up["sha256"]:
+        archive.unlink()
+        raise SystemExit(f"upstream: {key}: SHA-256 mismatch: {digest} != {up['sha256']}")
+    if "signature" in up:
+        print(f"upstream: {key}: signature check ({up['signature'].get('kind')}) not implemented yet: verify by hand")
+    subprocess.run(["tar", "-xf", str(archive), "-C", str(dest)], check=True)
+    (dest / ".pin").write_text(digest + "\n")
+    readonly(dest)
+    print(f"upstream: {key}: {digest[:12]} pinned")
+
+
+def cmd_fetch(args):
+    groups = {}
+    for d, up in tomls(args):
+        groups.setdefault(key_of(up), []).append(up)
+    for key, ups in groups.items():
+        if ups[0]["kind"] == "git":
+            fetch_git(key, ups)
+        else:
+            fetch_tarball(key, ups[0])
+
+
+def cmd_check(args):
+    bad = 0
+    for d, up in tomls(args):
+        key = key_of(up)
+        pin = UPSTREAM / key / ".pin"
+        if not pin.exists():
+            print(f"upstream: {d.relative_to(ROOT)}: {key} not fetched (just fetch)")
+            bad += 1
+            continue
+        have = pin.read_text().strip()
+        want = up.get("commit") or up.get("sha256") or ""
+        if want and have != want and not want.startswith(have[:len(want)]):
+            # a tag pins by name: accept whatever it resolved to (recorded in .pin)
+            if up.get("commit") or up.get("sha256"):
+                print(f"upstream: {d.relative_to(ROOT)}: {key} at {have[:12]}, pinned {want[:12]}")
+                bad += 1
+    if bad:
+        raise SystemExit(bad)
+    print("upstream: every fetched upstream matches its pin")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2 or sys.argv[1] not in ("fetch", "check"):
+        print(__doc__)
+        sys.exit(2)
+    (cmd_fetch if sys.argv[1] == "fetch" else cmd_check)(sys.argv[2:])
+'''
+
+BUILD_SH = """#!/bin/sh
+# The build glue of an imported program: copy the pinned source to target/, apply patches/,
+# build there. To be written with the first build; never touches upstream/.
+set -e
+echo "build/build.sh: not written yet" >&2
+exit 1
 """
 
 DEFINITION = """# {name}
@@ -403,8 +719,63 @@ What the rest of the base system expects of this program: who calls it (rc, othe
 programs, the installer), with which flags, which output they parse, which exit codes they
 branch on. Nothing here changes without checking every caller.
 
+## Performance budget
+
+The measure that matters for this program and its floor: never slower than OpenBSD's
+{name} on the same machine and input (`bench/`, `just bench`).
+
+## Security history
+
+The CVEs and errata of OpenBSD's {name} (and of what it derives from), each with its class
+and what makes it impossible here (a type, a check, the language) or the test in
+`tests/cve/` that proves it.
+
+| CVE | Class | Here |
+|---|---|---|
+
 ## Open questions
-"""
+{notes}"""
+
+DEFINITION_IMPORTED = """# {name} (imported)
+
+STATUS: see `STATUS`. Compiled from its upstream at the pin of `UPSTREAM.toml`, never
+rewritten (the user's decision of 2026-10-23). OpenBSD's `{origin}`; manual {name}({section}).
+
+## What it gives us
+
+## What we build of it
+
+The targets, libraries and tools taken from the source; what is left out and why.
+
+## Constraints
+
+Which libc, libtls and other libraries of this repository it must link; static or dynamic;
+privileges.
+
+## Compatibility
+
+Who in the base system depends on it and how (flags, output, exit codes, configuration
+paths). Our patches, if any, never change what callers see.
+
+## Configuration we ship
+
+The defaults installed under /etc, and how they differ from upstream's.
+
+## Performance budget
+
+As OpenBSD builds it, on the same machine and input; a build flag that changes it is a
+decision in DESIGN.
+
+## Security history
+
+Tracked against the upstream (`UPSTREAM.toml` `[security] cpe`): open advisories at the pin,
+what the pin bump that closes them is, and `tests/cve/` for what we patched ourselves.
+
+| CVE | Upstream fix | Here |
+|---|---|---|
+
+## Open questions
+{notes}"""
 
 DESIGN = """# {name}: design
 
@@ -414,6 +785,17 @@ DESIGN = """# {name}: design
 flowchart LR
     A[input] --> B[{name}] --> C[output]
 ```
+
+## Concurrency
+
+The model (single-threaded, a process per privilege or connection as OpenBSD's daemons do,
+a thread pool, an event loop); what is shared and how; whether and how it uses more than one
+core. What serves many has stress tests in `tests/stress/` on four CPUs.
+
+## Threat model
+
+Which inputs are hostile (the network, a user's file, an argument from root), what an
+attacker gains from each failure, and what bounds it.
 
 ## Security
 
@@ -431,6 +813,32 @@ Numbered, each with its reason and what was rejected.
 ## Dependencies
 
 Crates used, each with why; the allowlist governs.
+"""
+
+DESIGN_IMPORTED = """# {name}: integration
+
+## How it is built
+
+The source at the pin, copied to `target/`, `patches/` applied, built by `build/build.sh`
+against this repository's libc and libraries. Flags that differ from OpenBSD's build, with
+the reason.
+
+## Patches
+
+One line per patch of `patches/`: what it changes and why it could not stay upstream.
+
+## Concurrency
+
+As upstream has it; nothing added.
+
+## Threat model and security
+
+What the upstream restricts (pledge, unveil, privilege separation) and the proof we kept it:
+the tests that run it under our kernel.
+
+## Dependencies
+
+The libraries of this repository it links, and any other upstream it needs.
 """
 
 DELIVERY = """# {name}: delivery
@@ -463,11 +871,49 @@ MAN = """.\\" {name}({section}): written from scratch; OpenBSD's {name}({section
 .Sh HISTORY
 """
 
+MAN_IMPORTED = """.\\" {name}({section}) is imported: the manual is the upstream's, rendered from upstream/ at build time.
+.\\" A change to it is a patch in patches/. This file only says where it comes from.
+"""
+
+
+def upstream_toml(name: str, spec: dict) -> str:
+    def arr(v):
+        return "[" + ", ".join(f'"{x}"' for x in v) + "]"
+    lines = ["# The pin of an imported program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.",
+             "[upstream]",
+             f'name    = "{spec["name"]}"',
+             f'kind    = "{spec["kind"]}"',
+             f'repo    = "{spec["repo"]}"           # the organisation\'s mirror, always',
+             f'origin  = "{spec["origin"]}"          # what the mirror is fed from',
+             f'path    = {arr(spec.get("path", []))}']
+    if spec.get("commit"):
+        lines.append(f'commit  = "{spec["commit"]}"')
+    if spec.get("tag"):
+        lines.append(f'tag     = "{spec["tag"]}"                 # resolved to a commit at fetch, recorded in upstream/.pin')
+    lines += [f'version = "{spec.get("version", "")}"                 # the human version; to fill from the source when empty',
+              f'license = {arr(spec.get("license", []))}   # the families; the texts stay in the source',
+              "",
+              "[security]",
+              f'cpe     = "{spec.get("cpe", "")}"            # NVD product, for tools/cve.py',
+              "",
+              "[patches]",
+              "series  = []                              # patches/NNNN-*.patch, in order; each with its reason"]
+    if spec.get("note"):
+        lines += ["", "# " + spec["note"]]
+    return "\n".join(lines) + "\n"
+
 
 def listing(d: str) -> set:
     return {n for n in os.listdir(SRC / d)
             if not n.lower().startswith("makefile") and n != "CVS"
             and not n.endswith(".inc") and not n.endswith(".mk")}
+
+
+def pin() -> str:
+    for line in PIN_FILE.read_text().splitlines():
+        if line.startswith("Commit:"):
+            return line.split(":", 1)[1].strip()
+    raise SystemExit(f"{PIN_FILE}: no Commit: line")
 
 
 def man_section(top: str, src_dir: str, name: str) -> str:
@@ -492,32 +938,94 @@ def man_section(top: str, src_dir: str, name: str) -> str:
     return min(commands) if commands else (min(candidates) if candidates else default)
 
 
-def write_if_missing(path: Path, text: str) -> bool:
-    if path.exists():
-        return False
+def notes_for(name: str) -> str:
+    out = []
+    if name in PERL:
+        out.append("- In OpenBSD this program is Perl, and Perl is not in this tree (Artistic or GPL, dual): "
+                   "the user decides between importing Perl under the Artistic licence and writing this in Rust.")
+    if name in SHELL:
+        out.append("- In OpenBSD this is a shell script: here Rust, or a script for our ksh; decided at `defined`.")
+    if name in ON_DISK:
+        out.append("- Writes or repairs an on-disk format: a bug corrupts a file system. The differential tests "
+                   "against OpenBSD's program compare the resulting image bit for bit; a condition of `implemented`.")
+    return ("\n" + "\n".join(out) + "\n") if out else "\n"
+
+
+def regenerable(d: Path) -> bool:
+    s = d / "STATUS"
+    return not s.exists() or s.read_text().strip() in ("planned", "imported")
+
+
+def put(path: Path, text: str, force: bool) -> int:
+    if path.exists() and not force:
+        return 0
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
-    return True
+    return 1
 
 
-def skeleton(top: str, leaf: str, name: str, src_dir: str) -> int:
+def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     d = OUT / top / leaf / name
+    force = regenerable(d)
     section = man_section(top, src_dir, name)
     origin = f"{src_dir}/{name}"
     rel = os.path.relpath(OUT / "tools" / "program.just", d)
+    imported = name in IMPORTED
     n = 0
-    n += write_if_missing(d / "STATUS", "planned\n")
-    n += write_if_missing(d / "DEFINITION.md", DEFINITION.format(name=name, origin=origin, section=section))
-    n += write_if_missing(d / "DESIGN.md", DESIGN.format(name=name, section=section))
-    n += write_if_missing(d / "DELIVERY.md", DELIVERY.format(name=name, section=section))
-    n += write_if_missing(d / "justfile", f"import '{rel}'\n")
-    n += write_if_missing(d / "man" / f"{name}.{section}", MAN.format(name=name, NAME=name.upper(), section=section))
-    for sub in ("schemas", "src", "tests"):
-        n += write_if_missing(d / sub / ".gitkeep", "")
+    n += put(d / "STATUS", ("imported\n" if imported else "planned\n"), force)
+    n += put(d / "justfile", f"import '{rel}'\n", force)
+    n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section=section), force)
+    for sub in ("schemas", "src", "tests", "bench") if not imported else ("tests",):
+        n += put(d / sub / ".gitkeep", "", False)
+    n += put(d / "tests" / "cve" / ".gitkeep", "", False)
+    if imported:
+        n += put(d / "DEFINITION.md", DEFINITION_IMPORTED.format(name=name, origin=origin, section=section, notes=notes_for(name)), force)
+        n += put(d / "DESIGN.md", DESIGN_IMPORTED.format(name=name), force)
+        n += put(d / "UPSTREAM.toml", upstream_toml(name, dict(
+            name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN, path=[origin],
+            commit=the_pin, version="", license=[], cpe=IMPORTED[name])), force)
+        n += put(d / "patches" / ".gitkeep", "", False)
+        n += put(d / "build" / "build.sh", BUILD_SH, force)
+        n += put(d / "man" / "README.md", MAN_IMPORTED.format(name=name, section=section), force)
+        for stale in (d / "schemas", d / "src", d / "bench", d / "man" / f"{name}.{section}"):
+            if stale.is_file():
+                stale.unlink()
+            elif stale.is_dir() and not any(p.name != ".gitkeep" for p in stale.iterdir()):
+                for p in stale.iterdir():
+                    p.unlink()
+                stale.rmdir()
+    else:
+        n += put(d / "DEFINITION.md", DEFINITION.format(name=name, origin=origin, section=section, notes=notes_for(name)), force)
+        n += put(d / "DESIGN.md", DESIGN.format(name=name, section=section), force)
+        n += put(d / "man" / f"{name}.{section}", MAN.format(name=name, NAME=name.upper(), section=section), force)
+        n += put(d / "tests" / "stress" / ".gitkeep", "", False)
+        n += put(d / "tests" / "golden" / ".gitkeep", "", False)
+    return n
+
+
+def compiler_skeleton(name: str, the_pin: str) -> int:
+    d = OUT / "compiler" / name
+    force = regenerable(d)
+    spec = dict(COMPILERS[name])
+    if spec.get("commit") == "@PIN@":
+        spec["commit"] = the_pin
+    rel = os.path.relpath(OUT / "tools" / "program.just", d)
+    n = 0
+    n += put(d / "STATUS", "imported\n", force)
+    n += put(d / "justfile", f"import '{rel}'\n", force)
+    n += put(d / "UPSTREAM.toml", upstream_toml(name, spec), force)
+    n += put(d / "DEFINITION.md", DEFINITION_IMPORTED.format(name=name, origin=", ".join(spec["path"]) or spec["origin"], section="1", notes="\n- " + spec["note"] + "\n"), force)
+    n += put(d / "DESIGN.md", DESIGN_IMPORTED.format(name=name), force)
+    n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section="1"), force)
+    n += put(d / "build" / "build.sh", BUILD_SH, force)
+    n += put(d / "patches" / ".gitkeep", "", False)
+    n += put(d / "tests" / ".gitkeep", "", False)
+    n += put(d / "man" / "README.md", MAN_IMPORTED.format(name=name, section="1"), force)
     return n
 
 
 def main() -> int:
+    the_pin = pin()
     sources = {d: listing(d) for d in set(SOURCE_DIR.values())}
     seen, dup, unknown, misplaced = {}, [], [], []
     covered = {d: set() for d in sources}
@@ -526,10 +1034,14 @@ def main() -> int:
         for leaf, _, progs in leaves:
             for p in progs:
                 where = f"{top}/{leaf}"
-                key = p if "/" in p else f"{src}/{p}"
+                key = p if ("/" in p or ":" in p) else f"{src}/{p}"
                 if key in seen:
                     dup.append((p, seen[key], where))
                 seen[key] = where
+                if ":" in p:
+                    if p.split(":", 1)[1] not in COMPILERS:
+                        unknown.append(p)
+                    continue
                 if "/" in p:
                     if not (SRC / p.replace("<arch>", "amd64")).exists():
                         unknown.append(p)
@@ -543,14 +1055,16 @@ def main() -> int:
                 else:
                     covered[src].add(p)
     missing = {d: sorted(sources[d] - covered[d]) for d in sources if sources[d] - covered[d]}
-    if dup or unknown or misplaced or missing:
+    unknown_imports = sorted(n for n in IMPORTED if not any(n in s for s in sources.values()))
+    if dup or unknown or misplaced or missing or unknown_imports:
         print("duplicates:", dup)
         print("unknown:", unknown)
         print("misplaced (name not in that tree in OpenBSD):", misplaced)
         print("missing:", missing)
+        print("IMPORTED names that are no program:", unknown_imports)
         return 1
 
-    tree, created, programs = [], 0, 0
+    tree, created, programs, imported = [], 0, 0, 0
     for top, purpose, leaves in LAYOUT:
         tree.append(f"{top}/")
         (OUT / top).mkdir(parents=True, exist_ok=True)
@@ -565,31 +1079,45 @@ def main() -> int:
             lines = [f"# {top}/{leaf}", "", what, "",
                      "Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):", ""]
             for p in progs:
+                if ":" in p:
+                    name = p.split(":", 1)[1]
+                    lines.append(f"- [`{name}`](../{name}/) (imported: {', '.join(COMPILERS[name]['path']) or COMPILERS[name]['origin']})")
+                    created += compiler_skeleton(name, the_pin)
+                    programs += 1
+                    imported += 1
+                    continue
                 origin = p if "/" in p or src is None else f"{src}/{p}"
                 name = origin.rsplit("/", 1)[-1]
                 if src is not None:
-                    lines.append(f"- [`{name}`]({name}/) ({origin})")
-                    created += skeleton(top, leaf, name, src)
+                    tag = " (imported)" if name in IMPORTED else ""
+                    lines.append(f"- [`{name}`]({name}/) ({origin}){tag}")
+                    created += skeleton(top, leaf, name, src, the_pin)
                     programs += 1
+                    imported += name in IMPORTED
                 else:
                     lines.append(f"- `{name}` ({origin})")
-            if src is not None:
+            if src is not None or top == "compiler":
                 lines += ["", "Each entry is a program directory laid out as `docs/PROGRAM.md` says."]
             else:
                 lines += ["", "Nothing written yet."]
+            if top == "compiler":
+                continue   # the compiler tree's leaves are the programs themselves
             (d / "README.md").write_text("\n".join(lines) + "\n")
-        top_md += ["", "Each entry is a group; each group's README lists its programs." if src else "Nothing written yet."]
+        top_md += ["", "Each entry is a group; each group's README lists its programs." if (src or top == "compiler") else "Nothing written yet."]
         (OUT / top / "README.md").write_text("\n".join(top_md) + "\n")
     (OUT / "README.md").write_text(TOPLEVEL_README.format(tree="\n".join(tree) + "\n"))
     (OUT / "docs").mkdir(exist_ok=True)
     (OUT / "docs" / "PROGRAM.md").write_text(PROGRAM_DOC)
     (OUT / "tools" / "program.just").write_text(PROGRAM_JUST)
-    write_if_missing(OUT / "justfile", ROOT_JUST)
-    write_if_missing(OUT / "Cargo.toml", ROOT_CARGO)
-    write_if_missing(OUT / "rust-toolchain.toml", TOOLCHAIN)
+    (OUT / "tools" / "upstream.py").write_text(UPSTREAM_PY)
+    (OUT / "justfile").write_text(ROOT_JUST)
+    put(OUT / "Cargo.toml", ROOT_CARGO, False)
+    put(OUT / "rust-toolchain.toml", TOOLCHAIN, False)
+    put(OUT / ".gitignore", GITIGNORE, False)
+    put(OUT / ".claude" / "settings.json", SETTINGS, False)
     total = sum(len(progs) for _, _, leaves in LAYOUT for _, _, progs in leaves)
     print(f"ok: {len(LAYOUT)} trees, {sum(len(l) for _, _, l in LAYOUT)} leaves, {total} entries, "
-          f"{programs} program skeletons ({created} files created this run);",
+          f"{programs} programs ({imported} imported, {programs - imported} written; {created} files written this run);",
           {d: len(s) for d, s in sorted(sources.items())})
     return 0
 

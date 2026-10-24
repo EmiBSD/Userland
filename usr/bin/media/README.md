@@ -4,12 +4,12 @@ Audio, MIDI, radio and CD.
 
 Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
-- [`aucat`](aucat/) (usr.bin/aucat)
+- [`aucat`](aucat/) (usr.bin/aucat) (imported)
 - [`audioctl`](audioctl/) (usr.bin/audioctl)
 - [`mixerctl`](mixerctl/) (usr.bin/mixerctl)
 - [`midicat`](midicat/) (usr.bin/midicat)
 - [`sndioctl`](sndioctl/) (usr.bin/sndioctl)
-- [`sndiod`](sndiod/) (usr.bin/sndiod)
+- [`sndiod`](sndiod/) (usr.bin/sndiod) (imported)
 - [`radioctl`](radioctl/) (usr.bin/radioctl)
 - [`cdio`](cdio/) (usr.bin/cdio)
 

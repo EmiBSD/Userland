@@ -8,7 +8,7 @@ Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 - [`route`](route/) (sbin/route)
 - [`ping`](ping/) (sbin/ping)
 - [`pfctl`](pfctl/) (sbin/pfctl)
-- [`pflogd`](pflogd/) (sbin/pflogd)
+- [`pflogd`](pflogd/) (sbin/pflogd) (imported)
 - [`dhcpleased`](dhcpleased/) (sbin/dhcpleased)
 - [`dhcp6leased`](dhcp6leased/) (sbin/dhcp6leased)
 - [`slaacd`](slaacd/) (sbin/slaacd)

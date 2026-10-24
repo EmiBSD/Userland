@@ -7,21 +7,33 @@ is where the system that replaces it is written.
 
 ## Rules (the user's decisions of 2026-10-23)
 
-- **Written from scratch, under a definition.** Nothing here is a port or a translation of
-  OpenBSD's programs. Each program is specified first (what it does, its inputs, outputs,
-  exit codes, what the rest of the system expects of it), then designed, then written.
-  OpenBSD's program and its manual are the reference for behaviour, read, not copied.
-- **Rust.** Everything written here is Rust; C only where the ABI demands it, assembly only
-  in the syscall stubs of libc. `#![forbid(unsafe_code)]` in every program; `unsafe` only in
-  `lib/libc` and `libexec/rtld`, each site with a written proof, as the kernel's `hal`.
-- **LLVM, nothing GPL.** The toolchain is clang and lld (`compiler/`).
+- **Two classes of program** (`docs/PROGRAM.md`). *Written*: from scratch, under a
+  definition, in Rust; nothing is a port or a translation of OpenBSD's program, which is read
+  as the reference for behaviour. *Imported*: cryptography, the security and network
+  protocols with a living upstream and a CVE history, and the legacy giants (`ssh`, LibreSSL,
+  `unbound`, `smtpd`, `vi`, `tmux`, `mandoc`, ncurses, the compilers, ...) are compiled from
+  their upstream at the pin of their `UPSTREAM.toml`, never rewritten; our patches are a
+  numbered series, ideally empty. `just status` counts both.
+- **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
+  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `lib/libc` and
+  `libexec/rtld`, each site with a written proof, as the kernel's `hal`.
+- **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
+  patches and build glue; `compiler/rust` is rust-lang/rust at the pinned stable tag, built
+  against that LLVM, so the system builds itself (OpenBSD's `comp` set) and the OpenBSD
+  targets, tier 3 in Rust, get their `std` from a stable release's source, not from nightly.
+- **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
+  so an upstream that moves or disappears does not take the build with it. A tarball upstream
+  gets a repository where each release is one commit. Fetched sources live under `upstream/`,
+  gitignored and read-only; a build applies `patches/` to a copy under `target/`, never to
+  `upstream/`. `tools/upstream.py` fetches, verifies (commit, SHA-256, signature) and pins.
 - **`just`.** Every program carries a `justfile` that imports `tools/program.just`; the root
-  `justfile` runs over all of them. `cargo` builds; `just` is the recipes. Not make: the
-  build is Cargo's, and BSD make is itself one of the programs to write
-  (`usr/bin/development/make`).
-- **One contract per program**: `docs/PROGRAM.md`. Every program directory holds `STATUS`,
-  `DEFINITION.md`, `DESIGN.md`, `DELIVERY.md`, `schemas/`, `src/`, `tests/`, `man/` and a
-  `justfile`; `just status` counts the STATUS files.
+  `justfile` runs over all of them. `cargo` builds; `just` is the recipes. Not make: the build
+  is Cargo's, and BSD make is itself one of the programs (imported).
+- **Performance, concurrency and security are part of every definition**: a performance
+  budget measured against OpenBSD's program on the same input (`bench/`, `just bench`); the
+  concurrency model, and stress tests on four CPUs for what serves many; a threat model, the
+  `pledge`/`unveil` profile, and the program's CVE history (`tests/cve/`), each entry made
+  impossible by a type, a check or the language, or tested.
 
 ## Layout
 
@@ -100,7 +112,8 @@ lib/
 include/
 └── headers              The exported headers.
 compiler/
-└── llvm                 The pinned LLVM release and how it is built for the system.
+├── llvm                 LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.
+└── rust                 rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the OpenBSD targets is how the tier 3 problem is solved without nightly.
 etc/
 ├── rc                   The start-up scripts and the terminal table.
 └── base                 Users, groups, services, device nodes, skeletons, examples and the default configuration files.
@@ -112,17 +125,17 @@ distrib/
 ```
 
 The lists are the map to what OpenBSD's base system provides at the pin of
-`Kernel/reference/PINNED.md`, not a porting list: the programs written here are EmiBSD's own.
+`Kernel/reference/PINNED.md`, not a porting list: the written programs are EmiBSD's own.
 
 ## Open
 
-- **The Rust target.** `aarch64-unknown-openbsd` and `x86_64-unknown-openbsd` are tier 3 in
-  Rust: no prebuilt `std`, and building it needs nightly's `-Zbuild-std`, which the no-nightly
-  rule excludes. The options (a custom target over our own libc with `no_std` + `alloc`,
-  `std` built once by a pinned script, rustc bootstrapped on EmiBSD itself) are decided with
-  the first slice, `lib/libc`.
+- **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are Perl in OpenBSD, and
+  Perl (Artistic or GPL, dual) is not in the tree: import it under the Artistic licence, or
+  write those five in Rust. The user's decision; their skeletons say so.
 - `include/` and `share/` are generated from the libraries and the programs; `etc/` shrinks
   to what the system needs before any program exists; `regress/` holds the integration
   battery. Pending the user's word.
+- `cargo audit`, `cargo deny` and `tools/cve.py` (NVD by CPE) need tools installed outside
+  the repository and network access: pending the user's OK.
 
 New code is ISC (`LICENSE`).

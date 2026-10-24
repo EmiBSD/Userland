@@ -1,9 +1,10 @@
 # compiler
 
-The LLVM toolchain: clang, lld, libc++ and compiler-rt, Apache-2.0 with the LLVM exception, nothing GPL (the user's decision of 2026-10-23). OpenBSD keeps it under the historical name gnu/; the sources are a pinned dependency, not written here: this tree holds the pin and the build glue, as OpenBSD's gnu/usr.bin/clang does.
+The toolchains, both imported: LLVM as OpenBSD ships it (clang, lld, libc++, compiler-rt; Apache-2.0 with the LLVM exception, nothing GPL) and Rust (rustc, cargo, std; Apache-2.0 and MIT), so the system builds itself, as OpenBSD's comp set does. The user's decisions of 2026-10-23.
 
 | Directory | What |
 |---|---|
-| `llvm/` | The pinned LLVM release and how it is built for the system. |
+| `llvm/` | LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree. |
+| `rust/` | rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the OpenBSD targets is how the tier 3 problem is solved without nightly. |
 
-Nothing written yet.
+Each entry is a group; each group's README lists its programs.
