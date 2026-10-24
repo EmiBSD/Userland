@@ -1,15 +1,273 @@
+.\" Copyright (c) 2026 Emilio Navarrete Lineros <enavarre@outlook.com>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
 .\" ls(1): written from scratch; OpenBSD's ls(1) is the behavioural reference.
 .Dd $Mdocdate$
 .Dt LS 1
 .Os
 .Sh NAME
 .Nm ls
-.Nd
+.Nd list directory contents
 .Sh SYNOPSIS
-.Nm
+.Nm ls
+.Op Fl 1AacdFghiklnpqRrSstuHL
+.Op Fl o Ar format
+.Op Fl -sort-by Ns = Ns Ar .field
+.Op Fl -type Ns = Ns Ar kind , Ns Ar ...
+.Op Fl -since Ns = Ns Ar duration
+.Op Fl -max-depth Ns = Ns Ar n
+.Op Fl -no-headers
+.Op Fl -flags
+.Op Ar
 .Sh DESCRIPTION
+.Nm
+lists files.
+Each operand that is not a directory is listed as itself;
+each directory operand is listed as its entries, and with
+.Fl R
+so is every directory below it.
+With no operand the current directory is listed.
+.Pp
+Every file is a record with the fields of
+.Pa schemas/entry.v1.json :
+name, path, type, mode, owner, group, size, blocks, flags, inode,
+the three times, the device numbers and a symbolic link's target.
+The records are filtered, sorted and printed in the form
+.Fl o
+selects.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl o Ar format , Fl -output Ar format
+What to print:
+.Cm name
+(one name per line to a pipe, columns on a terminal),
+.Cm table
+(the long listing),
+.Cm wide
+(every field),
+.Cm json ,
+.Cm yaml ,
+or
+.Cm custom-columns= Ns Ar HEADER:.field , Ns Ar ...
+.It Fl 1
+One name per line.
+The default when the output is not a terminal.
+.It Fl C
+Names in columns down the page.
+The default on a terminal.
+.It Fl l
+The long table: mode, links, owner, group, size, time and name.
+.It Fl g
+The long table without the owner.
+.Fl l
+given anywhere overrides it.
+.It Fl n
+The long table with numeric owner and group.
+.It Fl -sort-by Ns = Ns Ar .field
+Sort by any field of the record, for example
+.Ar .size ,
+.Ar .mtime ,
+.Ar .owner .
+.It Fl t
+Sort by time, newest first.
+.It Fl S
+Sort by size, largest first.
+.It Fl r , Fl -reverse
+Reverse the order.
+.It Fl c
+Use the time of last status change for sorting and in the table.
+.It Fl u
+Use the time of last access.
+.It Fl a , Fl -all
+Include entries whose names begin with a dot, and
+.Sq \&.
+and
+.Sq \&.. .
+.It Fl A , Fl -almost-all
+Include dot entries except
+.Sq \&.
+and
+.Sq \&.. .
+Always on for the superuser.
+.It Fl d , Fl -directory
+List a directory itself, not its contents.
+Turns
+.Fl R
+off.
+.It Fl R , Fl -recursive
+List subdirectories recursively.
+.It Fl -max-depth Ns = Ns Ar n
+With
+.Fl R ,
+descend at most
+.Ar n
+levels.
+.It Fl -type Ns = Ns Ar kind , Ns Ar ...
+Keep only entries of these kinds:
+.Cm file , dir , symlink , fifo , socket , char , block .
+.It Fl -since Ns = Ns Ar duration
+Keep only entries modified within the last
+.Ar duration :
+.Cm 7d , 12h , 30m , 45s .
+.It Fl F
+Append
+.Sq /
+to directories,
+.Sq *
+to executables,
+.Sq @
+to symbolic links,
+.Sq =
+to sockets and
+.Sq |
+to FIFOs.
+.It Fl p
+Append
+.Sq /
+to directories.
+.It Fl i
+Print the inode number.
+.It Fl s
+Print the blocks used, in units of
+.Ev BLOCKSIZE .
+.It Fl k
+Blocks of 1024 bytes for
+.Fl s
+and the total line.
+.It Fl h , Fl -human
+Sizes with K, M, G suffixes.
+The default on a terminal.
+.It Fl -flags
+Show the file flags of
+.Xr chflags 1
+in the table.
+.It Fl H
+Follow symbolic links named on the command line.
+The default unless
+.Fl d , F
+or
+.Fl l
+is given.
+.It Fl L
+Follow every symbolic link.
+.It Fl q
+Print
+.Sq \&?
+for non-printable characters.
+The default on a terminal.
+.It Fl -no-headers
+No header line on tables.
+.It Fl -help
+Describe the program.
+With
+.Fl o Cm json
+or
+.Fl o Cm yaml
+the description is a record,
+.Pa lib/crates/cli/schemas/command-help.v1.json ,
+for a tool or an agent that drives
+.Nm .
+.El
+.Pp
+Of a group of mutually exclusive options the last one given wins,
+except that
+.Fl l
+always overrides
+.Fl g .
+.Ss Output to a pipe and to a terminal
+When standard output is not a terminal the output of
+.Fl l , 1 , i
+and
+.Fl s
+is POSIX's, byte for byte what OpenBSD's
+.Nm
+prints, so scripts that parse it keep working:
+a
+.Li total
+line before each directory, then mode, links, owner, group, size
+.Pq or Li major, minor ,
+the date as
+.Li Mon dd HH:MM
+within six months and
+.Li Mon dd  YYYY
+beyond or in the future, and the name,
+followed by
+.Li \-\*(Gt target
+for a symbolic link.
+.Pp
+On a terminal the defaults are different:
+names in columns, a header line on tables, dates as
+.Li YYYY-MM-DD HH:MM ,
+human-readable sizes, and
+.Sq \&?
+in place of any character that could drive the terminal.
+.Sh ENVIRONMENT
+.Bl -tag -width BLOCKSIZE
+.It Ev BLOCKSIZE
+The unit of
+.Fl s
+and of the total line; 512 bytes unless set or
+.Fl k .
+.It Ev COLUMNS
+The width used for columns; otherwise the terminal's, otherwise 80.
+.It Ev TZ
+The time zone dates are shown in.
+.El
 .Sh EXIT STATUS
+.Nm
+exits 0 when every operand and entry was listed, and 1 when an operand or an entry
+could not be listed, the options were wrong, or standard output failed.
 .Sh EXAMPLES
+The classic long listing:
+.Pp
+.Dl $ ls -l
+.Pp
+Sizes without parsing columns:
+.Pp
+.Dl $ ls -o json | jq '.items[].size'
+.Pp
+What changed this week, oldest first:
+.Pp
+.Dl $ ls --sort-by=.mtime -r --since=7d
+.Pp
+Three fields of your choice:
+.Pp
+.Dl $ ls -o custom-columns=NAME:.name,OWNER:.owner,MODE:.perm
+.Pp
+The program's own description, as a record:
+.Pp
+.Dl $ ls --help -o json
 .Sh SEE ALSO
+.Xr chflags 1 ,
+.Xr chmod 1 ,
+.Xr stat 2 ,
+.Xr symlink 7
 .Sh STANDARDS
+To a pipe,
+.Nm
+prints what
+.St -p1003.1-2008
+specifies for the flags it shares with it.
+.Fl o
+is the output selector of this system's common grammar and differs from the X/Open
+.Fl o .
+.Fl -sort-by , -type , -since , -max-depth , -no-headers , -flags
+and the terminal defaults are extensions.
 .Sh HISTORY
+This
+.Nm
+was written for EmiBSD in 2026, from a definition, with OpenBSD's
+.Nm
+as the reference for behaviour.

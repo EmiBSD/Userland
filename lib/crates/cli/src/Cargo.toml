@@ -1,0 +1,12 @@
+[package]
+name = "cli"
+version = "0.1.0"
+description = "The common grammar and renderers of the written programs: option parsing, records with a schema, -o name|table|wide|json|yaml|custom-columns, --sort-by, columns and tables."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]

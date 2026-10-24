@@ -15,8 +15,15 @@ is where the system that replaces it is written.
   their upstream at the pin of their `UPSTREAM.toml`, never rewritten; our patches are a
   numbered series, ideally empty. `just status` counts both.
 - **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
-  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `lib/libc` and
-  `libexec/rtld`, each site with a written proof, as the kernel's `hal`.
+  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `lib/libc`,
+  `libexec/rtld` and `lib/crates/sys` (the thin FFI the programs share), each site with a
+  written proof, as the kernel's `hal`.
+- **One grammar for every program** (`docs/PROGRAM.md`, "The common grammar"; the user's
+  decision of 2026-10-24, taken with `ls`): a program is a query over records with a schema;
+  `-o name|table|wide|json|yaml|custom-columns=...` picks the renderer, `--sort-by=.field`
+  the order, `--no-headers` the table's header. POSIX's short flags keep their meaning, and
+  to a pipe the output is POSIX's byte for byte; to a terminal the defaults are modern (ISO
+  dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
 - **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
   patches and build glue; `compiler/rust` is rust-lang/rust at the pinned stable tag, built
   against that LLVM, so the system builds itself (OpenBSD's `comp` set) and the OpenBSD
@@ -113,7 +120,8 @@ lib/
 ├── libc                 The C library, its start-up files, threads and libm.
 ├── crypto               Cryptography and authentication.
 ├── terminal             Terminal handling and line editing.
-└── system               The rest.
+├── system               The rest.
+└── crates               The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar and renderers (-o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no OpenBSD counterpart.
 compiler/
 ├── llvm                 LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.
 └── rust                 rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the OpenBSD targets is how the tier 3 problem is solved without nightly.

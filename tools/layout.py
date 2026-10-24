@@ -197,6 +197,8 @@ LAYOUT = [
         ("system", "The rest.", [
             "libutil", "libkvm", "libevent", "libz", "libexpat", "libelf", "libfuse", "libpcap", "libusbhid",
             "libossaudio", "libsndio", "libagentx", "librpcsvc", "libarch", "libl", "liby"]),
+        ("crates", "The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar and renderers (-o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no OpenBSD counterpart.", [
+            "crate:cli", "crate:sys"]),
     ]),
     ("compiler", "The toolchains, both imported: LLVM as OpenBSD ships it (clang, lld, libc++, compiler-rt; Apache-2.0 with the LLVM exception, nothing GPL) and Rust (rustc, cargo, std; Apache-2.0 and MIT), so the system builds itself, as OpenBSD's comp set does. The user's decisions of 2026-10-23.", [
         ("llvm", "LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.", ["compiler:llvm"]),
@@ -267,8 +269,15 @@ is where the system that replaces it is written.
   their upstream at the pin of their `UPSTREAM.toml`, never rewritten; our patches are a
   numbered series, ideally empty. `just status` counts both.
 - **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
-  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `lib/libc` and
-  `libexec/rtld`, each site with a written proof, as the kernel's `hal`.
+  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `lib/libc`,
+  `libexec/rtld` and `lib/crates/sys` (the thin FFI the programs share), each site with a
+  written proof, as the kernel's `hal`.
+- **One grammar for every program** (`docs/PROGRAM.md`, "The common grammar"; the user's
+  decision of 2026-10-24, taken with `ls`): a program is a query over records with a schema;
+  `-o name|table|wide|json|yaml|custom-columns=...` picks the renderer, `--sort-by=.field`
+  the order, `--no-headers` the table's header. POSIX's short flags keep their meaning, and
+  to a pipe the output is POSIX's byte for byte; to a terminal the defaults are modern (ISO
+  dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
 - **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
   patches and build glue; `compiler/rust` is rust-lang/rust at the pinned stable tag, built
   against that LLVM, so the system builds itself (OpenBSD's `comp` set) and the OpenBSD
@@ -395,8 +404,32 @@ closes, as the kernel bumps its LZ pin.
 - A written program is written from scratch under its definition; OpenBSD's code is read
   for behaviour, never copied or translated. An imported one is never edited in place:
   patches only, and a patch needs a reason.
-- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc` and
-  `libexec/rtld`, each site with a `// SAFETY:` proof. Miri on their host tests.
+- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc`,
+  `libexec/rtld` and `lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
+  host tests.
+
+## The common grammar (the user's decision of 2026-10-24, taken with `ls`)
+
+A written program is a query over records with a schema (`schemas/<record>.v1.json`); the
+human and machine outputs are renderers of the same record, from the shared crate
+`lib/crates/cli`, so the user learns the grammar once:
+
+| | |
+|---|---|
+| `-o name` | one identifier per line (to a pipe) or in columns (to a terminal) |
+| `-o table` | the classic columns; `--no-headers` drops the header line |
+| `-o wide` | every field of the record as a table |
+| `-o json`, `-o yaml` | the record, versioned (`apiVersion`) |
+| `-o custom-columns=NAME:.name,SIZE:.size` | the fields you ask for |
+| `--sort-by=.field`, `-r` | any field of the record, reversed |
+| `--type=`, `--since=`, `--max-depth=` | filters, where the record has them |
+
+POSIX's short flags keep their meaning (`ls -la` is `ls -la`). To a pipe, the output of a
+POSIX-defined form (`ls -l`, `-1`, `-i`, `-s`) is POSIX's byte for byte, so the world's
+scripts keep working. To a terminal, the defaults are modern: ISO 8601 dates, human sizes,
+a header on tables. BSD extensions nobody remembers are not carried (`ls -m`, `-x`, `-T`);
+what they did is `-o` or `--sort-by`. `-o` itself is the one conscious break with POSIX
+XSI: it is the output selector, as in kubectl.
 - A new crate dependency needs the user's OK and a row in the allowlist (to be written with
   the first program). Fuzzing: property tests on stable (`cargo-fuzz` needs nightly).
 - Performance: a commit that moves a benchmark more than 10 % carries `Bench:` lines and a
@@ -1060,6 +1093,24 @@ def put(path: Path, text: str, force: bool) -> int:
     return 1
 
 
+def crate_skeleton(leaf: str, name: str) -> int:
+    """A shared Rust crate: a written program with no OpenBSD counterpart, section 3."""
+    d = OUT / "lib" / leaf / name
+    force = regenerable(d)
+    rel = os.path.relpath(OUT / "tools" / "program.just", d)
+    n = 0
+    n += put(d / "STATUS", "planned\n", force)
+    n += put(d / "justfile", f"import '{rel}'\n", force)
+    n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section="3"), force)
+    n += put(d / "DEFINITION.md", DEFINITION.format(name=name, origin="none: EmiBSD's own crate", section="3",
+                                                     notes="\n- No OpenBSD counterpart: the reference is its first user's needs.\n"), force)
+    n += put(d / "DESIGN.md", DESIGN.format(name=name, section="3"), force)
+    n += put(d / "man" / f"{name}.3", MAN.format(name=name, NAME=name.upper(), section="3"), force)
+    for sub in ("schemas", "src", "tests", "bench"):
+        n += put(d / sub / ".gitkeep", "", False)
+    return n
+
+
 def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     d = OUT / top / leaf / name
     force = regenerable(d)
@@ -1135,7 +1186,10 @@ def main() -> int:
                     dup.append((p, seen[key], where))
                 seen[key] = where
                 if ":" in p:
-                    if p.split(":", 1)[1] not in COMPILERS:
+                    kind, _, nm = p.partition(":")
+                    if kind == "compiler" and nm not in COMPILERS:
+                        unknown.append(p)
+                    elif kind not in ("compiler", "crate"):
                         unknown.append(p)
                     continue
                 if "/" in p:
@@ -1175,6 +1229,12 @@ def main() -> int:
             lines = [f"# {top}/{leaf}", "", what, "",
                      "Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):", ""]
             for p in progs:
+                if p.startswith("crate:"):
+                    name = p.split(":", 1)[1]
+                    lines.append(f"- [`{name}`]({name}/) (EmiBSD's own crate)")
+                    created += crate_skeleton(leaf, name)
+                    programs += 1
+                    continue
                 if ":" in p:
                     name = p.split(":", 1)[1]
                     lines.append(f"- [`{name}`](../{name}/) (imported: {', '.join(COMPILERS[name]['path']) or COMPILERS[name]['origin']})")

@@ -1,0 +1,12 @@
+[package]
+name = "sys"
+version = "0.1.0"
+description = "The thin FFI over libc the written programs share: passwd and group lookups, the terminal, local time, pledge. The one crate beside libc and rtld allowed unsafe."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]

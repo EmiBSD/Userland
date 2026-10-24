@@ -2,7 +2,11 @@
 # reaches `implemented`; until then the skeletons are not built.
 [workspace]
 resolver = "3"
-members = []
+members = [
+    "lib/crates/sys/src",
+    "lib/crates/cli/src",
+    "bin/files/ls/src",
+]
 
 [workspace.package]
 edition = "2024"

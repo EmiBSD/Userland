@@ -1,0 +1,19 @@
+[package]
+name = "ls"
+version = "0.1.0"
+description = "List directory contents: a query over file records, rendered as names, the classic table, wide, JSON, YAML or custom columns."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "ls"
+path = "main.rs"
+
+[[test]]
+name = "cli"
+path = "../tests/cli.rs"
+
+[dependencies]
+cli = { path = "../../../../lib/crates/cli/src" }
+sys = { path = "../../../../lib/crates/sys/src" }

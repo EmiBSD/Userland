@@ -70,8 +70,32 @@ closes, as the kernel bumps its LZ pin.
 - A written program is written from scratch under its definition; OpenBSD's code is read
   for behaviour, never copied or translated. An imported one is never edited in place:
   patches only, and a patch needs a reason.
-- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc` and
-  `libexec/rtld`, each site with a `// SAFETY:` proof. Miri on their host tests.
+- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc`,
+  `libexec/rtld` and `lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
+  host tests.
+
+## The common grammar (the user's decision of 2026-10-24, taken with `ls`)
+
+A written program is a query over records with a schema (`schemas/<record>.v1.json`); the
+human and machine outputs are renderers of the same record, from the shared crate
+`lib/crates/cli`, so the user learns the grammar once:
+
+| | |
+|---|---|
+| `-o name` | one identifier per line (to a pipe) or in columns (to a terminal) |
+| `-o table` | the classic columns; `--no-headers` drops the header line |
+| `-o wide` | every field of the record as a table |
+| `-o json`, `-o yaml` | the record, versioned (`apiVersion`) |
+| `-o custom-columns=NAME:.name,SIZE:.size` | the fields you ask for |
+| `--sort-by=.field`, `-r` | any field of the record, reversed |
+| `--type=`, `--since=`, `--max-depth=` | filters, where the record has them |
+
+POSIX's short flags keep their meaning (`ls -la` is `ls -la`). To a pipe, the output of a
+POSIX-defined form (`ls -l`, `-1`, `-i`, `-s`) is POSIX's byte for byte, so the world's
+scripts keep working. To a terminal, the defaults are modern: ISO 8601 dates, human sizes,
+a header on tables. BSD extensions nobody remembers are not carried (`ls -m`, `-x`, `-T`);
+what they did is `-o` or `--sort-by`. `-o` itself is the one conscious break with POSIX
+XSI: it is the output selector, as in kubectl.
 - A new crate dependency needs the user's OK and a row in the allowlist (to be written with
   the first program). Fuzzing: property tests on stable (`cargo-fuzz` needs nightly).
 - Performance: a commit that moves a benchmark more than 10 % carries `Bench:` lines and a
