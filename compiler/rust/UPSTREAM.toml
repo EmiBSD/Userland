@@ -5,8 +5,9 @@ kind    = "git"
 repo    = "https://github.com/EmiBSD/rust"           # the organisation's mirror, always
 origin  = "https://github.com/rust-lang/rust"          # what the mirror is fed from
 path    = []
+commit  = "18ed059b1465ce6195154de3250a668f1dd3b1fa"
 tag     = "1.98.1"                 # resolved to a commit at fetch, recorded in upstream/.pin
-version = "1.98.1"                 # the human version; to fill from the source when empty
+version = "1.98.1+emibsd.1"                 # the human version; to fill from the source when empty
 license = ["Apache-2.0", "MIT"]   # the families; the texts stay in the source
 
 [security]
@@ -15,4 +16,16 @@ cpe     = "rust-lang:rust"            # NVD product, for tools/cve.py
 [patches]
 series  = []                              # patches/NNNN-*.patch, in order; each with its reason
 
-# The mirror EmiBSD/rust is to be created (with its submodules: cargo lives inside). Built with x.py against compiler/llvm (llvm-config), host first, then target aarch64-unknown-openbsd: the std for the tier 3 target is built as part of the toolchain, from a stable release's source, without nightly. Needs a stage0 rustc: rustup's on the host; on EmiBSD, the previous build.
+[[submodules]]                            # fetched from the mirror at this commit, in place of the upstream's URL
+path    = "src/llvm-project"
+repo    = "https://github.com/EmiBSD/llvm-project"
+origin  = "https://github.com/rust-lang/llvm-project"
+commit  = "52ed14fcd56afc30f9cccd8ca8ce237c2eef7e04"
+
+[[submodules]]                            # fetched from the mirror at this commit, in place of the upstream's URL
+path    = "src/tools/cargo"
+repo    = "https://github.com/EmiBSD/cargo"
+origin  = "https://github.com/rust-lang/cargo"
+commit  = "797e8a9bca276c1c9f9f738d2a20f484fa4eea9d"
+
+# Two LLVMs, decided 2026-10-23: rustc 1.98.1 requires LLVM >= 21 (src/bootstrap, check_llvm_version) and OpenBSD's gnu/llvm at the pin is 18.1.8, so rustc builds the LLVM of its src/llvm-project submodule (rust-lang's fork, mirrored) and compiler/llvm stays OpenBSD's for clang, lld and the C. Built with x.py, host first, then target aarch64-unknown-openbsd: the std for the tier 3 target is built as part of the toolchain, from a stable release's source, without nightly. Needs a stage0 rustc: rustup's on the host; on EmiBSD, the previous build. Other submodules (books, stdarch, backtrace) stay on rust-lang/ until one is needed.

@@ -239,8 +239,15 @@ COMPILERS = {
                  commit="@PIN@", version="", license=["Apache-2.0 WITH LLVM-exception"], cpe="llvm:llvm",
                  note="OpenBSD's patches (RETGUARD, -fret-clean, the fixed X18, BTI and PAC defaults) and its BSD-make build glue come with the tree; Kernel's `just comp` builds it this way today. The longest build of the repository: built once, cached."),
     "rust": dict(name="Rust", kind="git", repo="https://github.com/EmiBSD/rust", origin="https://github.com/rust-lang/rust",
-                 path=[], commit="", tag="1.98.1", version="1.98.1", license=["Apache-2.0", "MIT"], cpe="rust-lang:rust",
-                 note="The mirror EmiBSD/rust is to be created (with its submodules: cargo lives inside). Built with x.py against compiler/llvm (llvm-config), host first, then target aarch64-unknown-openbsd: the std for the tier 3 target is built as part of the toolchain, from a stable release's source, without nightly. Needs a stage0 rustc: rustup's on the host; on EmiBSD, the previous build."),
+                 path=[], commit="18ed059b1465ce6195154de3250a668f1dd3b1fa", tag="1.98.1", version="1.98.1+emibsd.1",
+                 license=["Apache-2.0", "MIT"], cpe="rust-lang:rust",
+                 submodules=[
+                     dict(path="src/llvm-project", repo="https://github.com/EmiBSD/llvm-project",
+                          origin="https://github.com/rust-lang/llvm-project", commit="52ed14fcd56afc30f9cccd8ca8ce237c2eef7e04"),
+                     dict(path="src/tools/cargo", repo="https://github.com/EmiBSD/cargo",
+                          origin="https://github.com/rust-lang/cargo", commit="797e8a9bca276c1c9f9f738d2a20f484fa4eea9d"),
+                 ],
+                 note="Two LLVMs, decided 2026-10-23: rustc 1.98.1 requires LLVM >= 21 (src/bootstrap, check_llvm_version) and OpenBSD's gnu/llvm at the pin is 18.1.8, so rustc builds the LLVM of its src/llvm-project submodule (rust-lang's fork, mirrored) and compiler/llvm stays OpenBSD's for clang, lld and the C. Built with x.py, host first, then target aarch64-unknown-openbsd: the std for the tier 3 target is built as part of the toolchain, from a stable release's source, without nightly. Needs a stage0 rustc: rustup's on the host; on EmiBSD, the previous build. Other submodules (books, stdarch, backtrace) stay on rust-lang/ until one is needed."),
 }
 
 TOPLEVEL_README = """# EmiBSD Userland
@@ -619,7 +626,10 @@ def tomls(args):
         f = d / "UPSTREAM.toml"
         if f.exists():
             with open(f, "rb") as fh:
-                yield d, tomllib.load(fh)["upstream"]
+                doc = tomllib.load(fh)
+            up = dict(doc["upstream"])
+            up["submodules"] = doc.get("submodules", [])
+            yield d, up
 
 
 def key_of(up):
@@ -662,6 +672,15 @@ def fetch_git(key, ups):
     git(dest, "fetch", "--filter=blob:none", "origin", want)
     git(dest, "checkout", "--detach", "FETCH_HEAD" if not all(c in "0123456789abcdef" for c in want) else want)
     head = git(dest, "rev-parse", "HEAD")
+    for sm in [s for u in ups for s in u.get("submodules", [])]:
+        sub = dest / sm["path"]
+        if not (sub / ".git").exists():
+            if sub.exists():
+                sub.rmdir()   # the empty directory git leaves for an uninitialised submodule
+            subprocess.run(["git", "clone", "--no-checkout", "--filter=blob:none", sm["repo"], str(sub)], check=True)
+        git(sub, "fetch", "--filter=blob:none", "origin", sm["commit"])
+        git(sub, "checkout", "--detach", sm["commit"])
+        print(f"upstream: {key}: submodule {sm['path']} at {sm['commit'][:12]} from {sm['repo']}")
     (dest / ".pin").write_text(head + "\n")
     readonly(dest)
     print(f"upstream: {key}: {head[:12]} ({len(paths)} paths) pinned")
@@ -968,6 +987,13 @@ def upstream_toml(name: str, spec: dict) -> str:
               "",
               "[patches]",
               "series  = []                              # patches/NNNN-*.patch, in order; each with its reason"]
+    for sm in spec.get("submodules", []):
+        lines += ["",
+                  "[[submodules]]                            # fetched from the mirror at this commit, in place of the upstream's URL",
+                  f'path    = "{sm["path"]}"',
+                  f'repo    = "{sm["repo"]}"',
+                  f'origin  = "{sm["origin"]}"',
+                  f'commit  = "{sm["commit"]}"']
     if spec.get("note"):
         lines += ["", "# " + spec["note"]]
     return "\n".join(lines) + "\n"

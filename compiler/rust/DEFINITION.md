@@ -38,4 +38,4 @@ what the pin bump that closes them is, and `tests/cve/` for what we patched ours
 
 ## Open questions
 
-- The mirror EmiBSD/rust is to be created (with its submodules: cargo lives inside). Built with x.py against compiler/llvm (llvm-config), host first, then target aarch64-unknown-openbsd: the std for the tier 3 target is built as part of the toolchain, from a stable release's source, without nightly. Needs a stage0 rustc: rustup's on the host; on EmiBSD, the previous build.
+- Two LLVMs, decided 2026-10-23: rustc 1.98.1 requires LLVM >= 21 (src/bootstrap, check_llvm_version) and OpenBSD's gnu/llvm at the pin is 18.1.8, so rustc builds the LLVM of its src/llvm-project submodule (rust-lang's fork, mirrored) and compiler/llvm stays OpenBSD's for clang, lld and the C. Built with x.py, host first, then target aarch64-unknown-openbsd: the std for the tier 3 target is built as part of the toolchain, from a stable release's source, without nightly. Needs a stage0 rustc: rustup's on the host; on EmiBSD, the previous build. Other submodules (books, stdarch, backtrace) stay on rust-lang/ until one is needed.

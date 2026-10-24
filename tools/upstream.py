@@ -31,7 +31,10 @@ def tomls(args):
         f = d / "UPSTREAM.toml"
         if f.exists():
             with open(f, "rb") as fh:
-                yield d, tomllib.load(fh)["upstream"]
+                doc = tomllib.load(fh)
+            up = dict(doc["upstream"])
+            up["submodules"] = doc.get("submodules", [])
+            yield d, up
 
 
 def key_of(up):
@@ -74,6 +77,15 @@ def fetch_git(key, ups):
     git(dest, "fetch", "--filter=blob:none", "origin", want)
     git(dest, "checkout", "--detach", "FETCH_HEAD" if not all(c in "0123456789abcdef" for c in want) else want)
     head = git(dest, "rev-parse", "HEAD")
+    for sm in [s for u in ups for s in u.get("submodules", [])]:
+        sub = dest / sm["path"]
+        if not (sub / ".git").exists():
+            if sub.exists():
+                sub.rmdir()   # the empty directory git leaves for an uninitialised submodule
+            subprocess.run(["git", "clone", "--no-checkout", "--filter=blob:none", sm["repo"], str(sub)], check=True)
+        git(sub, "fetch", "--filter=blob:none", "origin", sm["commit"])
+        git(sub, "checkout", "--detach", sm["commit"])
+        print(f"upstream: {key}: submodule {sm['path']} at {sm['commit'][:12]} from {sm['repo']}")
     (dest / ".pin").write_text(head + "\n")
     readonly(dest)
     print(f"upstream: {key}: {head[:12]} ({len(paths)} paths) pinned")
