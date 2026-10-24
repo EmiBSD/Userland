@@ -1,61 +1,74 @@
 # sys
 
-STATUS: see `STATUS`. Reference for behaviour: OpenBSD's `none: EmiBSD's own crate`, manual sys(3).
-Written from scratch under this definition; not a port (the user's decision of 2026-10-23).
+STATUS: see `STATUS`. No OpenBSD counterpart: it wraps the libc calls the written programs
+need and `std` lacks. Written from scratch with `ls` (2026-10-24) and extended with `cp`.
 
 ## What it does
 
+The thin FFI over libc the written programs share, and the one crate beside `lib/libc` and
+`libexec/rtld` where `unsafe` is allowed, every site with a `// SAFETY:` proof: the passwd
+and group databases (`user_name`, `group_name`, cached), the terminal's width
+(`terminal_columns`), local time (`local_time`), `pledge`, the caller's identity (`getuid`,
+`umask`), and the file-system calls `std` has no safe wrapper for (`mkfifo`, `mknod`,
+`set_flags_fd`, `set_flags_nofollow`, `set_times_nofollow`, `set_mode_nofollow`), plus
+`flags_to_string` for `chflags(1)`'s names.
+
 ## Scope
 
-What is in, what is out, and why.
+In: what a written program asks libc that `std` does not wrap. Out: anything `std` wraps
+(files, directories, metadata, `chown`, `set_times`, `set_permissions`, the environment),
+which is used directly; anything with a safe crate of its own in the repository.
 
 ## Constraints
 
-Root partition only (static) or not; privileges; what it may never do.
+Targets: OpenBSD and macOS (the development host); any other is a compile error, because
+the `#[repr(C)]` layouts (`passwd`, `group`, `winsize`, `tm`, `timespec`) and the constants
+(`TIOCGWINSZ`, `AT_FDCWD`, `AT_SYMLINK_NOFOLLOW`, `mode_t`'s width) are those two systems'.
+`#![deny(unsafe_op_in_unsafe_fn)]`; no `static mut`; the caches are thread-local.
 
 ## Inputs
 
-Arguments, standard input, environment variables, files it reads, configuration.
+The calls' arguments; `TZ` through `localtime_r`.
 
 ## Parameters
 
-| Flag | Argument | Meaning | Default |
-|---|---|---|---|
+The API, in `man/sys.3` and the doc comments. Every function returns `io::Result` or
+`Option`; none panics on a libc failure.
 
 ## Outputs
 
-Human output; `-o json` / `-o yaml` (`schemas/output.v1.json`); what goes to stderr.
+None of its own.
 
 ## Exit codes
 
-| Code | Meaning |
-|---|---|
-| 0 | success |
+None: a library.
 
 ## Signals and failure behaviour
 
-SIGHUP, SIGTERM, SIGINT; disk full, permission denied, interrupted.
+`pledge` on a host without it is a no-op, so the call sits in every program
+unconditionally; on OpenBSD a refusal is an error the program reports before doing anything.
 
 ## Compatibility
 
-What the rest of the base system expects of this program: who calls it (rc, other
-programs, the installer), with which flags, which output they parse, which exit codes they
-branch on. Nothing here changes without checking every caller.
+Every written program that needs libc. A change here is `Change:` on this crate; the
+struct layouts must match the kernel's ABI, which is OpenBSD's and does not move.
 
 ## Performance budget
 
-The measure that matters for this program and its floor: never slower than OpenBSD's
-sys on the same machine and input (`bench/`, `just bench`).
+`user_name`/`group_name` are cached per thread: an `ls -l` of a hundred thousand entries
+makes a handful of lookups. Not otherwise measured.
 
 ## Security history
 
-The CVEs and errata of OpenBSD's sys (and of what it derives from), each with its class
-and what makes it impossible here (a type, a check, the language) or the test in
-`tests/cve/` that proves it.
+No CVE: no upstream. The risk is the FFI itself; each `unsafe` block states the invariant
+and who upholds it, and the host tests exercise every call (Miri on them is pending).
 
 | CVE | Class | Here |
 |---|---|---|
+| none | a wrong struct layout reading past a buffer | the layouts are per target and refused elsewhere; `tests` read root and group 0 |
 
 ## Open questions
 
-- No OpenBSD counterpart: the reference is its first user's needs.
+- Miri over the host tests, as docs/PROGRAM.md asks.
+- `umask()` reads by setting and restoring: a program that creates files from another thread
+  at that instant could see the wrong mask; the programs call it first.

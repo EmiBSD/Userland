@@ -4,33 +4,44 @@
 
 ```mermaid
 flowchart LR
-    A[input] --> B[sys] --> C[output]
+    P[program<br/>forbid unsafe] --> S["sys: safe fn per call<br/>SAFETY proof inside"]
+    S --> F["ffi: extern C, repr(C) layouts<br/>per target: openbsd | macos"]
+    F --> L[libc]
 ```
+
+One file: the `ffi` module with the declarations and layouts, and one safe function per
+call above it. Nothing else.
 
 ## Concurrency
 
-The model (single-threaded, a process per privilege or connection as OpenBSD's daemons do,
-a thread pool, an event loop); what is shared and how; whether and how it uses more than one
-core. What serves many has stress tests in `tests/stress/` on four CPUs.
+The passwd and group caches are thread-local (`RefCell` in `thread_local!`), so no lock and
+no sharing. `umask()` touches process-wide state for an instant (see DEFINITION).
 
 ## Threat model
 
-Which inputs are hostile (the network, a user's file, an argument from root), what an
-attacker gains from each failure, and what bounds it.
+Hostile input is libc's answer: a struct of the wrong layout would be read as garbage.
+Bounds: the layouts are declared per target and any other target is refused at compile
+time; buffers are owned by the caller for the duration of the call; strings are copied out
+lossy, never kept as pointers.
 
 ## Security
 
-`pledge(2)` promises, `unveil(2)` paths, privilege separation, setuid. Never less than
-OpenBSD's sys(3) restricts.
+`unsafe` only here (and `lib/libc`, `libexec/rtld`), each block with its proof; `pledge` is
+offered, never relaxed.
 
 ## Data
 
-The schemas in `schemas/`; their versions; who consumes them.
+None.
 
 ## Decisions
 
-Numbered, each with its reason and what was rejected.
+1. **Not the `libc` crate.** Twenty declarations, two targets: writing them keeps the
+   dependency list empty and every layout in view. Revisited if the count passes a hundred.
+2. **Only what `std` lacks.** `chown`, `set_times`, `set_permissions`, `symlink`, metadata are
+   `std`'s and used directly by the programs; duplicating them here would spread `unsafe`.
+3. **Per-target constants, one function.** `set_flags_nofollow` is `lchflags` on macOS and
+   `chflagsat` on OpenBSD behind one signature; the programs never see the difference.
 
 ## Dependencies
 
-Crates used, each with why; the allowlist governs.
+`std` and libc (the system's).

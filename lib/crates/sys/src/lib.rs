@@ -18,7 +18,8 @@
 //! (docs/PROGRAM.md). Every `unsafe` block carries its proof. What the standard library
 //! already wraps (files, directories, metadata, the environment) is not duplicated here;
 //! only what it lacks: the passwd and group databases, the terminal's size, the local time
-//! zone, and `pledge(2)`.
+//! zone, `pledge(2)`, the caller's uid and umask, and the file-system calls `std` has no
+//! safe wrapper for (`mkfifo`, `mknod`, the file flags, times and mode of a symbolic link).
 //!
 //! The layouts below are those of OpenBSD and of macOS (where the programs are developed
 //! and tested before they run on EmiBSD); any other target is refused at compile time.
@@ -28,8 +29,10 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::io;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 
 #[cfg(not(any(target_os = "macos", target_os = "openbsd")))]
 compile_error!(
@@ -41,6 +44,30 @@ mod ffi {
 
     /// `time_t` on both targets (OpenBSD: 64 bits everywhere; macOS: `long`, 64 bits).
     pub type TimeT = i64;
+    /// `mode_t`: 32 bits on OpenBSD, 16 on macOS.
+    #[cfg(target_os = "openbsd")]
+    pub type ModeT = u32;
+    #[cfg(target_os = "macos")]
+    pub type ModeT = u16;
+    /// `dev_t`: 32 bits, signed, on both.
+    pub type DevT = i32;
+    /// `AT_FDCWD`: paths relative to the current directory.
+    #[cfg(target_os = "openbsd")]
+    pub const AT_FDCWD: c_int = -100;
+    #[cfg(target_os = "macos")]
+    pub const AT_FDCWD: c_int = -2;
+    /// `AT_SYMLINK_NOFOLLOW`: act on a symbolic link itself.
+    #[cfg(target_os = "openbsd")]
+    pub const AT_SYMLINK_NOFOLLOW: c_int = 0x02;
+    #[cfg(target_os = "macos")]
+    pub const AT_SYMLINK_NOFOLLOW: c_int = 0x20;
+
+    /// `struct timespec`, 64-bit seconds and nanoseconds on both targets.
+    #[repr(C)]
+    pub struct Timespec {
+        pub tv_sec: TimeT,
+        pub tv_nsec: c_long,
+    }
 
     /// `struct passwd`: the same ten fields in the same order on OpenBSD and macOS.
     #[repr(C)]
@@ -114,6 +141,22 @@ mod ffi {
         pub fn localtime_r(clock: *const TimeT, result: *mut Tm) -> *mut Tm;
         #[cfg(target_os = "openbsd")]
         pub fn pledge(promises: *const c_char, execpromises: *const c_char) -> c_int;
+        pub fn getuid() -> u32;
+        pub fn umask(mask: ModeT) -> ModeT;
+        pub fn mkfifo(path: *const c_char, mode: ModeT) -> c_int;
+        pub fn mknod(path: *const c_char, mode: ModeT, dev: DevT) -> c_int;
+        pub fn fchflags(fd: c_int, flags: u32) -> c_int;
+        #[cfg(target_os = "macos")]
+        pub fn lchflags(path: *const c_char, flags: u32) -> c_int;
+        #[cfg(target_os = "openbsd")]
+        pub fn chflagsat(fd: c_int, path: *const c_char, flags: u32, atflags: c_int) -> c_int;
+        pub fn utimensat(
+            fd: c_int,
+            path: *const c_char,
+            times: *const Timespec,
+            flags: c_int,
+        ) -> c_int;
+        pub fn fchmodat(fd: c_int, path: *const c_char, mode: ModeT, flags: c_int) -> c_int;
     }
 }
 
@@ -306,6 +349,117 @@ pub fn flags_to_string(flags: u32) -> String {
         .join(",")
 }
 
+fn c_path(path: &Path) -> io::Result<CString> {
+    CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "path contains a NUL byte"))
+}
+
+fn check(rc: std::ffi::c_int) -> io::Result<()> {
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
+/// The real user id of the process.
+pub fn getuid() -> u32 {
+    // SAFETY: getuid takes nothing, touches nothing and cannot fail.
+    unsafe { ffi::getuid() }
+}
+
+/// The process's file mode creation mask, read without changing it. The C library offers no
+/// read-only query, so the mask is set to zero and restored at once; a program that creates
+/// files from another thread at that instant could see the wrong mask, which is why the
+/// written programs call this before anything else.
+pub fn umask() -> u32 {
+    // SAFETY: umask only exchanges a process-wide integer; both calls are infallible.
+    let old = unsafe { ffi::umask(0) };
+    // SAFETY: as above; restores the mask the process had.
+    unsafe { ffi::umask(old) };
+    old as u32
+}
+
+/// `mkfifo(2)`: a named pipe at `path` with `mode`, which the umask then shapes.
+pub fn mkfifo(path: &Path, mode: u32) -> io::Result<()> {
+    let c = c_path(path)?;
+    // SAFETY: `c` is a valid NUL-terminated path alive for the call; the mode is a plain
+    // integer the kernel masks itself.
+    check(unsafe { ffi::mkfifo(c.as_ptr(), mode as ffi::ModeT) })
+}
+
+/// `mknod(2)`: a character or block device node at `path`, `mode` carrying the type bits
+/// and `dev` the device number as `stat` reported it. Needs root.
+pub fn mknod(path: &Path, mode: u32, dev: u64) -> io::Result<()> {
+    let c = c_path(path)?;
+    // SAFETY: `c` is a valid NUL-terminated path alive for the call; mode and dev are plain
+    // integers the kernel validates.
+    check(unsafe { ffi::mknod(c.as_ptr(), mode as ffi::ModeT, dev as ffi::DevT) })
+}
+
+/// `fchflags(2)`: the file flags of `chflags(1)` on an open file.
+pub fn set_flags_fd(fd: std::os::fd::RawFd, flags: u32) -> io::Result<()> {
+    // SAFETY: fd is an open descriptor the caller owns for the duration of the call; the
+    // flags are a plain integer.
+    check(unsafe { ffi::fchflags(fd, flags) })
+}
+
+/// The file flags of `path` itself, a symbolic link not followed (`lchflags(2)` on macOS,
+/// `chflagsat(2)` with `AT_SYMLINK_NOFOLLOW` on OpenBSD).
+pub fn set_flags_nofollow(path: &Path, flags: u32) -> io::Result<()> {
+    let c = c_path(path)?;
+    #[cfg(target_os = "macos")]
+    // SAFETY: `c` is a valid NUL-terminated path alive for the call.
+    let rc = unsafe { ffi::lchflags(c.as_ptr(), flags) };
+    #[cfg(target_os = "openbsd")]
+    // SAFETY: as above; AT_FDCWD resolves the path from the current directory.
+    let rc = unsafe { ffi::chflagsat(ffi::AT_FDCWD, c.as_ptr(), flags, ffi::AT_SYMLINK_NOFOLLOW) };
+    check(rc)
+}
+
+/// The access and modification times of `path` itself, a symbolic link not followed:
+/// `utimensat(2)` with `AT_SYMLINK_NOFOLLOW`. Each time is `(seconds, nanoseconds)`.
+pub fn set_times_nofollow(path: &Path, atime: (i64, u32), mtime: (i64, u32)) -> io::Result<()> {
+    let c = c_path(path)?;
+    let ts = [
+        ffi::Timespec {
+            tv_sec: atime.0,
+            tv_nsec: atime.1 as std::ffi::c_long,
+        },
+        ffi::Timespec {
+            tv_sec: mtime.0,
+            tv_nsec: mtime.1 as std::ffi::c_long,
+        },
+    ];
+    // SAFETY: `c` is a valid NUL-terminated path and `ts` two valid timespecs, both alive
+    // for the call; utimensat reads them and writes nothing.
+    check(unsafe {
+        ffi::utimensat(
+            ffi::AT_FDCWD,
+            c.as_ptr(),
+            ts.as_ptr(),
+            ffi::AT_SYMLINK_NOFOLLOW,
+        )
+    })
+}
+
+/// The mode of `path` itself, a symbolic link not followed: `fchmodat(2)` with
+/// `AT_SYMLINK_NOFOLLOW`. A file system that gives links no mode of their own answers
+/// `Unsupported`.
+pub fn set_mode_nofollow(path: &Path, mode: u32) -> io::Result<()> {
+    let c = c_path(path)?;
+    // SAFETY: `c` is a valid NUL-terminated path alive for the call; the mode is a plain
+    // integer the kernel masks to its permission bits.
+    check(unsafe {
+        ffi::fchmodat(
+            ffi::AT_FDCWD,
+            c.as_ptr(),
+            mode as ffi::ModeT,
+            ffi::AT_SYMLINK_NOFOLLOW,
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -353,5 +507,37 @@ mod tests {
     #[test]
     fn pledge_is_callable() {
         pledge("stdio rpath getpw").unwrap();
+    }
+
+    #[test]
+    fn uid_and_umask_read_back() {
+        let _ = getuid();
+        let m = umask();
+        assert!(m <= 0o777, "{m:o}");
+        assert_eq!(umask(), m, "reading the mask must not change it");
+    }
+
+    #[test]
+    fn a_fifo_and_a_link_get_times_flags_and_mode() {
+        let dir = std::env::temp_dir().join(format!("emibsd-sys-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let fifo = dir.join("fifo");
+        mkfifo(&fifo, 0o600).unwrap();
+        let meta = std::fs::metadata(&fifo).unwrap();
+        assert!(std::os::unix::fs::FileTypeExt::is_fifo(&meta.file_type()));
+        let link = dir.join("link");
+        std::os::unix::fs::symlink("fifo", &link).unwrap();
+        set_times_nofollow(&link, (1_000_000_000, 0), (1_000_000_000, 500)).unwrap();
+        let lm = std::fs::symlink_metadata(&link).unwrap();
+        assert_eq!(std::os::unix::fs::MetadataExt::mtime(&lm), 1_000_000_000);
+        set_flags_nofollow(&link, 0).unwrap();
+        match set_mode_nofollow(&link, 0o700) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::Unsupported => {}
+            Err(e) => panic!("{e}"),
+        }
+        assert!(mknod(&dir.join("node"), 0o020_600, 0).is_err() || getuid() == 0);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

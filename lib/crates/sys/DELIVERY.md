@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Install set | |
-| Install path | |
-| Linking | static / dynamic |
-| Owner and mode | |
-| MAKEDEV | none / the node |
-| Manual | man/sys.3 |
-| Default configuration | none / etc/ |
+| Install set | none: a Rust crate, linked into the programs that need libc at build time |
+| Install path | none |
+| Linking | static into each program (an rlib) |
+| Owner and mode | none |
+| MAKEDEV | none |
+| Manual | `man/sys.3` |
+| Default configuration | none |
