@@ -2,7 +2,7 @@
 
 The install sets and their lists.
 
-Covers, from OpenBSD's base system at the pin (origin directory in OpenBSD's `src`):
+Covers, from OpenBSD's base system at the pin (its path in OpenBSD's `src`):
 
 - `sets` (distrib/sets)
 - `notes` (distrib/notes)
