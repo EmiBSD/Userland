@@ -1,0 +1,46 @@
+# base-config/etc
+
+OpenBSD's etc/ apart from the rc scripts (init/rc).
+
+Covers, from OpenBSD's base system at the pin (origin directory in OpenBSD's `src`):
+
+- `master.passwd` (etc/master.passwd)
+- `group` (etc/group)
+- `shells` (etc/shells)
+- `services` (etc/services)
+- `protocols` (etc/protocols)
+- `rpc` (etc/rpc)
+- `MAKEDEV.mi` (etc/MAKEDEV.mi)
+- `MAKEDEV.common` (etc/MAKEDEV.common)
+- `MAKEDEV.sub` (etc/MAKEDEV.sub)
+- `MAKEDEV.man` (etc/MAKEDEV.man)
+- `MAKEDEV.mansub` (etc/MAKEDEV.mansub)
+- `mtree` (etc/mtree)
+- `moduli` (etc/moduli)
+- `skel` (etc/skel)
+- `examples` (etc/examples)
+- `mail` (etc/mail)
+- `motd` (etc/motd)
+- `ksh.kshrc` (etc/ksh.kshrc)
+- `locate.rc` (etc/locate.rc)
+- `newsyslog.conf` (etc/newsyslog.conf)
+- `syslog.conf` (etc/syslog.conf)
+- `pf.conf` (etc/pf.conf)
+- `pf.os` (etc/pf.os)
+- `ntpd.conf` (etc/ntpd.conf)
+- `nsd.conf` (etc/nsd.conf)
+- `unbound.conf` (etc/unbound.conf)
+- `ftpusers` (etc/ftpusers)
+- `fbtab.head` (etc/fbtab.head)
+- `fbtab.tail` (etc/fbtab.tail)
+- `signify` (etc/signify)
+- `rpki` (etc/rpki)
+- `minfree` (etc/minfree)
+- `root` (etc/root)
+- `crontab` (etc/crontab)
+- `mailer.conf` (etc/mailer.conf)
+- `ppp` (etc/ppp)
+- `amd` (etc/amd)
+- `etc.<arch>` (etc/etc.<arch>)
+
+Nothing written yet.

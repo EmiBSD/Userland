@@ -1,0 +1,48 @@
+# core-utilities/text
+
+Filters and transformers of text streams.
+
+Covers, from OpenBSD's base system at the pin (origin directory in OpenBSD's `src`):
+
+- `awk` (usr.bin/awk)
+- `sed` (usr.bin/sed)
+- `grep` (usr.bin/grep)
+- `diff` (usr.bin/diff)
+- `diff3` (usr.bin/diff3)
+- `sdiff` (usr.bin/sdiff)
+- `cmp` (usr.bin/cmp)
+- `comm` (usr.bin/comm)
+- `sort` (usr.bin/sort)
+- `uniq` (usr.bin/uniq)
+- `join` (usr.bin/join)
+- `cut` (usr.bin/cut)
+- `paste` (usr.bin/paste)
+- `tr` (usr.bin/tr)
+- `wc` (usr.bin/wc)
+- `head` (usr.bin/head)
+- `tail` (usr.bin/tail)
+- `fold` (usr.bin/fold)
+- `fmt` (usr.bin/fmt)
+- `pr` (usr.bin/pr)
+- `col` (usr.bin/col)
+- `colrm` (usr.bin/colrm)
+- `column` (usr.bin/column)
+- `expand` (usr.bin/expand)
+- `unexpand` (usr.bin/unexpand)
+- `nl` (usr.bin/nl)
+- `rev` (usr.bin/rev)
+- `rs` (usr.bin/rs)
+- `lam` (usr.bin/lam)
+- `csplit` (usr.bin/csplit)
+- `split` (usr.bin/split)
+- `look` (usr.bin/look)
+- `spell` (usr.bin/spell)
+- `ul` (usr.bin/ul)
+- `deroff` (usr.bin/deroff)
+- `vis` (usr.bin/vis)
+- `unvis` (usr.bin/unvis)
+- `uuencode` (usr.bin/uuencode)
+- `uudecode` (usr.bin/uudecode)
+- `hexdump` (usr.bin/hexdump)
+
+Nothing written yet.
