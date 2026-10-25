@@ -41,11 +41,7 @@ fn main() -> ExitCode {
     };
     let cfg = match options::Config::from_parsed(parsed) {
         Ok(c) => c,
-        Err(msg) => {
-            COMMAND.warn(msg);
-            eprintln!("{}", COMMAND.usage());
-            return ExitCode::from(exit::USAGE);
-        }
+        Err(msg) => return COMMAND.usage_error(msg),
     };
     // Before touching anything: only what this configuration will do.
     if let Err(e) = sys::pledge(&cfg.promises()) {
@@ -54,11 +50,7 @@ fn main() -> ExitCode {
     }
     let shape = match walk::shape(&cfg) {
         Ok(s) => s,
-        Err(walk::ShapeError::Usage(msg)) => {
-            COMMAND.warn(msg);
-            eprintln!("{}", COMMAND.usage());
-            return ExitCode::from(exit::USAGE);
-        }
+        Err(walk::ShapeError::Usage(msg)) => return COMMAND.usage_error(msg),
         Err(walk::ShapeError::Io(msg)) => {
             COMMAND.warn(msg);
             return ExitCode::from(exit::FAILURE);

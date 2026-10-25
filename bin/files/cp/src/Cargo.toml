@@ -1,6 +1,6 @@
 [package]
 name = "cp"
-version = "0.1.2"
+version = "0.1.3"
 description = "Copy files and directories: every copy is a record, rendered quietly, as source -> target lines, or as a table, JSON, YAML or custom columns."
 edition.workspace = true
 license.workspace = true

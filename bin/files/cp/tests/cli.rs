@@ -371,10 +371,13 @@ fn verbose_dry_run_and_the_records() {
     let (rc, out, err) = cp(&t.0, &["-o", "yaml", "a.txt", "src/sub"]);
     assert_eq!(rc, 0, "{err}");
     assert!(out.starts_with("apiVersion: emibsd.org/v1\nkind: CopyList\nitems:\n  - source: a.txt\n    target: src/sub/a.txt\n"), "{out}");
-    // a failure is a record too, and goes to stderr
+    // a failure is a record too; under -o json the diagnostic on stderr is a record as well
     let (rc, out, err) = cp(&t.0, &["-o", "json", "nope", "x"]);
     assert_eq!(rc, 1);
-    assert_eq!(err, "cp: nope: No such file or directory\n");
+    assert_eq!(
+        err,
+        "{\"apiVersion\":\"emibsd.org/v1\",\"kind\":\"Diagnostic\",\"program\":\"cp\",\"severity\":\"error\",\"code\":\"error\",\"message\":\"nope: No such file or directory\"}\n"
+    );
     assert!(
         out.contains("\"action\": \"failed\"")
             && out.contains("\"error\": \"nope: No such file or directory\""),
