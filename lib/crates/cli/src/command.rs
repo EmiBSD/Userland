@@ -306,6 +306,9 @@ pub struct Given {
     pub long: Option<&'static str>,
     /// Its value.
     pub value: Typed,
+    /// The value as the user spelled it (`7d` for a `Duration` of 604800), what
+    /// `--show-request` prints; `None` for a flag.
+    pub raw: Option<String>,
 }
 
 impl Given {
@@ -329,9 +332,45 @@ pub struct Parsed {
     pub operands: Vec<String>,
     /// `--help` was given.
     pub help: bool,
+    /// `--show-request` was given: print [`Parsed::request`] instead of running.
+    pub show_request: bool,
 }
 
 impl Parsed {
+    /// The command line as the document `--request` accepts: each option under its key in
+    /// the order given (an option given twice appears twice, so the last still wins), a
+    /// flag as `true`, a `List` as an array, an `Int` as a number, every other value as the
+    /// text the user spelled; then `operands`, when there are any.
+    pub fn request(&self) -> Value {
+        let mut doc: Vec<(String, Value)> = self
+            .given
+            .iter()
+            .map(|g| {
+                let v = match &g.value {
+                    Typed::Flag => Value::Bool(true),
+                    Typed::Int(n) => Value::Int(*n),
+                    Typed::List(items) => {
+                        Value::List(items.iter().map(|s| Value::Str(s.to_string())).collect())
+                    }
+                    other => Value::Str(
+                        g.raw
+                            .clone()
+                            .or_else(|| other.text().map(String::from))
+                            .unwrap_or_default(),
+                    ),
+                };
+                (g.key().to_string(), v)
+            })
+            .collect();
+        if !self.operands.is_empty() {
+            doc.push((
+                "operands".to_string(),
+                Value::List(self.operands.iter().cloned().map(Value::Str).collect()),
+            ));
+        }
+        Value::Map(doc)
+    }
+
     /// The last `-o` given, if any.
     pub fn output(&self) -> Option<Output> {
         self.given.iter().rev().find_map(|g| match &g.value {
@@ -390,6 +429,11 @@ const IMPLIED: &[OptSpec] = &[
         Some("request"),
         Kind::Str("FILE"),
         "the whole invocation as one JSON document, inline or from FILE",
+    ),
+    OptSpec::flag(
+        None,
+        Some("show-request"),
+        "print the command line as the document --request takes, instead of running",
     ),
     OptSpec::flag(None, Some("help"), HELP_DOC),
 ];
@@ -462,18 +506,27 @@ impl Command {
         }
         out.operands.extend(raw.operands);
         for o in opts {
-            if o.name == "help" {
-                out.help = true;
-                continue;
+            match o.name.as_str() {
+                "help" => {
+                    out.help = true;
+                    continue;
+                }
+                "show-request" => {
+                    out.show_request = true;
+                    continue;
+                }
+                _ => {}
             }
             let Some(spec) = self.find(&o.name) else {
                 continue; // `classify` refused every name `find` does not know
             };
+            let raw = o.value.clone();
             let value = convert(&spec.kind, o.value, &spec.dashed(&o.name))?;
             out.given.push(Given {
                 short: spec.short,
                 long: spec.long,
                 value,
+                raw,
             });
         }
         Ok(out)
@@ -563,8 +616,10 @@ impl Command {
 
     /// Parses the process's own arguments and handles what every program handles alike:
     /// `--help` prints the description (in the format `-o` named, if any) and the program
-    /// exits 0; a wrong command line gets `name: message` and the usage line on standard
-    /// error and the program exits 2. Returns the exit code to end with in those cases.
+    /// exits 0; `--show-request` prints the command line as a request document and the
+    /// program exits 0; a wrong command line gets `name: message` and the usage line on
+    /// standard error and the program exits 2. Returns the exit code to end with in those
+    /// cases.
     pub fn from_env(&self) -> Result<Parsed, ExitCode> {
         self.run(std::env::args().skip(1))
     }
@@ -574,6 +629,10 @@ impl Command {
         match self.parse(args) {
             Ok(p) if p.help => {
                 print!("{}", self.help(&p.output().unwrap_or(Output::Table)));
+                Err(ExitCode::SUCCESS)
+            }
+            Ok(p) if p.show_request => {
+                println!("{}", p.request().to_json(true));
                 Err(ExitCode::SUCCESS)
             }
             Ok(p) => Ok(p),
@@ -1171,7 +1230,7 @@ mod tests {
             Some(Value::List(l)) => l.clone(),
             _ => panic!("options"),
         };
-        assert_eq!(opts.len(), 11); // nine declared, then --request and --help
+        assert_eq!(opts.len(), 12); // nine declared, then --request, --show-request, --help
         assert_eq!(opts[3].get("type").unwrap().to_cell(), "int");
         assert_eq!(opts[0].get("origin").unwrap().to_cell(), "posix");
         assert_eq!(opts[1].get("origin").unwrap().to_cell(), "grammar");
@@ -1186,7 +1245,7 @@ mod tests {
             "grammar",
             "--sort-by"
         );
-        for (i, long) in [(9, "--request"), (10, "--help")] {
+        for (i, long) in [(9, "--request"), (10, "--show-request"), (11, "--help")] {
             assert_eq!(opts[i].get("long").unwrap().to_cell(), long);
             assert_eq!(
                 opts[i].get("origin").unwrap().to_cell(),
@@ -1199,7 +1258,7 @@ mod tests {
         assert_eq!(opts[1].get("exclusiveGroup").unwrap().to_cell(), "format");
         assert!(
             t.contains(
-                "  --sort-by .FIELD     the order\n  --request FILE       the whole invocation as one JSON document, inline or from\n                       FILE\n  --help               this description"
+                "  --sort-by .FIELD     the order\n  --request FILE       the whole invocation as one JSON document, inline or from\n                       FILE\n  --show-request       print the command line as the document --request takes,\n                       instead of running\n  --help               this description"
             ),
             "{t}"
         );
@@ -1501,5 +1560,221 @@ mod tests {
             X.run(words(&["--request={"])),
             Err(ExitCode::from(exit::USAGE))
         );
+    }
+
+    #[test]
+    fn show_request_prints_the_values_as_spelled() {
+        let p = X
+            .parse(words(&[
+                "-a1",
+                "--since=7d",
+                "--type=dir,file",
+                "--max-depth=3",
+                "-ojson",
+                "--sort-by=.size",
+                "--limit",
+                "10M",
+                "-m",
+                "fast",
+                "--show-request",
+                "f",
+                "g",
+            ]))
+            .unwrap();
+        assert!(p.show_request && !p.help);
+        assert_eq!(
+            p.request().to_json(true),
+            r#"{
+  "all": true,
+  "1": true,
+  "since": "7d",
+  "type": [
+    "dir",
+    "file"
+  ],
+  "max-depth": 3,
+  "output": "json",
+  "sort-by": ".size",
+  "limit": "10M",
+  "mode": "fast",
+  "operands": [
+    "f",
+    "g"
+  ]
+}"#
+        );
+        assert_eq!(Parsed::default().request().to_json(true), "{}");
+        let twice = X.parse(words(&["-ojson", "-1", "-o", "yaml"])).unwrap();
+        assert_eq!(
+            twice.request().to_json(false),
+            r#"{"output":"json","1":true,"output":"yaml"}"#,
+            "an option given twice appears twice, so the order of a group is kept"
+        );
+        assert_eq!(request(&twice.request().to_json(false)).unwrap(), twice);
+    }
+
+    #[test]
+    fn show_request_normalises_only_numbers_and_lists() {
+        let p = X
+            .parse(words(&["--max-depth=03", "--type=,dir,,file,"]))
+            .unwrap();
+        assert_eq!(
+            p.request().to_json(false),
+            r#"{"max-depth":3,"type":["dir","file"]}"#
+        );
+        let q = request(&p.request().to_json(false)).unwrap();
+        let typed = |p: &Parsed| p.given.iter().map(|g| g.value.clone()).collect::<Vec<_>>();
+        assert_eq!(typed(&q), typed(&p));
+    }
+
+    #[test]
+    fn show_request_is_a_word_of_the_grammar_and_of_the_document() {
+        assert!(request(r#"{"show-request": true}"#).unwrap().show_request);
+        assert!(!request(r#"{"show-request": false}"#).unwrap().show_request);
+        assert_eq!(
+            X.parse(words(&["--show-request=1"]))
+                .unwrap_err()
+                .to_string(),
+            "option does not take an argument -- show-request"
+        );
+        assert_eq!(
+            X.run(words(&["--show-request", "-a"])),
+            Err(ExitCode::SUCCESS)
+        );
+        assert_eq!(
+            X.run(words(&["--show-request", "--max-depth=x"])),
+            Err(ExitCode::from(exit::USAGE)),
+            "a wrong command line is wrong to show too"
+        );
+    }
+
+    /// The round trip is the test (docs/PROGRAM.md, "The request"): for any command line,
+    /// generated with a generator of our own in every spelling the lexer accepts, the
+    /// document `--show-request` prints parses back to the same thing, alone and when it
+    /// stands for the tail of the command line after ordinary options.
+    #[test]
+    fn every_command_line_survives_the_round_trip_through_its_request() {
+        let mut seed: u64 = 0x2545_f491_4f6c_dd1d;
+        let mut next = || {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (seed >> 33) as usize
+        };
+        fn pick(xs: &[&str], n: usize) -> String {
+            xs[n % xs.len()].to_string()
+        }
+        const FORMATS: &[&str] = &[
+            "json",
+            "yaml",
+            "name",
+            "table",
+            "wide",
+            "custom-columns=N:.name,S:.size",
+        ];
+        const OPERANDS: &[&str] = &["f", "d/", "-x", "--", "", "{}", "a b", "é"];
+        let s = |x: &str| x.to_string();
+        for _ in 0..500 {
+            let mut items: Vec<Vec<String>> = Vec::new();
+            for _ in 0..next() % 8 {
+                let item = match next() % 9 {
+                    0 => vec![pick(&["-a", "--all"], next())],
+                    1 => vec![s("-1")],
+                    2 => {
+                        let v = pick(FORMATS, next());
+                        match next() % 4 {
+                            0 => vec![s("-o"), v],
+                            1 => vec![format!("-o{v}")],
+                            2 => vec![format!("--output={v}")],
+                            _ => vec![s("--output"), v],
+                        }
+                    }
+                    3 => {
+                        let n = (next() % 65).to_string();
+                        if next() % 2 == 0 {
+                            vec![format!("--max-depth={n}")]
+                        } else {
+                            vec![s("--max-depth"), n]
+                        }
+                    }
+                    4 => {
+                        let count = 1 + next() % 3;
+                        let parts: Vec<String> =
+                            (0..count).map(|_| pick(&["file", "dir"], next())).collect();
+                        vec![format!("--type={}", parts.join(","))]
+                    }
+                    5 => vec![format!(
+                        "--since={}",
+                        pick(&["7d", "12h", "30m", "45s", "90"], next())
+                    )],
+                    6 => vec![format!(
+                        "--sort-by={}",
+                        pick(&[".size", ".name", ".meta.size"], next())
+                    )],
+                    7 => vec![s("--limit"), pick(&["512", "4K", "10M", "1G"], next())],
+                    _ => {
+                        let v = pick(&["fast", "slow"], next());
+                        match next() % 3 {
+                            0 => vec![s("-m"), v],
+                            1 => vec![format!("-m{v}")],
+                            _ => vec![format!("--mode={v}")],
+                        }
+                    }
+                };
+                items.push(item);
+            }
+            let mut argv: Vec<String> = Vec::new();
+            for item in &items {
+                let cluster = |w: &str| {
+                    w.len() > 1
+                        && w.starts_with('-')
+                        && !w.starts_with("--")
+                        && w[1..].chars().all(|c| c == 'a' || c == '1')
+                };
+                match (argv.last_mut(), item.as_slice()) {
+                    (Some(prev), [w]) if cluster(prev) && cluster(w) && next() % 2 == 0 => {
+                        prev.push_str(&w[1..]);
+                    }
+                    _ => argv.extend(item.iter().cloned()),
+                }
+            }
+            let dashes = next() % 2 == 0;
+            let operands: Vec<String> = (0..next() % 3)
+                .map(|i| {
+                    if dashes || i > 0 {
+                        pick(OPERANDS, next())
+                    } else {
+                        pick(&["f", "d/"], next())
+                    }
+                })
+                .collect();
+            let mut tail_end = Vec::new();
+            if dashes {
+                tail_end.push(s("--"));
+            }
+            tail_end.extend(operands.iter().cloned());
+            argv.extend(tail_end.iter().cloned());
+
+            let p = X
+                .parse(argv.clone())
+                .unwrap_or_else(|e| panic!("{argv:?}: {e}"));
+            assert_eq!(p.operands, operands, "{argv:?}");
+            let doc = p.request().to_json(next() % 2 == 0);
+            let q = X
+                .parse(words(&["--request", &doc]))
+                .unwrap_or_else(|e| panic!("{argv:?} -> {doc}: {e}"));
+            assert_eq!(q, p, "{argv:?} -> {doc}");
+
+            let k = next() % (items.len() + 1);
+            let mut tail: Vec<String> = items[k..].concat();
+            tail.extend(tail_end.iter().cloned());
+            let tail_doc = X.parse(tail.clone()).unwrap().request().to_json(false);
+            let mut mixed: Vec<String> = items[..k].concat();
+            mixed.push(format!("--request={tail_doc}"));
+            let m = X
+                .parse(mixed.clone())
+                .unwrap_or_else(|e| panic!("{mixed:?}: {e}"));
+            assert_eq!(m, p, "{argv:?} as {mixed:?}");
+        }
     }
 }

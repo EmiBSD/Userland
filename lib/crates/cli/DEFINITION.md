@@ -74,7 +74,12 @@ The API, in `man/cli.3` and the crate's doc comments. Option types a `Command` m
 
 ## Outputs
 
-`--help`: the text, or the `CommandHelp` record (`schemas/command-help.v1.json`). A wrong
+`--help`: the text, or the `CommandHelp` record (`schemas/command-help.v1.json`).
+`--show-request`: the command line as the document `--request` takes (`Parsed::request`),
+pretty JSON on standard output, exit 0, nothing run: each option under its key in the order
+given (twice when given twice), a flag as `true`, a `List` as an array, an `Int` as a number,
+every other value as the user spelled it (`"since": "7d"`), then `operands`. Read back with
+`--request`, it parses to the same `Parsed`: the round trip is the test. A wrong
 command line: `name: message` and the usage line on standard error, exit 2. `warn` and
 `report`: `name: message`, `name: subject: error`.
 
