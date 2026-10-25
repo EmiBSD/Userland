@@ -18,10 +18,13 @@
 //! program accepts without parsing prose; the user's decision of 2026-10-24), the usage line,
 //! the `name: message` prefix of every diagnostic, and the exit codes every program shares.
 //!
-//! No program declares `--help`: every command has it, and `--help -o json` renders the
-//! description in the format `-o` names, wherever `-o` was given.
+//! No program declares `--help` or `--request`: every command has them. `--help -o json`
+//! renders the description in the format `-o` names, wherever `-o` was given; `--request`
+//! takes the whole invocation as one JSON document, lowered to the words it spells and parsed
+//! as they would be (docs/PROGRAM.md, "The request").
 
 use std::fmt;
+use std::io::Read;
 use std::process::ExitCode;
 
 use crate::args::{self, ArgError};
@@ -122,13 +125,20 @@ pub enum Origin {
     Bsd,
     /// EmiBSD's own, this program's: a filter, a flag no other system has.
     Emibsd,
-    /// The common grammar every EmiBSD program shares, the shape of the output: `-o`,
-    /// `--sort-by`, `--no-headers`, `--help`.
+    /// The common grammar every EmiBSD program shares, the shape of the output and of the
+    /// invocation: `-o`, `--sort-by`, `--no-headers`, `--request`, `--help`.
     Grammar,
 }
 
 /// The long names `cli` recognises as the common grammar's.
-const GRAMMAR: &[&str] = &["output", "sort-by", "no-headers", "help"];
+const GRAMMAR: &[&str] = &[
+    "output",
+    "sort-by",
+    "no-headers",
+    "request",
+    "show-request",
+    "help",
+];
 
 const fn str_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
@@ -372,36 +382,92 @@ pub struct Command {
 
 const HELP_DOC: &str = "this description; with -o json or -o yaml, as a record";
 
+/// The options every command has without declaring them, in the order `--help` shows them.
+/// Their long names are the grammar's: a declaration cannot take them over.
+const IMPLIED: &[OptSpec] = &[
+    OptSpec::value(
+        None,
+        Some("request"),
+        Kind::Str("FILE"),
+        "the whole invocation as one JSON document, inline or from FILE",
+    ),
+    OptSpec::flag(None, Some("help"), HELP_DOC),
+];
+
+/// A request file larger than this is refused: a document of options is a few hundred bytes,
+/// and `--request=/dev/zero` must not exhaust memory.
+const REQUEST_LIMIT: u64 = 1 << 20;
+
+fn request_error(message: impl Into<String>) -> ArgError {
+    invalid("--request", message.into())
+}
+
+/// The document `--request` names: the value itself when it starts with `{`, else the file
+/// at that path, read whole. Never standard input: that is the data's.
+fn request_text(value: &str) -> Result<String, ArgError> {
+    if value.starts_with('{') {
+        return Ok(value.to_string());
+    }
+    if value.is_empty() {
+        return Err(request_error("an empty path"));
+    }
+    let io = |e: std::io::Error| request_error(format!("{value}: {}", crate::os_error(&e)));
+    let mut bytes = Vec::new();
+    std::fs::File::open(value)
+        .map_err(io)?
+        .take(REQUEST_LIMIT + 1)
+        .read_to_end(&mut bytes)
+        .map_err(io)?;
+    if bytes.len() as u64 > REQUEST_LIMIT {
+        return Err(request_error(format!("{value}: larger than 1 MiB")));
+    }
+    String::from_utf8(bytes).map_err(|_| request_error(format!("{value}: not UTF-8 text")))
+}
+
 impl Command {
+    /// The option a name given on the command line means: an implied one by its long name,
+    /// else a declared one.
     fn find(&self, name: &str) -> Option<&'static OptSpec> {
         let mut chars = name.chars();
         match (chars.next(), chars.next()) {
             (Some(c), None) => self.options.iter().find(|o| o.short == Some(c)),
-            _ => self.options.iter().find(|o| o.long == Some(name)),
+            _ => IMPLIED
+                .iter()
+                .chain(self.options)
+                .find(|o| o.long == Some(name)),
         }
     }
 
     fn classify(&self, name: &str) -> Option<bool> {
-        match self.find(name) {
-            Some(o) => Some(o.kind != Kind::Flag),
-            None if name == "help" => Some(false),
-            None => None,
-        }
+        self.find(name).map(|o| o.kind != Kind::Flag)
     }
 
     /// Parses `args` (without the program name): the options come back typed and checked,
-    /// or the first error, already worded.
+    /// or the first error, already worded. Each `--request` is replaced, where it stands,
+    /// by the options its document spells; the document's operands come before those of
+    /// the command line.
     pub fn parse<I: IntoIterator<Item = String>>(&self, args: I) -> Result<Parsed, ArgError> {
         let raw = args::lex(args, |n| self.classify(n))?;
-        let mut out = Parsed {
-            operands: raw.operands,
-            ..Parsed::default()
-        };
+        let mut opts = Vec::with_capacity(raw.opts.len());
+        let mut out = Parsed::default();
         for o in raw.opts {
-            let Some(spec) = self.find(&o.name) else {
-                // Only the implied --help reaches here: `classify` refused everything else.
+            if o.name == "request" {
+                let words = self.lower(o.value.as_deref().unwrap_or(""))?;
+                let doc = args::lex(words, |n| self.classify(n))?;
+                opts.extend(doc.opts);
+                out.operands.extend(doc.operands);
+            } else {
+                opts.push(o);
+            }
+        }
+        out.operands.extend(raw.operands);
+        for o in opts {
+            if o.name == "help" {
                 out.help = true;
                 continue;
+            }
+            let Some(spec) = self.find(&o.name) else {
+                continue; // `classify` refused every name `find` does not know
             };
             let value = convert(&spec.kind, o.value, &spec.dashed(&o.name))?;
             out.given.push(Given {
@@ -411,6 +477,88 @@ impl Command {
             });
         }
         Ok(out)
+    }
+
+    /// The option a key of a request document names: `Given::key` of a declared option, or
+    /// the long name of an implied one.
+    fn by_key(&self, key: &str) -> Option<&'static OptSpec> {
+        IMPLIED
+            .iter()
+            .find(|o| o.long == Some(key))
+            .or_else(|| self.options.iter().find(|o| o.key() == key))
+    }
+
+    /// The words a request document spells, as the lexer would have them from the command
+    /// line: each key in the document's order, `--long=value` or `-x value`, a flag alone
+    /// when `true` and absent when `false`; then `--` and the operands. The `Command` is
+    /// asked only for each key's kind, to know the shape its value must have; what the value
+    /// means is the parser's to check, as for any other word.
+    fn lower(&self, value: &str) -> Result<Vec<String>, ArgError> {
+        let doc =
+            Value::from_json(&request_text(value)?).map_err(|e| request_error(e.to_string()))?;
+        let Value::Map(members) = doc else {
+            return Err(request_error("the document is not a JSON object"));
+        };
+        let mut words = Vec::new();
+        let mut operands = Vec::new();
+        for (key, v) in members {
+            let wrong = |what: &str| request_error(format!("`{key}`: expected {what}"));
+            if key == "operands" {
+                let Value::List(items) = v else {
+                    return Err(wrong("an array of strings"));
+                };
+                for item in items {
+                    match item {
+                        Value::Str(s) => operands.push(s),
+                        _ => return Err(wrong("an array of strings")),
+                    }
+                }
+                continue;
+            }
+            let Some(spec) = self.by_key(&key) else {
+                return Err(request_error(format!("unknown key `{key}`")));
+            };
+            if key == "request" {
+                return Err(request_error("`request`: a request cannot hold another"));
+            }
+            let text = match (&spec.kind, v) {
+                (Kind::Flag, Value::Bool(true)) => None,
+                (Kind::Flag, Value::Bool(false)) => continue,
+                (Kind::Flag, _) => return Err(wrong("true or false")),
+                (Kind::Int { .. }, Value::Int(n)) => Some(n.to_string()),
+                (Kind::Int { .. }, Value::UInt(n)) => Some(n.to_string()),
+                (Kind::Int { .. }, f @ Value::Float(_)) => Some(f.to_json(false)),
+                (Kind::Int { .. }, Value::Str(s)) => Some(s),
+                (Kind::Int { .. }, _) => return Err(wrong("a number or a string")),
+                (Kind::List(..), Value::Str(s)) => Some(s),
+                (Kind::List(..), Value::List(items)) => {
+                    let mut parts = Vec::with_capacity(items.len());
+                    for item in items {
+                        match item {
+                            Value::Str(s) => parts.push(s),
+                            _ => return Err(wrong("an array of strings or a string")),
+                        }
+                    }
+                    Some(parts.join(","))
+                }
+                (Kind::List(..), _) => return Err(wrong("an array of strings or a string")),
+                (_, Value::Str(s)) => Some(s),
+                (_, _) => return Err(wrong("a string")),
+            };
+            match (spec.long, spec.short, text) {
+                (Some(l), _, None) => words.push(format!("--{l}")),
+                (Some(l), _, Some(t)) => words.push(format!("--{l}={t}")),
+                (None, Some(c), None) => words.push(format!("-{c}")),
+                (None, Some(c), Some(t)) => {
+                    words.push(format!("-{c}"));
+                    words.push(t);
+                }
+                (None, None, _) => {}
+            }
+        }
+        words.push("--".to_string());
+        words.extend(operands);
+        Ok(words)
     }
 
     /// Parses the process's own arguments and handles what every program handles alike:
@@ -497,18 +645,22 @@ impl Command {
     /// EmiBSD's own, the common grammar (`--help` among the last).
     pub fn text(&self) -> String {
         let mut s = format!("{}: {}\n\n{}\n", self.name, self.summary, self.usage());
-        let help_col = "--help".to_string();
         let width = self
             .options
             .iter()
+            .chain(IMPLIED)
             .map(|o| Self::flag_column(o).len())
-            .chain(std::iter::once(help_col.len()))
             .max()
             .unwrap_or(0)
             .min(28);
         for origin in [Origin::Posix, Origin::Bsd, Origin::Emibsd, Origin::Grammar] {
-            let mine: Vec<&OptSpec> = self.options.iter().filter(|o| o.origin == origin).collect();
-            if mine.is_empty() && origin != Origin::Grammar {
+            let mine: Vec<&OptSpec> = self
+                .options
+                .iter()
+                .chain(IMPLIED)
+                .filter(|o| o.origin == origin)
+                .collect();
+            if mine.is_empty() {
                 continue;
             }
             s.push('\n');
@@ -524,9 +676,6 @@ impl Command {
                     doc.push_str(&format!(" [{min}..{max}]"));
                 }
                 s.push_str(&option_lines(&Self::flag_column(o), &doc, width));
-            }
-            if origin == Origin::Grammar {
-                s.push_str(&option_lines(&help_col, HELP_DOC, width));
             }
         }
         if !self.outputs.is_empty() {
@@ -624,19 +773,12 @@ impl Command {
             }
             Value::Map(m)
         };
-        let mut options: Vec<Value> = self
+        let options: Vec<Value> = self
             .options
             .iter()
+            .chain(IMPLIED)
             .map(|o| option(o.short, o.long, &o.kind, o.doc, o.group, o.origin))
             .collect();
-        options.push(option(
-            None,
-            Some("help"),
-            &Kind::Flag,
-            HELP_DOC,
-            None,
-            Origin::Grammar,
-        ));
         let pairs = |xs: &[(&str, &str)], k1: &str, k2: &str| {
             Value::List(
                 xs.iter()
@@ -1029,7 +1171,7 @@ mod tests {
             Some(Value::List(l)) => l.clone(),
             _ => panic!("options"),
         };
-        assert_eq!(opts.len(), 10); // nine declared plus --help
+        assert_eq!(opts.len(), 11); // nine declared, then --request and --help
         assert_eq!(opts[3].get("type").unwrap().to_cell(), "int");
         assert_eq!(opts[0].get("origin").unwrap().to_cell(), "posix");
         assert_eq!(opts[1].get("origin").unwrap().to_cell(), "grammar");
@@ -1044,14 +1186,23 @@ mod tests {
             "grammar",
             "--sort-by"
         );
-        assert_eq!(
-            opts[9].get("origin").unwrap().to_cell(),
-            "grammar",
-            "--help"
-        );
+        for (i, long) in [(9, "--request"), (10, "--help")] {
+            assert_eq!(opts[i].get("long").unwrap().to_cell(), long);
+            assert_eq!(
+                opts[i].get("origin").unwrap().to_cell(),
+                "grammar",
+                "{long}"
+            );
+        }
+        assert_eq!(opts[9].get("takesValue"), Some(&Value::Bool(true)));
         assert_eq!(opts[3].get("max").unwrap().to_cell(), "64");
         assert_eq!(opts[1].get("exclusiveGroup").unwrap().to_cell(), "format");
-        assert_eq!(opts[9].get("long").unwrap().to_cell(), "--help");
+        assert!(
+            t.contains(
+                "  --sort-by .FIELD     the order\n  --request FILE       the whole invocation as one JSON document, inline or from\n                       FILE\n  --help               this description"
+            ),
+            "{t}"
+        );
         let j = X.help(&Output::Json);
         assert!(j.contains("\"short\": \"-o\""), "{j}");
         assert!(
@@ -1092,5 +1243,263 @@ mod tests {
         assert!(X.run(["-a".to_string()]).is_ok());
         assert_eq!(X.run(["--help".to_string()]), Err(ExitCode::SUCCESS));
         assert_eq!(X.run(["-z".to_string()]), Err(ExitCode::from(exit::USAGE)));
+    }
+
+    fn words(ws: &[&str]) -> Vec<String> {
+        ws.iter().map(|w| w.to_string()).collect()
+    }
+
+    fn request(doc: &str) -> Result<Parsed, ArgError> {
+        X.parse(words(&["--request", doc]))
+    }
+
+    fn request_error(doc: &str) -> String {
+        match request(doc) {
+            Ok(p) => panic!("{doc}: accepted as {p:?}"),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    /// A file of the test's own under the temporary directory, removed when dropped.
+    struct TempFile(std::path::PathBuf);
+
+    impl TempFile {
+        fn new(name: &str, contents: &[u8]) -> TempFile {
+            let path =
+                std::env::temp_dir().join(format!("cli-request-{}-{name}", std::process::id()));
+            std::fs::write(&path, contents).unwrap();
+            TempFile(path)
+        }
+
+        fn path(&self) -> &str {
+            self.0.to_str().unwrap()
+        }
+    }
+
+    impl Drop for TempFile {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+
+    #[test]
+    fn a_request_is_a_second_spelling_of_the_command_line() {
+        let doc = r#"{"all": true, "output": "json", "1": true, "max-depth": 3,
+            "type": ["dir", "file"], "since": "2h", "sort-by": ".size", "limit": "10M",
+            "mode": "slow", "operands": ["f", "-x", "--"]}"#;
+        let line = X
+            .parse(words(&[
+                "-a",
+                "-ojson",
+                "-1",
+                "--max-depth=3",
+                "--type=dir,file",
+                "--since=2h",
+                "--sort-by=.size",
+                "--limit=10M",
+                "--mode=slow",
+                "--",
+                "f",
+                "-x",
+                "--",
+            ]))
+            .unwrap();
+        assert_eq!(request(doc).unwrap(), line);
+        let file = TempFile::new("whole.json", doc.as_bytes());
+        assert_eq!(request(file.path()).unwrap(), line, "from a file");
+    }
+
+    #[test]
+    fn false_flags_are_absent_and_values_take_their_other_shapes() {
+        assert_eq!(
+            request(r#"{"all": false, "1": false}"#).unwrap(),
+            Parsed::default()
+        );
+        assert_eq!(request("{}").unwrap(), Parsed::default());
+        assert_eq!(
+            request(r#"{"type": "dir,file"}"#).unwrap(),
+            request(r#"{"type": ["dir", "file"]}"#).unwrap(),
+            "a list as the comma form or as an array"
+        );
+        assert_eq!(
+            request(r#"{"type": ["file"]}"#).unwrap().last("type"),
+            Some(&Typed::List(vec!["file"]))
+        );
+        assert_eq!(
+            request(r#"{"max-depth": "7"}"#).unwrap(),
+            request(r#"{"max-depth": 7}"#).unwrap(),
+            "an integer as a number or as a string"
+        );
+        let p = request(r#"{"help": true, "output": "yaml"}"#).unwrap();
+        assert!(p.help);
+        assert_eq!(p.output(), Some(Output::Yaml));
+        let p = request(r#"{"operands": ["a"], "all": true, "operands": ["b"]}"#).unwrap();
+        assert_eq!(p.operands, ["a", "b"]);
+        assert!(p.has("all"));
+    }
+
+    #[test]
+    fn a_request_expands_where_it_stands_and_the_last_given_wins() {
+        let keys = |p: &Parsed| p.given.iter().map(|g| g.key()).collect::<Vec<_>>();
+        let p = X
+            .parse(words(&["--request", r#"{"output": "json"}"#, "-1"]))
+            .unwrap();
+        assert_eq!(keys(&p), ["output", "1"]);
+        let p = X
+            .parse(words(&["-1", r#"--request={"output": "json"}"#]))
+            .unwrap();
+        assert_eq!(keys(&p), ["1", "output"]);
+        let p = X
+            .parse(words(&[
+                "-o",
+                "json",
+                r#"--request={"output": "yaml"}"#,
+                "-a",
+            ]))
+            .unwrap();
+        assert_eq!(p.output(), Some(Output::Yaml));
+        assert_eq!(keys(&p), ["output", "output", "all"]);
+        let p = X
+            .parse(words(&[
+                r#"--request={"operands": ["a"], "mode": "fast"}"#,
+                "-m",
+                "slow",
+                r#"--request={"operands": ["b"]}"#,
+                "c",
+            ]))
+            .unwrap();
+        assert_eq!(p.last("mode").and_then(Typed::text), Some("slow"));
+        assert_eq!(
+            p.operands,
+            ["a", "b", "c"],
+            "the documents' first, in order"
+        );
+        let p = X.parse(words(&["f", "--request={}"])).unwrap();
+        assert_eq!(
+            p.operands,
+            ["f", "--request={}"],
+            "after an operand, an operand"
+        );
+    }
+
+    #[test]
+    fn a_wrong_request_is_refused_with_the_key_named() {
+        assert_eq!(
+            request_error(r#"{"colour": true}"#),
+            "--request: unknown key `colour`"
+        );
+        assert_eq!(
+            request_error(r#"{"a": true}"#),
+            "--request: unknown key `a`",
+            "the key is the long name when there is one"
+        );
+        assert_eq!(
+            request_error("{\"all\": true,\n  \"1\" true}"),
+            "--request: line 2, column 7: expected `:`"
+        );
+        assert_eq!(
+            request_error("{"),
+            "--request: line 1, column 2: unexpected end of input"
+        );
+        assert_eq!(
+            request_error(r#"{"1": "yes"}"#),
+            "--request: `1`: expected true or false"
+        );
+        assert_eq!(
+            request_error(r#"{"all": null}"#),
+            "--request: `all`: expected true or false"
+        );
+        assert_eq!(
+            request_error(r#"{"sort-by": 3}"#),
+            "--request: `sort-by`: expected a string"
+        );
+        assert_eq!(
+            request_error(r#"{"output": ["json"]}"#),
+            "--request: `output`: expected a string"
+        );
+        assert_eq!(
+            request_error(r#"{"max-depth": true}"#),
+            "--request: `max-depth`: expected a number or a string"
+        );
+        assert_eq!(
+            request_error(r#"{"type": 1}"#),
+            "--request: `type`: expected an array of strings or a string"
+        );
+        assert_eq!(
+            request_error(r#"{"type": ["dir", 1]}"#),
+            "--request: `type`: expected an array of strings or a string"
+        );
+        assert_eq!(
+            request_error(r#"{"operands": "f"}"#),
+            "--request: `operands`: expected an array of strings"
+        );
+        assert_eq!(
+            request_error(r#"{"operands": [1]}"#),
+            "--request: `operands`: expected an array of strings"
+        );
+        assert_eq!(
+            request_error(r#"{"request": "{}"}"#),
+            "--request: `request`: a request cannot hold another"
+        );
+    }
+
+    #[test]
+    fn a_request_value_gets_the_diagnostic_of_its_option() {
+        assert_eq!(
+            request_error(r#"{"max-depth": 99}"#),
+            "--max-depth: `99` is not between 0 and 64"
+        );
+        assert_eq!(
+            request_error(r#"{"max-depth": 1.5}"#),
+            "--max-depth: `1.5` is not a whole number"
+        );
+        assert_eq!(
+            request_error(r#"{"max-depth": "x"}"#),
+            "--max-depth: `x` is not a whole number"
+        );
+        assert_eq!(
+            request_error(r#"{"mode": "x"}"#),
+            "--mode: `x` is not one of fast, slow"
+        );
+        assert_eq!(
+            request_error(r#"{"type": []}"#),
+            "--type: no value; one or more of file, dir"
+        );
+        assert!(request_error(r#"{"output": "xml"}"#).starts_with("--output: `xml` is not one of"));
+    }
+
+    #[test]
+    fn a_request_file_that_cannot_be_read_is_a_usage_error() {
+        assert_eq!(
+            request_error("/nonexistent/request.json"),
+            "--request: /nonexistent/request.json: No such file or directory"
+        );
+        assert_eq!(request_error(""), "--request: an empty path");
+        assert_eq!(
+            request_error("-"),
+            "--request: -: No such file or directory",
+            "never standard input"
+        );
+        let array = TempFile::new("array.json", b"[1]");
+        assert_eq!(
+            request_error(array.path()),
+            "--request: the document is not a JSON object"
+        );
+        let latin1 = TempFile::new("latin1.json", b"{\"mode\": \"\xe9\"}");
+        assert_eq!(
+            request_error(latin1.path()),
+            format!("--request: {}: not UTF-8 text", latin1.path())
+        );
+        let big = TempFile::new("big.json", &vec![b' '; (REQUEST_LIMIT + 1) as usize]);
+        assert_eq!(
+            request_error(big.path()),
+            format!("--request: {}: larger than 1 MiB", big.path())
+        );
+        let pretty = TempFile::new("pretty.json", b"{\n  \"all\": true\n}\n");
+        assert!(request(pretty.path()).unwrap().has("all"));
+        assert_eq!(
+            X.run(words(&["--request={"])),
+            Err(ExitCode::from(exit::USAGE))
+        );
     }
 }

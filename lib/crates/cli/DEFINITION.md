@@ -39,8 +39,21 @@ Everything it prints to standard error has the program's name first.
 
 ## Inputs
 
-The process's arguments (`Command::from_env`), and nothing else: the environment and the
+The process's arguments (`Command::from_env`), and the file each `--request` names (read
+whole while parsing, at most 1 MiB of UTF-8, so a program that pledges before parsing keeps
+`rpath`); never standard input, which is the data's. Nothing else: the environment and the
 terminal are the program's to read (`sys` has the width).
+
+**The request** (docs/PROGRAM.md, "The request"): `--request=FILE`, or the document inline
+when the value starts with `{`, is a JSON object whose keys are `Given::key` (the long name
+when there is one, else the letter) and `operands`. `parse` lowers it to the words it spells,
+`--long=value` or `-x value` in the document's order, a flag for `true` and nothing for
+`false`, a `List` from an array or the comma form, an `Int` from a number or a string, the
+other kinds from a string; and lexes and types those words like any others, where
+`--request` stood, so the groups, the last-wins rule and every value's diagnostic are the
+option's own. The documents' operands come first, in order, then the command line's. A
+document that is not JSON (`--request: line 3, column 7: ...`), an unknown key, a value of
+the wrong shape, a nested `request`, or a file that cannot be read is a usage error, exit 2.
 
 ## Parameters
 
