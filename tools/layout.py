@@ -276,7 +276,9 @@ is where the system that replaces it is written.
 - **One grammar for every program** (`docs/PROGRAM.md`, "The common grammar"; the user's
   decision of 2026-10-24, taken with `ls`): a program is a query over records with a schema;
   `-o name|table|wide|json|yaml|custom-columns=...` picks the renderer, `--sort-by=.field`
-  the order, `--no-headers` the table's header. POSIX's short flags keep their meaning, and
+  the order, `--no-headers` the table's header; `--request` takes the whole invocation as
+  one JSON document (a file, or inline) and `--show-request` prints it, so a person and a
+  machine drive the same program the same way. POSIX's short flags keep their meaning, and
   to a pipe the output is POSIX's byte for byte; to a terminal the defaults are modern (ISO
   dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
 - **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
@@ -427,6 +429,8 @@ human and machine outputs are renderers of the same record, from the shared crat
 | `-o custom-columns=NAME:.name,SIZE:.size` | the fields you ask for |
 | `--sort-by=.field`, `-r` | any field of the record, reversed |
 | `--type=`, `--since=`, `--max-depth=` | filters, where the record has them |
+| `--request=FILE` or `--request='{...}'` | the whole invocation as one JSON document |
+| `--show-request` | print the command line as that document instead of running it |
 
 POSIX's short flags keep their meaning (`ls -la` is `ls -la`). To a pipe, the output of a
 POSIX-defined form (`ls -l`, `-1`, `-i`, `-s`) is POSIX's byte for byte, so the world's
@@ -447,7 +451,7 @@ usage line, and the `name: message` prefix of every diagnostic. No program decla
 or writes a `parse::<usize>()` of its own. Every option carries its origin, and `--help`
 shows the options in four sections, POSIX's, BSD compatibility (flags the BSDs have beyond
 POSIX, kept so their scripts work), EmiBSD's own for this program, and the common grammar
-every program shares (`-o`, `--sort-by`, `--no-headers`,
+every program shares (`-o`, `--sort-by`, `--no-headers`, `--request`, `--show-request`,
 `--help`; `origin` in the record), so a user tells at a glance what works everywhere, what
 is this program's, and what is the same in every EmiBSD program: `cli` knows the grammar's
 names; a short flag is POSIX's unless the declaration says `.bsd()` or `.emibsd()`; a
@@ -459,6 +463,28 @@ with `action` saying what happened (created, replaced, merged, skipped, planned,
 `-v` and `-o` are two renderings of the same records, and `--dry-run` produces them without
 the effect. The `pledge` promises follow the options (`cp` adds `dpath` under `-R` and
 `chown` under `-p`); `cli` may grow a general form of that.
+
+**The request** (the user's decision of 2026-10-24: one program for a person and for a
+machine): the whole invocation of a written program can be one JSON document, so a script or
+an agent builds a dictionary instead of a shell line, and a person saves an invocation and
+runs it again. `--request=FILE` reads it from a file; a value that starts with `{` is the
+document inline (`cp --request='{"R": true, "operands": ["a", "b"]}'`): no shell, no quoting,
+no temporary file. Never from stdin: stdin is the data's. The document is an object; each key
+is an option under the name `cli` already uses, the long form when it has one (`output`,
+`sort-by`) else the letter (`l`, `R`); the value follows the option's type (`true` for a flag,
+text or number for a value, an array for a `List`); `operands` is the array of the operands.
+`cli` lowers the document to the command line it spells and hands it to the one parser, so the
+exclusive groups, the diagnostics and the exit codes are the ones every option already has:
+nothing is parsed twice and nothing has two meanings. `--request` may stand among ordinary
+options and expands where it is written, so the last one given wins as always; a malformed
+document, an unknown key or a value of the wrong type is a usage error, exit **2**. The
+inverse, `--show-request`, prints the command line as that document instead of running it:
+how a person learns the format from the flags they know, saves an invocation without writing
+JSON by hand, or hands an agent exactly what they did; and the round trip, flags to document
+to flags, is the test. The keys are published: `--help -o json` carries `key` on every option,
+so the procedure of a machine that does not know the program is the same for every program:
+ask the help as a record, write the document, run. The imported programs, outside the
+grammar, have none of this, as they have no `-o`.
 - A new crate dependency needs the user's OK and a row in the allowlist (to be written with
   the first program). Fuzzing: property tests on stable (`cargo-fuzz` needs nightly).
 - Performance: a commit that moves a benchmark more than 10 % carries `Bench:` lines and a

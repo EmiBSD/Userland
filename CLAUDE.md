@@ -24,8 +24,11 @@ answered in Spanish.
 - **One grammar**: a program is a query over records (or an action whose steps are records)
   with a schema; one `Command` declares its options with their types and `cli` derives the
   parser, `--help` (text and `-o json`), usage, diagnostics and exit codes 0/1/2; `-o`
-  selects the renderer. POSIX short flags keep their meaning and the POSIX forms to a pipe
-  are the standard's byte for byte; to a terminal the defaults are modern.
+  selects the renderer; `--request` takes the whole invocation as one JSON document (file or
+  inline, never stdin) lowered to the same parser, `--show-request` prints it, `--help -o json`
+  publishes the keys, so a person and a machine drive every program the same way. POSIX short
+  flags keep their meaning and the POSIX forms to a pipe are the standard's byte for byte; to
+  a terminal the defaults are modern.
 - `bin/` and `sbin/` static (`src/build.rs`), `usr/` and `libexec/` dynamic.
 - Semver per program with the `Change: breaking|feature|fix` trailer the `commit-msg` hook
   enforces (`just setup`); `YEAR.MONTH` for releases. No GPL. Nothing installed and nothing
