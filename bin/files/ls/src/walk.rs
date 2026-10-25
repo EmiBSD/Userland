@@ -23,21 +23,58 @@
 
 use std::collections::HashSet;
 use std::fs;
+use std::io;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use cli::Diagnosable;
 use cli::os_error;
 
 use crate::entry::{Entry, Meta};
 use crate::mode;
 use crate::options::{Config, Follow, Hidden, Sort, TypeFilter};
 
+/// Why a directory could not be listed: the errno name when the system refused, so the
+/// diagnostic carries a code, and the text a person reads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Failure {
+    pub code: Option<String>,
+    pub text: String,
+}
+
+impl Failure {
+    fn text(text: &str) -> Self {
+        Failure {
+            code: None,
+            text: text.to_string(),
+        }
+    }
+}
+
+impl From<&io::Error> for Failure {
+    fn from(e: &io::Error) -> Self {
+        Failure {
+            code: e.code(),
+            text: e.text(),
+        }
+    }
+}
+
+impl Diagnosable for &Failure {
+    fn code(&self) -> Option<String> {
+        self.code.clone()
+    }
+    fn text(&self) -> String {
+        self.text.clone()
+    }
+}
+
 /// One group of entries printed together.
 pub struct Listing {
     /// The directory's path, or `None` for the operands that are not directories.
     pub dir: Option<String>,
     /// An error listing the directory itself.
-    pub error: Option<String>,
+    pub error: Option<Failure>,
     pub entries: Vec<Entry>,
     /// Entries that failed are kept, with their error, so the caller can print them.
     pub failed: Vec<Entry>,
@@ -163,8 +200,8 @@ fn read_dir(
     cfg: &Config,
     need_stat: bool,
     now: i64,
-) -> Result<(Vec<Entry>, Vec<Entry>), String> {
-    let rd = fs::read_dir(dir).map_err(|e| os_error(&e))?;
+) -> Result<(Vec<Entry>, Vec<Entry>), Failure> {
+    let rd = fs::read_dir(dir).map_err(|e| Failure::from(&e))?;
     let mut entries = Vec::new();
     let mut failed = Vec::new();
     let join = |name: &str| {
@@ -358,7 +395,7 @@ fn descend(
         if id.is_some_and(|id| !seen.insert(id)) {
             sink(Listing {
                 dir: Some(sub.clone()),
-                error: Some("directory causes a cycle".into()),
+                error: Some(Failure::text("directory causes a cycle")),
                 entries: Vec::new(),
                 failed: Vec::new(),
             });
