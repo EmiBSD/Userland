@@ -31,9 +31,10 @@ pub enum Value {
     Int(i64),
     /// An unsigned integer.
     UInt(u64),
-    /// A number with a fraction or an exponent, or an integer beyond 64 bits. Finite when
-    /// read from JSON; written as `null` otherwise, since JSON has no infinity.
-    Float(f64),
+    /// A number JSON spells with a fraction or an exponent, or an integer beyond 64 bits,
+    /// kept as its text: it travels through unchanged, and no program carries
+    /// floating-point parsing and printing for a number it never computes with.
+    Number(String),
     /// Text.
     Str(String),
     /// A sequence.
@@ -78,7 +79,7 @@ impl Value {
             Value::Bool(b) => b.to_string(),
             Value::Int(i) => i.to_string(),
             Value::UInt(u) => u.to_string(),
-            Value::Float(f) => float_text(*f),
+            Value::Number(n) => n.clone(),
             Value::Str(s) => s.clone(),
             Value::List(l) => l.iter().map(Value::to_cell).collect::<Vec<_>>().join(","),
             Value::Map(_) => self.to_json(false),
@@ -95,23 +96,14 @@ impl Value {
                 _ => None,
             }
         }
-        fn float(v: &Value) -> Option<f64> {
-            match v {
-                Value::Int(i) => Some(*i as f64),
-                Value::UInt(u) => Some(*u as f64),
-                Value::Float(f) => Some(*f),
-                _ => None,
-            }
-        }
         match (self, other) {
             (Value::Null, Value::Null) => Ordering::Equal,
             (Value::Null, _) => Ordering::Greater,
             (_, Value::Null) => Ordering::Less,
             (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
             (Value::Str(a), Value::Str(b)) => a.as_bytes().cmp(b.as_bytes()),
-            _ => match (num(self), num(other), float(self), float(other)) {
-                (Some(a), Some(b), _, _) => a.cmp(&b),
-                (_, _, Some(a), Some(b)) => a.total_cmp(&b),
+            _ => match (num(self), num(other)) {
+                (Some(a), Some(b)) => a.cmp(&b),
                 _ => self.to_json(false).cmp(&other.to_json(false)),
             },
         }
@@ -133,12 +125,6 @@ impl Value {
         }
         s
     }
-}
-
-/// The shortest spelling that reads back as the same number, always with a fraction or an
-/// exponent, so a float stays a float through JSON.
-fn float_text(f: f64) -> String {
-    format!("{f:?}")
 }
 
 fn json_string(s: &str, out: &mut String) {
@@ -177,8 +163,7 @@ fn write_json(v: &Value, pretty: bool, depth: usize, out: &mut String) {
         Value::UInt(u) => {
             let _ = write!(out, "{u}");
         }
-        Value::Float(f) if f.is_finite() => out.push_str(&float_text(*f)),
-        Value::Float(_) => out.push_str("null"),
+        Value::Number(n) => out.push_str(n),
         Value::Str(s) => json_string(s, out),
         Value::List(l) => {
             out.push('[');
@@ -228,7 +213,7 @@ fn yaml_needs_quotes(s: &str) -> bool {
     ) {
         return true;
     }
-    if s.parse::<f64>().is_ok() || s.starts_with("0x") || s.starts_with("0o") {
+    if looks_like_a_number(s) {
         return true;
     }
     let first = s.chars().next().unwrap_or(' ');
@@ -239,6 +224,16 @@ fn yaml_needs_quotes(s: &str) -> bool {
         || s.ends_with(':')
         || s.contains(" #")
         || s.chars().any(|c| (c as u32) < 0x20 || c == '\u{7f}')
+}
+
+/// Whether YAML could read `s` as a number: a digit after an optional sign and point, or
+/// an infinity or not-a-number. Wider than YAML's grammar; quoting too much is harmless.
+fn looks_like_a_number(s: &str) -> bool {
+    let t = s.strip_prefix(['+', '-']).unwrap_or(s);
+    let t = t.strip_prefix('.').unwrap_or(t);
+    t.starts_with(|c: char| c.is_ascii_digit())
+        || t.eq_ignore_ascii_case("inf")
+        || t.eq_ignore_ascii_case("nan")
 }
 
 fn yaml_scalar(s: &str, out: &mut String) {
@@ -269,14 +264,8 @@ fn write_yaml(v: &Value, depth: usize, out: &mut String, inline_first: bool) {
         Value::UInt(u) => {
             let _ = writeln!(out, "{u}");
         }
-        Value::Float(f) => {
-            let t = match *f {
-                f if f.is_nan() => ".nan".to_string(),
-                f if f == f64::INFINITY => ".inf".to_string(),
-                f if f == f64::NEG_INFINITY => "-.inf".to_string(),
-                f => float_text(f),
-            };
-            out.push_str(&t);
+        Value::Number(n) => {
+            out.push_str(n);
             out.push('\n');
         }
         Value::Str(s) => {
@@ -375,7 +364,7 @@ impl Value {
     /// (surrogate pairs joined, a lone surrogate refused), numbers, `true`, `false`, `null`,
     /// and the four whitespace characters; a leading byte order mark is skipped. An integer
     /// reads as `Int` within 64 signed bits, as `UInt` beyond them within 64 unsigned, as
-    /// `Float` beyond that; a fraction or an exponent reads as `Float`. Objects keep their
+    /// `Number` beyond that, as text; a fraction or an exponent reads as `Number`. Objects keep their
     /// order and repeated names. Nesting is bounded at 512 levels.
     pub fn from_json(text: &str) -> Result<Value, JsonError> {
         let mut r = Reader {
@@ -665,10 +654,7 @@ impl Reader<'_> {
                 return Ok(Value::UInt(u));
             }
         }
-        match t.parse::<f64>() {
-            Ok(f) if f.is_finite() => Ok(Value::Float(f)),
-            _ => Err(self.error(start, format!("`{t}` is out of range"))),
-        }
+        Ok(Value::Number(t.to_string()))
     }
 }
 
@@ -777,15 +763,17 @@ mod tests {
         assert_eq!(read("-9223372036854775808"), Value::Int(i64::MIN));
         assert_eq!(read("9223372036854775808"), Value::UInt(1 << 63));
         assert_eq!(read("18446744073709551615"), Value::UInt(u64::MAX));
-        assert_eq!(
-            read("18446744073709551616"),
-            Value::Float(18446744073709551616.0)
-        );
-        assert_eq!(read("1.5"), Value::Float(1.5));
-        assert_eq!(read("-0.25e2"), Value::Float(-25.0));
-        assert_eq!(read("1E3"), Value::Float(1000.0));
-        assert_eq!(read("2e-1"), Value::Float(0.2));
-        assert_eq!(read("3.0"), Value::Float(3.0));
+        for n in [
+            "18446744073709551616",
+            "1.5",
+            "-0.25e2",
+            "1E3",
+            "2e-1",
+            "3.0",
+            "1e999",
+        ] {
+            assert_eq!(read(n), Value::Number(n.into()));
+        }
         assert_eq!(read("\"\""), Value::Str(String::new()));
         assert_eq!(read("\"añ €\""), Value::Str("añ €".into()));
         assert_eq!(read("[]"), Value::List(vec![]));
@@ -917,10 +905,6 @@ mod tests {
         );
         assert_eq!(refused("+1"), "line 1, column 1: unexpected `+`");
         assert_eq!(refused(".5"), "line 1, column 1: unexpected `.`");
-        assert_eq!(
-            refused("1e400"),
-            "line 1, column 1: `1e400` is out of range"
-        );
         assert_eq!(refused("tru"), "line 1, column 1: expected `true`");
         assert_eq!(refused("nul"), "line 1, column 1: expected `null`");
         assert_eq!(refused("True"), "line 1, column 1: unexpected `T`");
@@ -965,10 +949,10 @@ mod tests {
             ("int".into(), Value::Int(-7)),
             ("min".into(), Value::Int(i64::MIN)),
             ("big".into(), Value::UInt(u64::MAX)),
-            ("pi".into(), Value::Float(3.25)),
-            ("tiny".into(), Value::Float(1e-300)),
-            ("huge".into(), Value::Float(1e300)),
-            ("whole".into(), Value::Float(2.0)),
+            ("pi".into(), Value::Number("3.25".into())),
+            ("tiny".into(), Value::Number("1e-300".into())),
+            ("huge".into(), Value::Number("1E+300".into())),
+            ("whole".into(), Value::Number("2.0".into())),
             ("yes".into(), Value::Bool(true)),
             ("no".into(), Value::Bool(false)),
             ("none".into(), Value::Null),
@@ -993,18 +977,19 @@ mod tests {
     }
 
     #[test]
-    fn floats_are_written_as_json_and_yaml_can_read() {
-        assert_eq!(Value::Float(1.5).to_json(false), "1.5");
-        assert_eq!(Value::Float(2.0).to_json(false), "2.0");
-        assert_eq!(Value::Float(f64::NAN).to_json(false), "null");
-        assert_eq!(Value::Float(f64::INFINITY).to_json(false), "null");
-        assert_eq!(Value::Float(f64::NEG_INFINITY).to_yaml(), "-.inf\n");
-        assert_eq!(Value::Float(0.5).to_yaml(), "0.5\n");
-        assert_eq!(Value::Float(0.5).to_cell(), "0.5");
-        assert_eq!(Value::Float(0.5).sort_cmp(&Value::Int(1)), Ordering::Less);
-        assert_eq!(
-            Value::UInt(2).sort_cmp(&Value::Float(1.5)),
-            Ordering::Greater
-        );
+    fn numbers_keep_their_text() {
+        let n = |t: &str| Value::Number(t.into());
+        assert_eq!(n("1.50").to_json(false), "1.50");
+        assert_eq!(n("2e-1").to_yaml(), "2e-1\n");
+        assert_eq!(n("0.5").to_cell(), "0.5");
+        assert_eq!(n("1.5").sort_cmp(&n("1.25")), Ordering::Greater);
+        for s in [
+            "1.5", "-2", "+3", ".5", ".inf", "-.Inf", ".NaN", "0x1f", "1e3",
+        ] {
+            assert!(looks_like_a_number(s), "{s}");
+        }
+        for s in ["a1", "e3", "one", "-", "."] {
+            assert!(!looks_like_a_number(s), "{s}");
+        }
     }
 }

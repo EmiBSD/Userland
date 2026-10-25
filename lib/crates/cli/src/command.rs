@@ -580,7 +580,7 @@ impl Command {
                 (Kind::Flag, _) => return Err(wrong("true or false")),
                 (Kind::Int { .. }, Value::Int(n)) => Some(n.to_string()),
                 (Kind::Int { .. }, Value::UInt(n)) => Some(n.to_string()),
-                (Kind::Int { .. }, f @ Value::Float(_)) => Some(f.to_json(false)),
+                (Kind::Int { .. }, Value::Number(n)) => Some(n),
                 (Kind::Int { .. }, Value::Str(s)) => Some(s),
                 (Kind::Int { .. }, _) => return Err(wrong("a number or a string")),
                 (Kind::List(..), Value::Str(s)) => Some(s),
@@ -1782,7 +1782,7 @@ mod tests {
             | ("boolean", Value::Bool(_))
             | ("null", Value::Null)
             | ("integer", Value::Int(_) | Value::UInt(_))
-            | ("number", Value::Int(_) | Value::UInt(_) | Value::Float(_)) => true,
+            | ("number", Value::Int(_) | Value::UInt(_) | Value::Number(_)) => true,
             _ => false,
         };
         match schema.get("type") {
