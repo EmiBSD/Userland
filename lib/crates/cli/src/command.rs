@@ -26,6 +26,7 @@
 use std::fmt;
 use std::io::Read;
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::args::{self, ArgError};
 use crate::render::Output;
@@ -304,6 +305,8 @@ pub struct Given {
     pub short: Option<char>,
     /// The long form of the option it matched.
     pub long: Option<&'static str>,
+    /// Where the option comes from: the common grammar's are applied last in a request.
+    pub origin: Origin,
     /// Its value.
     pub value: Typed,
     /// The value as the user spelled it (`7d` for a `Duration` of 604800), what
@@ -338,13 +341,16 @@ pub struct Parsed {
 
 impl Parsed {
     /// The command line as the document `--request` accepts: each option under its key in
-    /// the order given (an option given twice appears twice, so the last still wins), a
-    /// flag as `true`, a `List` as an array, an `Int` as a number, every other value as the
-    /// text the user spelled; then `operands`, when there are any.
+    /// the order given (an option given twice appears twice, so the last still wins), the
+    /// program's own first and the common grammar's after them, as a request applies them;
+    /// a flag as `true`, a `List` as an array, an `Int` as a number, every other value as
+    /// the text the user spelled; then `operands`, when there are any.
     pub fn request(&self) -> Value {
-        let mut doc: Vec<(String, Value)> = self
-            .given
-            .iter()
+        let (own, grammar): (Vec<&Given>, Vec<&Given>) =
+            self.given.iter().partition(|g| g.origin != Origin::Grammar);
+        let mut doc: Vec<(String, Value)> = own
+            .into_iter()
+            .chain(grammar)
             .map(|g| {
                 let v = match &g.value {
                     Typed::Flag => Value::Bool(true),
@@ -442,6 +448,99 @@ const IMPLIED: &[OptSpec] = &[
 /// and `--request=/dev/zero` must not exhaust memory.
 const REQUEST_LIMIT: u64 = 1 << 20;
 
+static STRUCTURED: AtomicBool = AtomicBool::new(false);
+
+/// Diagnostics from here on as `Diagnostic` records, one JSON text per line on standard
+/// error (what `-o json` and `-o yaml` ask), or in the text form. [`Command::run`] sets it
+/// from `-o`; a program sets it only when it chooses its output some other way.
+pub fn structured_diagnostics(on: bool) {
+    STRUCTURED.store(on, Ordering::Relaxed);
+}
+
+fn structured() -> bool {
+    STRUCTURED.load(Ordering::Relaxed)
+}
+
+/// Whether a command line that did not parse asked for structured output: `-o json`,
+/// `-ojson`, `--output=json`, `--output json`, or `yaml`, before any `--`.
+fn asks_structured(args: &[String]) -> bool {
+    let mut it = args.iter();
+    let mut last = false;
+    while let Some(a) = it.next() {
+        let v = match a.as_str() {
+            "--" => break,
+            "-o" | "--output" => it.next().map(String::as_str),
+            s if s.starts_with("--output=") => Some(&s[9..]),
+            s if s.starts_with("-o") && s.len() > 2 => Some(&s[2..]),
+            _ => None,
+        };
+        if let Some(v) = v {
+            last = matches!(v, "json" | "yaml");
+        }
+    }
+    last
+}
+
+/// What a diagnostic carries about an error: the code a tool decides by, the text a
+/// person reads.
+pub trait Diagnosable {
+    /// The errno name (`EACCES`) of an I/O error, the kind's name when the number is beyond
+    /// the shared range; `None` for text, which has no code.
+    fn code(&self) -> Option<String>;
+    /// The text: strerror(3)'s for an I/O error, as [`crate::os_error`] gives it.
+    fn text(&self) -> String;
+}
+
+impl Diagnosable for std::io::Error {
+    fn code(&self) -> Option<String> {
+        Some(
+            match self.raw_os_error().and_then(crate::errno::errno_name) {
+                Some(name) => name.to_string(),
+                None => format!("{:?}", self.kind()),
+            },
+        )
+    }
+    fn text(&self) -> String {
+        crate::os_error(self)
+    }
+}
+
+impl Diagnosable for &std::io::Error {
+    fn code(&self) -> Option<String> {
+        (**self).code()
+    }
+    fn text(&self) -> String {
+        (**self).text()
+    }
+}
+
+impl Diagnosable for &str {
+    fn code(&self) -> Option<String> {
+        None
+    }
+    fn text(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl Diagnosable for String {
+    fn code(&self) -> Option<String> {
+        None
+    }
+    fn text(&self) -> String {
+        self.clone()
+    }
+}
+
+impl Diagnosable for &String {
+    fn code(&self) -> Option<String> {
+        None
+    }
+    fn text(&self) -> String {
+        (*self).clone()
+    }
+}
+
 fn request_error(message: impl Into<String>) -> ArgError {
     invalid("--request", message.into())
 }
@@ -525,6 +624,7 @@ impl Command {
             out.given.push(Given {
                 short: spec.short,
                 long: spec.long,
+                origin: spec.origin,
                 value,
                 raw,
             });
@@ -543,7 +643,9 @@ impl Command {
 
     /// The words a request document spells, as the lexer would have them from the command
     /// line: each key in the document's order, `--long=value` or `-x value`, a flag alone
-    /// when `true` and absent when `false`; then `--` and the operands. The `Command` is
+    /// when `true` and absent when `false`, the common grammar's keys after the program's
+    /// own wherever they stand (so `"output": "json"` means JSON beside any format flag);
+    /// then `--` and the operands. The `Command` is
     /// asked only for each key's kind, to know the shape its value must have; what the value
     /// means is the parser's to check, as for any other word.
     fn lower(&self, value: &str) -> Result<Vec<String>, ArgError> {
@@ -553,6 +655,7 @@ impl Command {
             return Err(request_error("the document is not a JSON object"));
         };
         let mut words = Vec::new();
+        let mut grammar = Vec::new();
         let mut operands = Vec::new();
         for (key, v) in members {
             let wrong = |what: &str| request_error(format!("`{key}`: expected {what}"));
@@ -598,17 +701,23 @@ impl Command {
                 (_, Value::Str(s)) => Some(s),
                 (_, _) => return Err(wrong("a string")),
             };
+            let into = if spec.origin == Origin::Grammar {
+                &mut grammar
+            } else {
+                &mut words
+            };
             match (spec.long, spec.short, text) {
-                (Some(l), _, None) => words.push(format!("--{l}")),
-                (Some(l), _, Some(t)) => words.push(format!("--{l}={t}")),
-                (None, Some(c), None) => words.push(format!("-{c}")),
+                (Some(l), _, None) => into.push(format!("--{l}")),
+                (Some(l), _, Some(t)) => into.push(format!("--{l}={t}")),
+                (None, Some(c), None) => into.push(format!("-{c}")),
                 (None, Some(c), Some(t)) => {
-                    words.push(format!("-{c}"));
-                    words.push(t);
+                    into.push(format!("-{c}"));
+                    into.push(t);
                 }
                 (None, None, _) => {}
             }
         }
+        words.extend(grammar);
         words.push("--".to_string());
         words.extend(operands);
         Ok(words)
@@ -626,7 +735,8 @@ impl Command {
 
     /// [`Command::from_env`] over any arguments.
     pub fn run<I: IntoIterator<Item = String>>(&self, args: I) -> Result<Parsed, ExitCode> {
-        match self.parse(args) {
+        let args: Vec<String> = args.into_iter().collect();
+        match self.parse(args.iter().cloned()) {
             Ok(p) if p.help => {
                 print!("{}", self.help(&p.output().unwrap_or(Output::Table)));
                 Err(ExitCode::SUCCESS)
@@ -635,23 +745,95 @@ impl Command {
                 println!("{}", p.request().to_json(true));
                 Err(ExitCode::SUCCESS)
             }
-            Ok(p) => Ok(p),
+            Ok(p) => {
+                structured_diagnostics(matches!(p.output(), Some(Output::Json | Output::Yaml)));
+                Ok(p)
+            }
             Err(e) => {
-                eprintln!("{}: {e}", self.name);
-                eprintln!("{}", self.usage());
+                structured_diagnostics(asks_structured(&args));
+                if structured() {
+                    let (code, subject) = match &e {
+                        ArgError::Invalid { option, .. } if option == "--request" => {
+                            ("request", option.as_str())
+                        }
+                        ArgError::Invalid { option, .. } => ("usage", option.as_str()),
+                        ArgError::Unknown(o)
+                        | ArgError::MissingValue(o)
+                        | ArgError::UnexpectedValue(o) => ("usage", o.as_str()),
+                    };
+                    let d = self.diagnostic("usage", code, Some(subject), &e.to_string());
+                    eprintln!("{}", d.to_json(false));
+                } else {
+                    eprintln!("{}: {e}", self.name);
+                    eprintln!("{}", self.usage());
+                }
                 Err(ExitCode::from(exit::USAGE))
             }
         }
     }
 
-    /// `name: message` on standard error.
-    pub fn warn(&self, message: impl fmt::Display) {
-        eprintln!("{}: {message}", self.name);
+    /// The `Diagnostic` record of one diagnostic (`schemas/diagnostic.v1.json`).
+    pub fn diagnostic(
+        &self,
+        severity: &str,
+        code: &str,
+        subject: Option<&str>,
+        message: &str,
+    ) -> Value {
+        let s = |t: &str| Value::Str(t.to_string());
+        let mut m = vec![
+            ("apiVersion".to_string(), s("emibsd.org/v1")),
+            ("kind".to_string(), s("Diagnostic")),
+            ("program".to_string(), s(self.name)),
+            ("severity".to_string(), s(severity)),
+            ("code".to_string(), s(code)),
+        ];
+        if let Some(subject) = subject {
+            m.push(("subject".to_string(), s(subject)));
+        }
+        m.push(("message".to_string(), s(message)));
+        Value::Map(m)
     }
 
-    /// `name: subject: error` on standard error, the shape of every per-operand failure.
-    pub fn report(&self, subject: impl fmt::Display, error: impl fmt::Display) {
-        eprintln!("{}: {subject}: {error}", self.name);
+    /// One diagnostic on standard error: the record as one line when the diagnostics are
+    /// structured, else `name: subject: message` or `name: message`.
+    fn emit(&self, severity: &str, code: &str, subject: Option<&str>, message: &str) {
+        if structured() {
+            let d = self.diagnostic(severity, code, subject, message);
+            eprintln!("{}", d.to_json(false));
+        } else {
+            match subject {
+                Some(subject) => eprintln!("{}: {subject}: {message}", self.name),
+                None => eprintln!("{}: {message}", self.name),
+            }
+        }
+    }
+
+    /// A failure without a subject: `name: message` on standard error.
+    pub fn warn(&self, message: impl fmt::Display) {
+        self.emit("error", "error", None, &message.to_string());
+    }
+
+    /// A failure of one operand or resource: `name: subject: error` on standard error. Hand
+    /// it the `io::Error` itself, not its text, so the errno name travels as the code.
+    pub fn report(&self, subject: impl fmt::Display, error: impl Diagnosable) {
+        let code = error.code();
+        self.emit(
+            "error",
+            code.as_deref().unwrap_or("error"),
+            Some(&subject.to_string()),
+            &error.text(),
+        );
+    }
+
+    /// A wrong command line the program found itself: the message, the usage line (in the
+    /// text form) and the exit code to end with.
+    pub fn usage_error(&self, message: impl fmt::Display) -> ExitCode {
+        self.emit("usage", "usage", None, &message.to_string());
+        if !structured() {
+            eprintln!("{}", self.usage());
+        }
+        ExitCode::from(exit::USAGE)
     }
 
     /// The usage line(s): `usage: name synopsis`, each line of a multi-line synopsis (the
@@ -1356,6 +1538,7 @@ mod tests {
                 "--",
             ]))
             .unwrap();
+        let line = grammar_last(&line);
         assert_eq!(request(doc).unwrap(), line);
         let file = TempFile::new("whole.json", doc.as_bytes());
         assert_eq!(request(file.path()).unwrap(), line, "from a file");
@@ -1586,10 +1769,10 @@ mod tests {
     "file"
   ],
   "max-depth": 3,
-  "output": "json",
-  "sort-by": ".size",
   "limit": "10M",
   "mode": "fast",
+  "output": "json",
+  "sort-by": ".size",
   "operands": [
     "f",
     "g"
@@ -1600,10 +1783,13 @@ mod tests {
         let twice = X.parse(words(&["-ojson", "-1", "-o", "yaml"])).unwrap();
         assert_eq!(
             twice.request().to_json(false),
-            r#"{"output":"json","1":true,"output":"yaml"}"#,
-            "an option given twice appears twice, so the order of a group is kept"
+            r#"{"1":true,"output":"json","output":"yaml"}"#,
+            "an option given twice appears twice, so the last still wins"
         );
-        assert_eq!(request(&twice.request().to_json(false)).unwrap(), twice);
+        assert_eq!(
+            request(&twice.request().to_json(false)).unwrap(),
+            grammar_last(&twice)
+        );
     }
 
     #[test]
@@ -1756,7 +1942,7 @@ mod tests {
             let q = X
                 .parse(words(&["--request", &doc]))
                 .unwrap_or_else(|e| panic!("{argv:?} -> {doc}: {e}"));
-            assert_eq!(q, p, "{argv:?} -> {doc}");
+            assert_eq!(q, grammar_last(&p), "{argv:?} -> {doc}");
 
             let k = next() % (items.len() + 1);
             let mut tail: Vec<String> = items[k..].concat();
@@ -1767,8 +1953,75 @@ mod tests {
             let m = X
                 .parse(mixed.clone())
                 .unwrap_or_else(|e| panic!("{mixed:?}: {e}"));
-            assert_eq!(m, p, "{argv:?} as {mixed:?}");
+            let head = X.parse(items[..k].concat()).unwrap();
+            let expected = Parsed {
+                given: head
+                    .given
+                    .into_iter()
+                    .chain(grammar_last(&X.parse(tail).unwrap()).given)
+                    .collect(),
+                ..p.clone()
+            };
+            assert_eq!(m, expected, "{argv:?} as {mixed:?}");
         }
+    }
+
+    /// The order a request applies: the program's own options, then the common grammar's.
+    fn grammar_last(p: &Parsed) -> Parsed {
+        let (own, grammar): (Vec<Given>, Vec<Given>) = p
+            .given
+            .iter()
+            .cloned()
+            .partition(|g| g.origin != Origin::Grammar);
+        Parsed {
+            given: own.into_iter().chain(grammar).collect(),
+            ..p.clone()
+        }
+    }
+
+    #[test]
+    fn a_request_applies_the_grammar_last_whatever_its_place() {
+        let p = request(r#"{"output": "json", "all": true, "sort-by": ".size"}"#).unwrap();
+        let keys: Vec<&str> = p.given.iter().map(Given::key).collect();
+        assert_eq!(keys, ["all", "output", "sort-by"]);
+        let shown = X.parse(words(&["-o", "json", "-a"])).unwrap().request();
+        assert_eq!(shown.to_json(false), r#"{"all":true,"output":"json"}"#);
+    }
+
+    #[test]
+    fn a_diagnostic_is_a_record_with_a_code() {
+        let d = X.diagnostic("error", "EACCES", Some("/var/root"), "Permission denied");
+        assert_eq!(
+            d.to_json(false),
+            r#"{"apiVersion":"emibsd.org/v1","kind":"Diagnostic","program":"x","severity":"error","code":"EACCES","subject":"/var/root","message":"Permission denied"}"#
+        );
+        let schema = Value::from_json(include_str!("../schemas/diagnostic.v1.json")).unwrap();
+        conforms(&schema, &d, "$").unwrap();
+        conforms(
+            &schema,
+            &X.diagnostic("usage", "usage", None, "unknown option -- z"),
+            "$",
+        )
+        .unwrap();
+        let denied = std::io::Error::from_raw_os_error(13);
+        assert_eq!(denied.code().as_deref(), Some("EACCES"));
+        assert_eq!(denied.text(), "Permission denied");
+        let gone = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
+        assert_eq!(gone.code().as_deref(), Some("NotFound"));
+        assert_eq!("plain text".code(), None);
+        assert_eq!(String::from("x").text(), "x");
+    }
+
+    #[test]
+    fn a_wrong_command_line_still_tells_whether_json_was_asked() {
+        let w = |xs: &[&str]| xs.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(asks_structured(&w(&["-o", "json", "--bogus"])));
+        assert!(asks_structured(&w(&["-ojson"])));
+        assert!(asks_structured(&w(&["--output=yaml", "x"])));
+        assert!(asks_structured(&w(&["--output", "json"])));
+        assert!(!asks_structured(&w(&["-o", "json", "-o", "table"])));
+        assert!(!asks_structured(&w(&["--", "-o", "json"])));
+        assert!(!asks_structured(&w(&["-l"])));
     }
 
     /// The part of JSON Schema the repository's schemas use: `type`, `const`, `enum`,

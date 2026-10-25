@@ -4,11 +4,11 @@ version = 4
 
 [[package]]
 name = "cli"
-version = "0.3.0"
+version = "0.4.0"
 
 [[package]]
 name = "cp"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "cli",
  "sys",
@@ -16,7 +16,7 @@ dependencies = [
 
 [[package]]
 name = "ls"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "cli",
  "sys",

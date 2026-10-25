@@ -26,12 +26,15 @@
 
 pub mod args;
 pub mod command;
+pub mod errno;
 pub mod render;
 pub mod text;
 pub mod value;
 
 pub use args::ArgError;
-pub use command::{Command, Given, Kind, OptSpec, Origin, Parsed, Typed, exit};
+pub use command::{
+    Command, Diagnosable, Given, Kind, OptSpec, Origin, Parsed, Typed, exit, structured_diagnostics,
+};
 pub use render::{Align, Column, Output, Table};
 pub use value::{JsonError, Value};
 

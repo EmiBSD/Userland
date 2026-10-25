@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://emibsd.org/schemas/cli/diagnostic.v1.json",
+  "title": "Diagnostic",
+  "description": "One diagnostic of a written program under -o json or -o yaml: one JSON text per line on standard error, the records on standard output untouched. A tool decides by severity and code, never by message.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "program", "severity", "code", "message"],
+  "properties": {
+    "apiVersion": { "const": "emibsd.org/v1" },
+    "kind": { "const": "Diagnostic" },
+    "program": { "type": "string" },
+    "severity": { "enum": ["usage", "error"], "description": "usage: the command line or the request document is wrong and nothing was done, exit 2. error: something asked could not be done, exit 1 unless the program defines more." },
+    "code": { "type": "string", "description": "The errno name (EACCES, ENOENT) when the system refused; usage for the command line; request for the document; error when nothing finer is known." },
+    "subject": { "type": "string", "description": "What failed: the operand, the option, the resource." },
+    "message": { "type": "string", "description": "The text a person reads: strerror(3) or the program's sentence, the same as the text form." }
+  }
+}
