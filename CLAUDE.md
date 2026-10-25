@@ -26,7 +26,9 @@ answered in Spanish.
   parser, `--help` (text and `-o json`), usage, diagnostics and exit codes 0/1/2; `-o`
   selects the renderer; `--request` takes the whole invocation as one JSON document (file or
   inline, never stdin) lowered to the same parser, `--show-request` prints it, `--help -o json`
-  publishes the keys, so a person and a machine drive every program the same way. POSIX short
+  publishes the keys, and under `-o json` every diagnostic is a `Diagnostic` record on stderr
+  (`severity`, `code` = errno name, `subject`), so a person and a machine drive every program
+  the same way. POSIX short
   flags keep their meaning and the POSIX forms to a pipe are the standard's byte for byte; to
   a terminal the defaults are modern.
 - `bin/` and `sbin/` static (`src/build.rs`), `usr/` and `libexec/` dynamic.

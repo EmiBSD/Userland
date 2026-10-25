@@ -277,8 +277,10 @@ is where the system that replaces it is written.
   decision of 2026-10-24, taken with `ls`): a program is a query over records with a schema;
   `-o name|table|wide|json|yaml|custom-columns=...` picks the renderer, `--sort-by=.field`
   the order, `--no-headers` the table's header; `--request` takes the whole invocation as
-  one JSON document (a file, or inline) and `--show-request` prints it, so a person and a
-  machine drive the same program the same way. POSIX's short flags keep their meaning, and
+  one JSON document (a file, or inline) and `--show-request` prints it; under `-o json` the
+  diagnostics are records too (`severity`, `code`, `subject`), one per line on standard
+  error, so a person and a machine drive the same program the same way. POSIX's short flags
+  keep their meaning, and
   to a pipe the output is POSIX's byte for byte; to a terminal the defaults are modern (ISO
   dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
 - **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
@@ -483,8 +485,26 @@ how a person learns the format from the flags they know, saves an invocation wit
 JSON by hand, or hands an agent exactly what they did; and the round trip, flags to document
 to flags, is the test. The keys are published: `--help -o json` carries `key` on every option,
 so the procedure of a machine that does not know the program is the same for every program:
-ask the help as a record, write the document, run. The imported programs, outside the
-grammar, have none of this, as they have no `-o`.
+ask the help as a record, write the document, run. In the document the common grammar's
+keys (`output`, `sort-by`, `no-headers`) are applied after the program's own whatever their
+place, so `"output": "json"` means JSON beside any format flag (`"l": true`); on the
+command line the order rules as always, and `--show-request` prints the document in that
+order. The imported programs, outside the grammar, have none of this, as they have no `-o`.
+
+**Diagnostics** (the user's decision of 2026-10-24: a tool decides by a code, never by
+prose): every diagnostic of a written program goes through `cli` (`warn`, `report`,
+`usage_error`, the parser's own), so one rule covers them all. To a terminal and under
+`-o name|table|wide`, the text form: `name: message` or `name: subject: message`, and the
+usage line after a wrong command line. Under `-o json` or `-o yaml`, each diagnostic is a
+`Diagnostic` record (`lib/crates/cli/schemas/diagnostic.v1.json`), one JSON text per line on
+standard error, standard output untouched: `program`; `severity`, `usage` (nothing was done,
+exit 2) or `error` (something asked was not done, exit 1); `code`, the errno name (`EACCES`,
+`ENOENT`) when the system refused, `usage`, `request`, or `error` when nothing finer is
+known; `subject`, the operand or the option; `message`, the same text as the text form. The
+exit codes do not change: they stay the summary. An action's failures are also in its
+records (`cp`'s `action: failed` and `error`); the diagnostic is the same fact for whoever
+reads standard error. A program hands `report` the `io::Error` itself, not its text, so the
+code travels; where it has already made the error a sentence, the code is `error`.
 - A new crate dependency needs the user's OK and a row in the allowlist (to be written with
   the first program). Fuzzing: property tests on stable (`cargo-fuzz` needs nightly).
 - Performance: a commit that moves a benchmark more than 10 % carries `Bench:` lines and a

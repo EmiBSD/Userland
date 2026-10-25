@@ -22,8 +22,10 @@ is where the system that replaces it is written.
   decision of 2026-10-24, taken with `ls`): a program is a query over records with a schema;
   `-o name|table|wide|json|yaml|custom-columns=...` picks the renderer, `--sort-by=.field`
   the order, `--no-headers` the table's header; `--request` takes the whole invocation as
-  one JSON document (a file, or inline) and `--show-request` prints it, so a person and a
-  machine drive the same program the same way. POSIX's short flags keep their meaning, and
+  one JSON document (a file, or inline) and `--show-request` prints it; under `-o json` the
+  diagnostics are records too (`severity`, `code`, `subject`), one per line on standard
+  error, so a person and a machine drive the same program the same way. POSIX's short flags
+  keep their meaning, and
   to a pipe the output is POSIX's byte for byte; to a terminal the defaults are modern (ISO
   dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
 - **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
