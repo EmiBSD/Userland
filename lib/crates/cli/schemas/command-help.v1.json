@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://emibsd.org/schemas/cli/command-help.v1.json",
   "title": "CommandHelp",
-  "description": "What `<program> --help -o json` prints: the program's options with their types, output formats, schema, exit codes, environment and examples, for a tool or an agent that drives it. Every program has --help and exit code 2 (wrong command line); both appear in the record.",
+  "description": "What `<program> --help -o json` prints: the program's options with their types, output formats, schema, exit codes, environment and examples, for a tool or an agent that drives it. Every program has --request, --show-request, --help and exit code 2 (wrong command line); all appear in the record.",
   "type": "object",
   "required": ["apiVersion", "kind", "name", "summary", "synopsis", "options", "outputs", "exitCodes"],
   "properties": {
@@ -15,12 +15,13 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["short", "long", "type", "origin", "takesValue", "value", "description"],
+        "required": ["short", "long", "key", "type", "origin", "takesValue", "value", "description"],
         "properties": {
           "short": { "type": ["string", "null"], "pattern": "^-.$" },
           "long": { "type": ["string", "null"], "pattern": "^--[a-z0-9-]+$" },
+          "key": { "type": "string", "pattern": "^([a-z0-9-]+|[!-~])$", "description": "The name of the option in a --request document, and the one --show-request prints: the long form without its dashes when the option has one, else its letter." },
           "type": { "enum": ["flag", "string", "choice", "list", "int", "duration", "size", "path", "field", "format"], "description": "The type of the value the parser checks: a list is comma-separated choices, a duration is 7d/12h/30m/45s, a size is 4K/10M/1G, a field is a path into the record, a format is one of the -o renderers." },
-          "origin": { "enum": ["posix", "bsd", "emibsd", "grammar"], "description": "Where the option comes from: POSIX's definition of the utility; a flag the BSD systems have beyond POSIX, kept for compatibility with their scripts; EmiBSD's own for this program (filters, flags no other system has); or the common grammar every EmiBSD program shares (-o, --sort-by, --no-headers, --help)." },
+          "origin": { "enum": ["posix", "bsd", "emibsd", "grammar"], "description": "Where the option comes from: POSIX's definition of the utility; a flag the BSD systems have beyond POSIX, kept for compatibility with their scripts; EmiBSD's own for this program (filters, flags no other system has); or the common grammar every EmiBSD program shares (-o, --sort-by, --no-headers, --request, --show-request, --help)." },
           "takesValue": { "type": "boolean" },
           "value": { "type": ["string", "null"], "description": "The placeholder of the value, when one is taken." },
           "description": { "type": "string" },

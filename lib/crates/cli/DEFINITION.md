@@ -74,7 +74,9 @@ The API, in `man/cli.3` and the crate's doc comments. Option types a `Command` m
 
 ## Outputs
 
-`--help`: the text, or the `CommandHelp` record (`schemas/command-help.v1.json`).
+`--help`: the text, or the `CommandHelp` record (`schemas/command-help.v1.json`), where
+every option carries `key`, its name in a request document, so a machine that does not know
+the program asks the help as a record, writes the document and runs.
 `--show-request`: the command line as the document `--request` takes (`Parsed::request`),
 pretty JSON on standard output, exit 0, nothing run: each option under its key in the order
 given (twice when given twice), a flag as `true`, a `List` as an array, an `Int` as a number,

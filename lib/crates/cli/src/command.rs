@@ -789,32 +789,30 @@ impl Command {
     /// (`lib/crates/cli/schemas/command-help.v1.json`).
     pub fn value(&self) -> Value {
         let s = |x: &str| Value::Str(x.to_string());
-        let option = |short: Option<char>,
-                      long: Option<&str>,
-                      kind: &Kind,
-                      doc: &str,
-                      group: Option<&str>,
-                      origin: Origin| {
+        let option = |o: &OptSpec| {
+            let kind = &o.kind;
             let mut m = vec![
                 (
                     "short".into(),
-                    short
+                    o.short
                         .map(|c| Value::Str(format!("-{c}")))
                         .unwrap_or(Value::Null),
                 ),
                 (
                     "long".into(),
-                    long.map(|l| Value::Str(format!("--{l}")))
+                    o.long
+                        .map(|l| Value::Str(format!("--{l}")))
                         .unwrap_or(Value::Null),
                 ),
+                ("key".into(), s(o.key())),
                 ("type".into(), s(kind_name(kind))),
-                ("origin".into(), s(origin.name())),
+                ("origin".into(), s(o.origin.name())),
                 ("takesValue".into(), Value::Bool(*kind != Kind::Flag)),
                 (
                     "value".into(),
                     placeholder(kind).map(&s).unwrap_or(Value::Null),
                 ),
-                ("description".into(), s(doc)),
+                ("description".into(), s(o.doc)),
             ];
             let ch = choices(kind);
             if !ch.is_empty() {
@@ -827,17 +825,12 @@ impl Command {
                 m.push(("min".into(), Value::Int(*min)));
                 m.push(("max".into(), Value::Int(*max)));
             }
-            if let Some(g) = group {
+            if let Some(g) = o.group {
                 m.push(("exclusiveGroup".into(), s(g)));
             }
             Value::Map(m)
         };
-        let options: Vec<Value> = self
-            .options
-            .iter()
-            .chain(IMPLIED)
-            .map(|o| option(o.short, o.long, &o.kind, o.doc, o.group, o.origin))
-            .collect();
+        let options: Vec<Value> = self.options.iter().chain(IMPLIED).map(option).collect();
         let pairs = |xs: &[(&str, &str)], k1: &str, k2: &str| {
             Value::List(
                 xs.iter()
@@ -1775,6 +1768,121 @@ mod tests {
                 .parse(mixed.clone())
                 .unwrap_or_else(|e| panic!("{mixed:?}: {e}"));
             assert_eq!(m, p, "{argv:?} as {mixed:?}");
+        }
+    }
+
+    /// The part of JSON Schema the repository's schemas use: `type`, `const`, `enum`,
+    /// `required`, `properties` and `items`. A field the schema does not name is refused
+    /// too, so the schema documents every field the record has.
+    fn conforms(schema: &Value, v: &Value, at: &str) -> Result<(), String> {
+        let is = |t: &str| match (t, v) {
+            ("object", Value::Map(_))
+            | ("array", Value::List(_))
+            | ("string", Value::Str(_))
+            | ("boolean", Value::Bool(_))
+            | ("null", Value::Null)
+            | ("integer", Value::Int(_) | Value::UInt(_))
+            | ("number", Value::Int(_) | Value::UInt(_) | Value::Float(_)) => true,
+            _ => false,
+        };
+        match schema.get("type") {
+            Some(Value::Str(t)) if !is(t) => return Err(format!("{at}: not {t}")),
+            Some(Value::List(ts)) if !ts.iter().any(|t| is(&t.to_cell())) => {
+                return Err(format!(
+                    "{at}: not one of {}",
+                    Value::List(ts.clone()).to_cell()
+                ));
+            }
+            _ => {}
+        }
+        if let Some(c) = schema.get("const")
+            && c != v
+        {
+            return Err(format!("{at}: not {}", c.to_json(false)));
+        }
+        if let Some(Value::List(set)) = schema.get("enum")
+            && !set.contains(v)
+        {
+            return Err(format!("{at}: {} not in the enum", v.to_json(false)));
+        }
+        if let Value::Map(fields) = v {
+            if let Some(Value::List(required)) = schema.get("required") {
+                for r in required {
+                    if v.get(&r.to_cell()).is_none() {
+                        return Err(format!("{at}: `{}` is required", r.to_cell()));
+                    }
+                }
+            }
+            let props = schema.get("properties");
+            for (k, x) in fields {
+                match props.and_then(|p| p.get(k)) {
+                    Some(sub) => conforms(sub, x, &format!("{at}.{k}"))?,
+                    None => return Err(format!("{at}: `{k}` is not in the schema")),
+                }
+            }
+        }
+        if let (Value::List(items), Some(sub)) = (v, schema.get("items")) {
+            for (i, x) in items.iter().enumerate() {
+                conforms(sub, x, &format!("{at}[{i}]"))?;
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn the_help_record_follows_its_schema_and_names_every_key() {
+        let schema = Value::from_json(include_str!("../schemas/command-help.v1.json")).unwrap();
+        assert_eq!(conforms(&schema, &X.value(), ""), Ok(()));
+        let without_key = {
+            let mut v = X.value();
+            if let Some(Value::List(opts)) = v.get(".options").cloned() {
+                let stripped = opts
+                    .into_iter()
+                    .map(|o| match o {
+                        Value::Map(m) => {
+                            Value::Map(m.into_iter().filter(|(k, _)| k != "key").collect())
+                        }
+                        o => o,
+                    })
+                    .collect();
+                v.set("options", Value::List(stripped));
+            }
+            v
+        };
+        assert_eq!(
+            conforms(&schema, &without_key, ""),
+            Err(".options[0]: `key` is required".to_string())
+        );
+        let Some(Value::List(opts)) = X.value().get(".options").cloned() else {
+            panic!("options");
+        };
+        let keys: Vec<String> = opts
+            .iter()
+            .map(|o| o.get("key").unwrap().to_cell())
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                "all",
+                "output",
+                "1",
+                "max-depth",
+                "type",
+                "since",
+                "sort-by",
+                "limit",
+                "mode",
+                "request",
+                "show-request",
+                "help"
+            ]
+        );
+        for key in &keys[..9] {
+            let line = request(&format!("{{\"{key}\": \"x\"}}"));
+            assert!(
+                !matches!(&line, Err(e) if e.to_string().contains("unknown key")),
+                "{key}: {line:?}"
+            );
         }
     }
 }

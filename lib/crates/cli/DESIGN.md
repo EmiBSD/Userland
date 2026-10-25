@@ -28,6 +28,10 @@ Hostile input is the command line (a value of the wrong type, a path with a NUL)
 records (names with control characters that reach a terminal). Bounds: every value is
 checked against its declared kind before the program sees it; `sanitize` for terminals;
 JSON and YAML writers escape every control character and quote what YAML would misread.
+A `--request` document is hostile input too: the file is read to at most 1 MiB, the reader
+bounds nesting at 512 levels and refuses what RFC 8259 refuses (a lone surrogate, a raw
+control character), a request cannot name another, and every value it carries goes through
+the same `convert` as the command line's.
 
 ## Security
 
@@ -56,7 +60,15 @@ No `unsafe`, no I/O beyond the writers it is handed, no environment read.
 5. **The key is the long name.** A program matches `"output"` for both `-o` and `--output`
    and `"l"` for a short-only flag, so adding a long form to an option changes no match.
 6. **No dependency.** JSON and YAML are written by hand (a few hundred lines); `serde` would
-   be the first row of an allowlist that does not exist yet.
+   be the first row of an allowlist that does not exist yet. The JSON reader too.
+7. **The request is lowered, not parsed** (the user's decision of 2026-10-24): `--request`'s
+   document becomes the words it spells and goes through `args::lex` and `convert` like any
+   others, where `--request` stood, so it cannot accept what the command line refuses or
+   word an error differently. The `Command` is consulted only for each key's kind, to know
+   whether the value is `true`, a number, a string or an array. Rejected: typing the JSON
+   values directly into `Typed`, a second path that would have to agree with `convert`
+   forever. `--show-request` prints the value as the user spelled it (`Given::raw`), so
+   the round trip flags to document to flags is exact, and it is the property test.
 
 ## Dependencies
 
