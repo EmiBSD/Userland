@@ -33,7 +33,7 @@ pub mod value;
 pub use args::ArgError;
 pub use command::{Command, Given, Kind, OptSpec, Origin, Parsed, Typed, exit};
 pub use render::{Align, Column, Output, Table};
-pub use value::Value;
+pub use value::{JsonError, Value};
 
 /// The text of `strerror(3)` for an I/O error, without the ` (os error N)` std appends: what
 /// a diagnostic shows after the operand's name.

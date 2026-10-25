@@ -14,7 +14,9 @@ so the user learns it once and the program writes none of it:
   notes). From it: the parser with typed values, `--help` as text, `--help -o json|yaml` as
   a `CommandHelp` record, the usage line, `name: message` diagnostics, the shared exit codes.
 - **`Value`**: the record, an ordered dynamically typed value with its own JSON and YAML
-  writers, paths (`.a.b`), the order `--sort-by` uses.
+  writers and a JSON reader (RFC 8259 whole: every escape, surrogate pairs, numbers as
+  `Int`, `UInt` or `Float`; an error names its line and column), paths (`.a.b`), the order
+  `--sort-by` uses.
 - **`Output`, `render`**: `-o name|table|wide|json|yaml|custom-columns=`, the aligned table,
   the grid of columns a terminal gets.
 - **`text`**: display width, the sanitising of names for a terminal, human sizes, durations
