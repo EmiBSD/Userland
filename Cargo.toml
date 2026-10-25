@@ -13,3 +13,10 @@ members = [
 edition = "2024"
 license = "ISC"
 authors = ["Emilio Navarrete Lineros <enavarre@outlook.com>"]
+
+# The programs ship as they are built here: no symbol table, one unit of code generation so
+# the linker drops what a program does not use.
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

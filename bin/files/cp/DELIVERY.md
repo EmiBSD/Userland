@@ -9,7 +9,7 @@
 | MAKEDEV | none |
 | Manual | `man/cp.1`, installed as `/usr/share/man/man1/cp.1` |
 | Default configuration | none |
-| Size | 681 KB dynamic in release on macOS (the development host, 2026-10-24); the static size is measured when the target exists |
+| Size | 486 KB dynamic in release on macOS (the development host, 2026-10-24, with cli 0.3 and the workspace release profile: strip, lto, one codegen unit; 681 KB before); the static size is measured when the target exists |
 
 The installer's ramdisk does not carry one static binary per program: `distrib/installer`
 builds the `bin/` and `sbin/` programs into one multi-call crate with `std` linked once, the
