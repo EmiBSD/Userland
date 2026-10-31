@@ -1,9 +1,42 @@
 # EmiBSD Userland
 
+<p align="center">
+  <img src="docs/Ferffy.jpg" alt="Ferffy, the EmiBSD mascot: a spiky orange crab in front of a shield, above the EmiBSD name" width="380">
+</p>
+
+<p align="center"><em>Ferffy, the EmiBSD mascot: the child of Ferris (Rust's crab) and Puffy (OpenBSD's pufferfish).</em></p>
+
+<p align="center"><strong>The base system above the kernel: one tree, every program placed by what it does.</strong></p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-ISC-007ec6" alt="License: ISC"></a>
+  <a href="rust-toolchain.toml"><img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FEmiBSD%2FUserland%2Fmain%2Frust-toolchain.toml&query=%24.toolchain.channel&suffix=%20stable&label=rust&color=b7410e" alt="Rust: stable, the version pinned in rust-toolchain.toml"></a>
+  <a href="catastro.md"><img src="https://img.shields.io/badge/status-experimental-e05d44" alt="Status: experimental"></a>
+  <a href="https://www.emibsd.org"><img src="https://img.shields.io/badge/website-emibsd.org-9f9f9f" alt="Website: www.emibsd.org"></a>
+</p>
+
+> **Not for production.** EmiBSD is an experiment. It runs only in QEMU, and its crypto,
+> network and storage code is unaudited. Do not use it to protect real data or real networks.
+
 The monorepo of EmiBSD's own userland: the programs, libraries and configuration that run
 above the [Kernel](https://github.com/EmiBSD/Kernel). Phase 3 of the project: until the
 kernel's redesign closes at N9, EmiBSD runs an inherited base system unmodified; this repository
 is where the system that replaces it is written.
+
+## Where it sits
+
+```mermaid
+flowchart LR
+    obsd["OpenBSD-src (mirror)"] -- "the base system's sources, at the pin;<br/>the imports (ssh, LibreSSL, ...)" --> ul["Userland"]
+    lz["LandingZone"] -. "the pin" .-> ul
+    dev["DevTools"] -- "clang, lld, libc++; rustc, cargo, std" --> ul
+    ul -- "the base sets" --> os["OS"]
+    ul -. "sysroot: libc, crt, headers" .-> dev
+```
+
+The pin is LandingZone's, because it fixes the ABI the kernel implements; the toolchains come
+from DevTools; OS assembles the sets with the kernel into a release. The whole picture is in
+[Governance](https://github.com/EmiBSD/Governance) (`docs/architecture.md`).
 
 ## Rules (the user's decisions of 2026-10-23)
 
