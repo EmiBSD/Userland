@@ -61,10 +61,12 @@ from DevTools; OS assembles the sets with the kernel into a release. The whole p
   keep their meaning, and
   to a pipe the output is POSIX's byte for byte; to a terminal the defaults are modern (ISO
   dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
-- **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
-  patches and build glue; `compiler/rust` is rust-lang/rust at the pinned stable tag, built
-  against that LLVM, so the system builds itself (the `comp` set) and the `*-unknown-openbsd`
-  targets, tier 3 in Rust, get their `std` from a stable release's source, not from nightly.
+- **LLVM and Rust, nothing GPL.** The toolchains live in
+  [DevTools](https://github.com/EmiBSD/DevTools) (Governance G-0012, G-0015): upstream LLVM at
+  a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
+  pinned stable tag, so the `*-unknown-openbsd` targets, tier 3 in Rust, get their `std` from a
+  stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
+  `compiler/` here is the former home of those pins and goes with the next restart of `main`.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,
@@ -161,7 +163,7 @@ lib/
 ├── system               The rest.
 └── crates               The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar (one declaration per program with typed options, --help as text and as a record, usage and diagnostics, exit codes; records, -o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge, uid and umask, mkfifo and mknod, file flags, a link's times and mode), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no counterpart elsewhere.
 compiler/
-├── llvm                 LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.
+├── llvm                 moved to DevTools (G-0012, G-0015): upstream LLVM from the fork; this entry goes with the next restart of main.
 └── rust                 rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the `*-unknown-openbsd` targets (the Kernel's ABI) is how the tier 3 problem is solved without nightly.
 etc/
 ├── rc                   The start-up scripts and the terminal table.
