@@ -4,8 +4,7 @@ STATUS: see `STATUS`. EmiBSD's own `jpath`, written from scratch under this defi
 user's decision of 2026-10-24): a program of the user's own, with no counterpart in any
 reference tree. Its specification comes from RFC 9535 (JSONPath: Query Expressions for
 JSON), whose JSON is RFC 8259's, the same language ECMA-404 defines; and from the common
-grammar (docs/PROGRAM.md), whose `-o json` documents it exists to filter. The reference
-texts are in `reference/` (its README says which and under what terms). This document is
+grammar (docs/PROGRAM.md), whose `-o json` documents it exists to filter. This document is
 the specification the code will be written from.
 
 ## What it does
