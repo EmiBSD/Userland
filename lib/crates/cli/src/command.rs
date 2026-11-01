@@ -992,7 +992,7 @@ impl Command {
                 ("takesValue".into(), Value::Bool(*kind != Kind::Flag)),
                 (
                     "value".into(),
-                    placeholder(kind).map(&s).unwrap_or(Value::Null),
+                    placeholder(kind).map(s).unwrap_or(Value::Null),
                 ),
                 ("description".into(), s(o.doc)),
             ];
@@ -1036,7 +1036,7 @@ impl Command {
             ),
             ("options".into(), Value::List(options)),
             ("outputs".into(), pairs(self.outputs, "name", "description")),
-            ("schema".into(), self.schema.map(&s).unwrap_or(Value::Null)),
+            ("schema".into(), self.schema.map(s).unwrap_or(Value::Null)),
             (
                 "exitCodes".into(),
                 Value::List(
