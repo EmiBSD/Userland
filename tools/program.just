@@ -2,7 +2,7 @@
 # The program's name is its directory's name; the class is the first word of STATUS.
 
 name := file_name(justfile_directory())
-root := justfile_directory() / "../../.."
+root := `git rev-parse --show-toplevel`
 
 # Build: a written program through cargo; an imported one through build/ after fetch.
 build:

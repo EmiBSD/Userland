@@ -16,7 +16,7 @@ final message.
 
 Read first: `README.md` ("Rules"), `docs/PROGRAM.md` whole, `.claude/rules/subagents.md`,
 `.claude/rules/rust.md` (the practices you check against), the
-program's DEFINITION.md, DESIGN.md, `schemas/` and manual, and `lib/crates/cli/src/command.rs`
+program's DEFINITION.md, DESIGN.md, `schemas/` and manual, and `base/lib/crates/cli/src/command.rs`
 (what the declaration can express). POSIX.1-2024 is the frame where it defines the program
 (`man 1p` on the host). You may read the reference implementation's manual and code the way
 the surveyor does (`git -C ../Kernel/reference/openbsd-src show HEAD:<path>`, never from
@@ -48,7 +48,7 @@ a defect.
    `Config` consistent by construction; the renderers through `cli`; `cli::os_error` for
    errors.
 3. Safety: `#![forbid(unsafe_code)]` at the program's root; any `unsafe` only in
-   `lib/crates/sys`, each block with a `// SAFETY:` that states a real invariant and who
+   `base/lib/crates/sys`, each block with a `// SAFETY:` that states a real invariant and who
    upholds it ("the C does this" is not one), each `extern` signature matching both targets'
    libc, a host test exercising it. `pledge` promises the least the program needs,
    derived from the options where they change.

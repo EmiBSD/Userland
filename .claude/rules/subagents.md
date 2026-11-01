@@ -67,7 +67,7 @@ committed with the tree; a worktree agent's lines travel on its branch and merge
 
 The definitions are generic; the prompt of each launch supplies the specifics:
 
-1. the program(s) and the scope: the directory (`bin/files/cp`), the STATUS it starts at and
+1. the program(s) and the scope: the directory (`base/bin/files/cp`), the STATUS it starts at and
    the one it must reach, what is explicitly out;
 2. the base commit or the branch to merge first;
 3. the scratchpad directory for `HANDOFF.md`, the survey and logs;
@@ -103,7 +103,7 @@ A prompt that misses one of these gets a question back, not a guess.
 ## While working
 
 - Author block: every file starts with the author's ISC block (`LICENSE`; copy the header of
-  `lib/crates/cli/src/lib.rs`). Everything in the repository is in English.
+  `base/lib/crates/cli/src/lib.rs`). Everything in the repository is in English.
 - A written program is written from scratch under its DEFINITION. The reference manual and
   code are read to write that DEFINITION (what each parameter does, how the output is
   formatted, the exit codes) and, while implementing, to settle what it leaves open and to
@@ -111,7 +111,7 @@ A prompt that misses one of these gets a question back, not a guess.
   its structure or its text), a gap found that way goes into the DEFINITION, and nothing in
   the repository names the reference system for a written program. A program parses nothing itself: its `Command`
   declares the options with their types and `cli` does the rest (`docs/PROGRAM.md`, "The
-  common grammar"). `#![forbid(unsafe_code)]`; `unsafe` only in `lib/crates/sys` with a
+  common grammar"). `#![forbid(unsafe_code)]`; `unsafe` only in `base/lib/crates/sys` with a
   `// SAFETY:` proof, and only for what `std` lacks.
 - Commit early: each piece that passes `just lint` and `just test` in the program's directory
   is committed at once. `<scope>: <imperative summary>`; the body says what and why; a

@@ -32,7 +32,7 @@ practices, its compressed list first). Merge the branch your prompt names.
   it; one `Change:` kind per commit).
 - Tests: in `tests/cli.rs` of the program, running its binary on a temporary tree, one test
   per rule of its DEFINITION your prompt lists, asserting the text byte for byte; property
-  tests for a parser your prompt names. Copy the shape of `bin/files/ls/tests/cli.rs`.
+  tests for a parser your prompt names. Copy the shape of `base/bin/files/ls/tests/cli.rs`.
 - Manuals: `mandoc -T lint` clean, the section order mandoc wants, EXAMPLES present.
 - Skeletons: `just layout` after a template in `tools/layout.py` changed; check with
   `git status` that only what the change implies moved (a skeleton past `planned` is never

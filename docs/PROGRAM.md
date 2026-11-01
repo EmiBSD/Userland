@@ -1,6 +1,6 @@
 # The contract of a program
 
-Every program and library directory of this repository (`bin/`, `sbin/`, `usr/bin/`,
+Every program and library directory under `base/` (`bin/`, `sbin/`, `usr/bin/`,
 `usr/sbin/`, `libexec/`, `lib/`, `compiler/`) is one solution, laid out the same way.
 `tools/layout.py` creates the skeleton; the people and agents who work on the program fill
 it. There are two classes, told apart by the first word of `STATUS`.
@@ -75,15 +75,15 @@ closes, as the kernel bumps its LZ pin.
   2026-10-25), and nothing in the repository names another
   system for a written program. An imported one is never edited in place:
   patches only, and a patch needs a reason.
-- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc`,
-  `libexec/rtld` and `lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
+- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `base/lib/libc`,
+  `base/libexec/rtld` and `base/lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
   host tests.
 
 ## The common grammar (the user's decision of 2026-10-24, taken with `ls`)
 
 A written program is a query over records with a schema (`schemas/<record>.v1.json`); the
 human and machine outputs are renderers of the same record, from the shared crate
-`lib/crates/cli`, so the user learns the grammar once:
+`base/lib/crates/cli`, so the user learns the grammar once:
 
 | | |
 |---|---|
@@ -110,7 +110,7 @@ XSI: it is the output selector, as in kubectl.
 From that one table `cli` derives the parser (values arrive converted and checked, the
 error already worded, as in `ls: --max-depth: 'x' is not a whole number` with the value
 in backticks), `--help` as text,
-`--help -o json` as a `CommandHelp` record (`lib/crates/cli/schemas/command-help.v1.json`,
+`--help -o json` as a `CommandHelp` record (`base/lib/crates/cli/schemas/command-help.v1.json`,
 with the type of every option, so an agent can drive the program without reading prose), the
 usage line, and the `name: message` prefix of every diagnostic. No program declares `--help`
 or writes a `parse::<usize>()` of its own. Every option carries its origin, and `--help`
@@ -159,7 +159,7 @@ prose): every diagnostic of a written program goes through `cli` (`warn`, `repor
 `usage_error`, the parser's own), so one rule covers them all. To a terminal and under
 `-o name|table|wide`, the text form: `name: message` or `name: subject: message`, and the
 usage line after a wrong command line. Under `-o json` or `-o yaml`, each diagnostic is a
-`Diagnostic` record (`lib/crates/cli/schemas/diagnostic.v1.json`), one JSON text per line on
+`Diagnostic` record (`base/lib/crates/cli/schemas/diagnostic.v1.json`), one JSON text per line on
 standard error, standard output untouched: `program`; `severity`, `usage` (nothing was done,
 exit 2) or `error` (something asked was not done, exit 1); `code`, the errno name (`EACCES`,
 `ENOENT`) when the system refused, `usage`, `request`, or `error` when nothing finer is
@@ -190,9 +190,9 @@ ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` i
 so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
 program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
 is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
-exist); the toolchain's `crt-static` replaces it if `compiler/rust` finds that target respects
+exist); the toolchain's `crt-static` replaces it if `base/compiler/rust` finds that target respects
 it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
-does not pay `std` once per program: `distrib/installer` builds `bin/` and `sbin/` into one
+does not pay `std` once per program: `base/distrib/installer` builds `bin/` and `sbin/` into one
 multi-call crate, the Rust form of `crunchgen(8)`.
 
 ## Versions (the user's decision of 2026-10-23)
@@ -208,7 +208,7 @@ Two levels, because they answer two questions.
   applies: `breaking` bumps `MINOR`, `feature` and `fix` bump `PATCH`. An imported program's
   version is `version` in `UPSTREAM.toml`: the upstream's, plus our patch level as build
   metadata (`9.9+emibsd.2`); a new patch raises the level, a pin bump changes the base.
-- **The system: calendar, `YEAR.MONTH`** (`2027.04`), the release `distrib/` builds, like
+- **The system: calendar, `YEAR.MONTH`** (`2027.04`), the release `base/distrib/` builds, like
   the BSDs' release every six months with the date said. The question there is "how old is
   what I run?". It is a level apart from the `EmiBSD 8.0` the kernel shows userland, which
   does not move while the Kernel's ABI does not.

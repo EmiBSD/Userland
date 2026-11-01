@@ -15,8 +15,8 @@ Five ideas order the rest:
    go through `cli`; `panic!` is for a broken invariant of the program, never for bad input
    or a refusal of the system.
 3. **`unsafe` lives in one place.** Every program and `cli` carry `#![forbid(unsafe_code)]`;
-   `unsafe` only in `lib/crates/sys` (and, outside the workspace, `lib/libc` and
-   `libexec/rtld`), each site with a `// SAFETY:` proof, only for what `std` lacks.
+   `unsafe` only in `base/lib/crates/sys` (and, outside the workspace, `base/lib/libc` and
+   `base/libexec/rtld`), each site with a `// SAFETY:` proof, only for what `std` lacks.
 4. **The specification, not the reference.** A written program comes from its DEFINITION.md
    alone; the reference's code is read to write the definition, never to write the code.
 5. **The tool decides, not taste.** `rustfmt` formats, `clippy -D warnings` reviews, the

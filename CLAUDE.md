@@ -22,8 +22,8 @@ answered in Spanish.
   linking, versions) are the rules; this file points at them. `.claude/rules/rust.md` is
   the practice under them: how Rust is written here, with the compressed list for agents.
 - Two classes: **written** (from scratch, Rust, `#![forbid(unsafe_code)]`) and **imported**
-  (`UPSTREAM.toml` pin, patches, never rewritten). `unsafe` only in `lib/libc`, `libexec/rtld`
-  and `lib/crates/sys`, each site with a `// SAFETY:` proof.
+  (`UPSTREAM.toml` pin, patches, never rewritten). `unsafe` only in `base/lib/libc`, `base/libexec/rtld`
+  and `base/lib/crates/sys`, each site with a `// SAFETY:` proof.
 - **One grammar**: a program is a query over records (or an action whose steps are records)
   with a schema; one `Command` declares its options with their types and `cli` derives the
   parser, `--help` (text and `-o json`), usage, diagnostics and exit codes 0/1/2; `-o`
@@ -44,9 +44,10 @@ answered in Spanish.
 ## Directory map
 
 ```
-bin/ sbin/ usr/bin usr/sbin libexec/   the programs, the BSD trees, grouped by purpose
-lib/crates/cli lib/crates/sys          the shared crates: the grammar; the FFI
-lib/ compiler/ data/ etc/ distrib/     libraries, the toolchains (imported), data, /etc, the release
+base/                                  the system that is built, the BSD trees:
+  bin/ sbin/ usr/bin usr/sbin libexec/   the programs, grouped by purpose
+  lib/crates/cli lib/crates/sys          the shared crates: the grammar; the FFI
+  lib/ compiler/ data/ etc/ distrib/     libraries, the toolchains (moved to DevTools), data, /etc, the release
 regress/                               the integration battery against a reference system
 docs/PROGRAM.md                        the contract (generated from tools/layout.py)
 tools/                                 layout.py, version.py, upstream.py, cve.py, program.just

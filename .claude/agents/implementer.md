@@ -28,9 +28,9 @@ anyone in fact or in appearance. Your launcher reviews and integrates your branc
 Read first: the "Rules that apply to this work" block of your prompt, `docs/PROGRAM.md`
 whole, `.claude/rules/subagents.md` (the common contract), `.claude/rules/rust.md` (the
 practices, its compressed list first), the program's DEFINITION.md,
-DESIGN.md, `schemas/` and manual, `lib/crates/cli/src/command.rs` (the declaration, the
-kinds, `Parsed`), `lib/crates/cli/src/lib.rs` and `render.rs`, `lib/crates/sys/src/lib.rs`,
-and the two programs that set the pattern, `bin/files/ls/src` and `bin/files/cp/src`
+DESIGN.md, `schemas/` and manual, `base/lib/crates/cli/src/command.rs` (the declaration, the
+kinds, `Parsed`), `base/lib/crates/cli/src/lib.rs` and `render.rs`, `base/lib/crates/sys/src/lib.rs`,
+and the two programs that set the pattern, `base/bin/files/ls/src` and `base/bin/files/cp/src`
 (`options.rs` for the declaration and the `Config`, `main.rs` for the shape). Then merge the
 branch your prompt names.
 
@@ -47,9 +47,9 @@ branch your prompt names.
    Diagnostics through `COMMAND.warn` and `COMMAND.report`, errors through `cli::os_error`.
    Every record through `cli::Value`; the machine formats through `render_records` or the
    document shape (`apiVersion`, `kind`, `items`) `ls` and `cp` print.
-4. `#![forbid(unsafe_code)]` at the root. What `std` lacks goes to `lib/crates/sys` as one
+4. `#![forbid(unsafe_code)]` at the root. What `std` lacks goes to `base/lib/crates/sys` as one
    safe function per libc call, with its `// SAFETY:` proof and a host test; a `Kind` or a
-   text helper every program could use goes to `lib/crates/cli`; both carry their own
+   text helper every program could use goes to `base/lib/crates/cli`; both carry their own
    `Change:` and bump in the same commit. A new crate dependency: stop and ask.
 5. Tests: unit tests beside the code for every rule the DEFINITION states (the last of a
    group wins, when `stat` is needed, what the promises are); `tests/cli.rs` running the

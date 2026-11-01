@@ -1,7 +1,7 @@
 # EmiBSD Userland: the recipes over the whole monorepo. Each program has its own justfile
 # importing tools/program.just; these run across all of them.
 
-trees := "bin sbin usr libexec lib compiler"
+trees := "base"
 
 # Progress: how many programs sit at each STATUS (written: planned..shipped; imported: imported..).
 status:

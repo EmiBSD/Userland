@@ -47,8 +47,8 @@ from DevTools; OS assembles the sets with the kernel into a release.
   their upstream at the pin of their `UPSTREAM.toml`, never rewritten; our patches are a
   numbered series, ideally empty. `just status` counts both.
 - **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
-  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `lib/libc`,
-  `libexec/rtld` and `lib/crates/sys` (the thin FFI the programs share), each site with a
+  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `base/lib/libc`,
+  `base/libexec/rtld` and `base/lib/crates/sys` (the thin FFI the programs share), each site with a
   written proof, as the kernel's `hal`.
 - **One grammar for every program** (`docs/PROGRAM.md`, "The common grammar"; the user's
   decision of 2026-10-24, taken with `ls`): a program is a query over records with a schema;
@@ -65,7 +65,7 @@ from DevTools; OS assembles the sets with the kernel into a release.
   a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
   pinned stable tag, so the `*-unknown-openbsd` targets, tier 3 in Rust, get their `std` from a
   stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
-  `compiler/` here is the former home of those pins and goes with the next restart of `main`.
+  `base/compiler/` here is the former home of those pins and goes with the next restart of `main`.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,
@@ -87,7 +87,7 @@ from DevTools; OS assembles the sets with the kernel into a release.
 
 ## Layout
 
-The BSD split at the top: `bin/` and `sbin/` are what works with only the root
+Under `base/`, the system that is built, the BSD split: `bin/` and `sbin/` are what works with only the root
 partition mounted (linked static), `usr/bin/` and `usr/sbin/` the rest; `bin` and `usr/bin`
 are for the user, `sbin` and `usr/sbin` for operating the system. Inside each, the programs
 are grouped by what they do. A concept the tradition spreads over two trees keeps a distinct
@@ -97,13 +97,13 @@ tree the tradition keeps it in; `tools/layout.py` regenerates the READMEs and th
 the map and refuses to write when one is missing or doubled.
 
 ```
-bin/
+base/bin/
 ├── shells               The shells.
 ├── files                The basic file operations.
 ├── processes            Listing, signalling and pacing processes; the shell's primitives.
 ├── system               The machine's name, the terminal line, a checksum.
 └── tapes                Tape and changer control.
-sbin/
+base/sbin/
 ├── boot                 Process 1, going down, the console and the terminals.
 ├── storage/disks        Partitions, labels, device nodes and controllers.
 ├── storage/filesystems  Making, checking and tuning file systems.
@@ -112,7 +112,7 @@ sbin/
 ├── network              Interfaces, routes, the packet filter, address configuration and name resolution.
 ├── ipsec                IPsec and its key daemons.
 └── kernel               Reading and setting the kernel's state.
-usr/bin/
+base/usr/bin/
 ├── text                 Filters and transformers of text streams.
 ├── records              Querying the records the written programs emit (`-o json`); EmiBSD's own, no counterpart elsewhere.
 ├── editors              Editors and the pager.
@@ -130,7 +130,7 @@ usr/bin/
 ├── crypto               Certificates, signatures and keys from the command line.
 ├── yp-clients           Querying the YP/NIS directory (its servers are usr/sbin/yp).
 └── misc                 What fits nowhere else.
-usr/sbin/
+base/usr/sbin/
 ├── base-daemons         What rc starts on every system, and rc's control program.
 ├── accounts             Creating users and groups, the databases built from them, accounting, tokens (what a user does with their own identity is usr/bin/users).
 ├── storage-admin        Boot blocks, images, quotas, iSCSI, media (the root-partition tools are sbin/storage).
@@ -149,31 +149,31 @@ usr/sbin/
 ├── packages             Packages, firmware, patches and upgrades.
 ├── kernel-dev           Configuring, tracing and packaging kernels (the running kernel's state is sbin/kernel).
 └── wscons               Console screens, fonts and the console mouse.
-libexec/
+base/libexec/
 ├── login                The authentication back ends login(1) calls.
 ├── rtld                 The run-time linker.
 ├── network-daemons      Daemons inetd and the RPC services start.
 ├── mail                 Local delivery and the spam daemon.
 └── system               The login prompt, the nightly security check, the kernel relinker, the traditional cpp.
-lib/
+base/lib/
 ├── libc                 The C library, its start-up files, threads and libm.
 ├── crypto               Cryptography and authentication.
 ├── terminal             Terminal handling and line editing.
 ├── system               The rest.
 └── crates               The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar (one declaration per program with typed options, --help as text and as a record, usage and diagnostics, exit codes; records, -o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge, uid and umask, mkfifo and mknod, file flags, a link's times and mode), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no counterpart elsewhere.
-compiler/
+base/compiler/
 ├── llvm                 moved to DevTools: upstream LLVM from the fork; this entry goes with the next restart of main.
-└── rust                 rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the `*-unknown-openbsd` targets (the Kernel's ABI) is how the tier 3 problem is solved without nightly.
-etc/
+└── rust                 moved to DevTools: rust-lang/rust from the fork; this entry goes with the next restart of main.
+base/etc/
 ├── rc                   The start-up scripts and the terminal table.
 └── base                 Users, groups, shells, the protocol tables, device nodes, the file-system skeleton, root's dotfiles, the per-architecture files.
-data/
+base/data/
 ├── zoneinfo             The IANA time zone database (tzdata; zic and zdump are usr/sbin/services).
 ├── locale               Locale definitions and character maps.
 ├── dict                 The word lists spell(1) and look(1) read.
 ├── termtypes            The terminal descriptions, source of terminfo (tic is usr/bin/docs).
 └── misc                 Small tables of share/misc: ascii, airport codes, units, the magic of file(1) is in file itself.
-distrib/
+base/distrib/
 ├── sets                 The install sets and their lists; the release version is YEAR.MONTH (docs/PROGRAM.md, Versions).
 ├── installer            The installer, its ramdisk and the per-architecture media.
 ├── include              The recipe that assembles /usr/include from what each library of lib/ exports; no header is kept here.

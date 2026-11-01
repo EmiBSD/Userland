@@ -4,9 +4,9 @@ skeleton of every program and library (docs/PROGRAM.md is the contract).
 
 usage: layout.py <openbsd-src root> <Userland root>
 
-The top level is the BSD split by install path (bin, sbin, usr/bin, usr/sbin, libexec,
-lib, include, compiler, etc, share, distrib); inside each, the programs are grouped by what
-they do. Every program name of the reference tree's bin/, sbin/, usr.bin/, usr.sbin/, libexec/
+`base/` holds the system that is built, the BSD split by install path (bin, sbin, usr/bin,
+usr/sbin, libexec, lib, compiler, etc, data, distrib); inside each, the programs are grouped by
+what they do. Beside it live the repository's own tools (tools/, docs/, regress/). Every program name of the reference tree's bin/, sbin/, usr.bin/, usr.sbin/, libexec/
 and lib/ is mapped to exactly one leaf, in the tree it lives in there; the script refuses to write
 otherwise.
 
@@ -21,6 +21,7 @@ from pathlib import Path
 
 SRC = Path(sys.argv[1])
 OUT = Path(sys.argv[2])
+BASE = OUT / "base"                    # the system that is built; the repository's tools live beside it
 PIN_FILE = SRC.parent / "PINNED.md"          # Kernel/reference/PINNED.md: the reference tree's pin
 OPENBSD_MIRROR = "https://github.com/EmiBSD/OpenBSD-src"
 OPENBSD_ORIGIN = "https://github.com/openbsd/src"
@@ -201,9 +202,9 @@ LAYOUT = [
         ("crates", "The Rust crates the written programs share, each born with its first user and laid out as a program (docs/PROGRAM.md): `cli`, the common grammar (one declaration per program with typed options, --help as text and as a record, usage and diagnostics, exit codes; records, -o, --sort-by, tables, JSON, YAML, columns); `sys`, the thin FFI over libc (passwd and group lookups, the terminal, local time, pledge, uid and umask, mkfifo and mknod, file flags, a link's times and mode), the one place beside lib/libc and libexec/rtld where `unsafe` is allowed, each site with its proof. EmiBSD's own; no counterpart elsewhere.", [
             "crate:cli", "crate:sys"]),
     ]),
-    ("compiler", "The toolchains, both imported: LLVM as OpenBSD ships it (clang, lld, libc++, compiler-rt; Apache-2.0 with the LLVM exception, nothing GPL) and Rust (rustc, cargo, std; Apache-2.0 and MIT), so the system builds itself, as OpenBSD's comp set does. The user's decisions of 2026-10-23.", [
-        ("llvm", "LLVM with OpenBSD's patches and build glue (gnu/llvm, gnu/usr.bin/clang), from the pinned tree.", ["compiler:llvm"]),
-        ("rust", "rust-lang/rust at the pinned stable tag, built with x.py against compiler/llvm; its std for the `*-unknown-openbsd` targets (the Kernel's ABI) is how the tier 3 problem is solved without nightly.", ["compiler:rust"]),
+    ("compiler", "Moved to [DevTools](https://github.com/EmiBSD/DevTools) on 2026-10-31: the toolchains are built there, from the forks alone, upstream LLVM and rust-lang/rust, one LLVM for the C and for rustc, nothing from OpenBSD's tree. The pins under `llvm/` and `rust/` here are the superseded first draft and are removed with the next restart of `main`; nothing reads them.", [
+        ("llvm", "moved to DevTools: upstream LLVM from the fork; this entry goes with the next restart of main.", ["compiler:llvm"]),
+        ("rust", "moved to DevTools: rust-lang/rust from the fork; this entry goes with the next restart of main.", ["compiler:rust"]),
     ]),
     ("etc", "What the system needs before any program exists: the users and groups it is born with, the device nodes, the protocol tables, the start-up scripts. A program's own default configuration (pf.conf, ntpd.conf, syslog.conf, sshd's moduli, ...) lives in that program's etc/ and is installed from there; this tree holds only what belongs to no program.", [
         ("rc", "The start-up scripts and the terminal table.", [
@@ -255,10 +256,42 @@ COMPILERS = {
 
 TOPLEVEL_README = """# EmiBSD Userland
 
+<p align="center">
+  <img src="docs/Ferffy.jpg" alt="Ferffy, the EmiBSD mascot: a centolla, the spiky orange crab of the southern seas, in front of a shield, above the EmiBSD name" width="380">
+</p>
+
+<p align="center"><em>Ferffy, the EmiBSD mascot: a <a href="https://en.wikipedia.org/wiki/Lithodes_santolla">centolla</a>, the child of Ferris (Rust's crab) and Puffy (OpenBSD's pufferfish).</em></p>
+
+<p align="center"><strong>The base system above the kernel: one tree, every program placed by what it does.</strong></p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-ISC-007ec6" alt="License: ISC"></a>
+  <a href="rust-toolchain.toml"><img src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FEmiBSD%2FUserland%2Fmain%2Frust-toolchain.toml&query=%24.toolchain.channel&suffix=%20stable&label=rust&color=b7410e" alt="Rust: stable, the version pinned in rust-toolchain.toml"></a>
+  <a href="catastro.md"><img src="https://img.shields.io/badge/status-experimental-e05d44" alt="Status: experimental"></a>
+  <a href="https://www.emibsd.org"><img src="https://img.shields.io/badge/website-emibsd.org-9f9f9f" alt="Website: www.emibsd.org"></a>
+</p>
+
+> **Not for production.** EmiBSD is an experiment. It runs only in QEMU, and its crypto,
+> network and storage code is unaudited. Do not use it to protect real data or real networks.
+
 The monorepo of EmiBSD's own userland: the programs, libraries and configuration that run
 above the [Kernel](https://github.com/EmiBSD/Kernel). Phase 3 of the project: until the
 kernel's redesign closes at N9, EmiBSD runs an inherited base system unmodified; this repository
 is where the system that replaces it is written.
+
+## Where it sits
+
+```mermaid
+flowchart LR
+    obsd["OpenBSD-src (mirror)"] -- "the base system's sources, at the pin;<br/>the imports (ssh, LibreSSL, ...)" --> ul["Userland"]
+    lz["LandingZone"] -. "the pin" .-> ul
+    dev["DevTools"] -- "clang, lld, libc++; rustc, cargo, std" --> ul
+    ul -- "the base sets" --> os["OS"]
+    ul -. "sysroot: libc, crt, headers" .-> dev
+```
+
+The pin is LandingZone's, because it fixes the ABI the kernel implements; the toolchains come
+from DevTools; OS assembles the sets with the kernel into a release.
 
 ## Rules (the user's decisions of 2026-10-23)
 
@@ -270,8 +303,8 @@ is where the system that replaces it is written.
   their upstream at the pin of their `UPSTREAM.toml`, never rewritten; our patches are a
   numbered series, ideally empty. `just status` counts both.
 - **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
-  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `lib/libc`,
-  `libexec/rtld` and `lib/crates/sys` (the thin FFI the programs share), each site with a
+  syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `base/lib/libc`,
+  `base/libexec/rtld` and `base/lib/crates/sys` (the thin FFI the programs share), each site with a
   written proof, as the kernel's `hal`.
 - **One grammar for every program** (`docs/PROGRAM.md`, "The common grammar"; the user's
   decision of 2026-10-24, taken with `ls`): a program is a query over records with a schema;
@@ -283,10 +316,12 @@ is where the system that replaces it is written.
   keep their meaning, and
   to a pipe the output is POSIX's byte for byte; to a terminal the defaults are modern (ISO
   dates, human sizes, headers). BSD-only flags nobody remembers are not kept.
-- **LLVM and Rust, nothing GPL.** `compiler/llvm` is LLVM as OpenBSD ships it, with its
-  patches and build glue; `compiler/rust` is rust-lang/rust at the pinned stable tag, built
-  against that LLVM, so the system builds itself (the `comp` set) and the `*-unknown-openbsd`
-  targets, tier 3 in Rust, get their `std` from a stable release's source, not from nightly.
+- **LLVM and Rust, nothing GPL.** The toolchains live in
+  [DevTools](https://github.com/EmiBSD/DevTools): upstream LLVM at
+  a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
+  pinned stable tag, so the `*-unknown-openbsd` targets, tier 3 in Rust, get their `std` from a
+  stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
+  `base/compiler/` here is the former home of those pins and goes with the next restart of `main`.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,
@@ -308,7 +343,7 @@ is where the system that replaces it is written.
 
 ## Layout
 
-The BSD split at the top: `bin/` and `sbin/` are what works with only the root
+Under `base/`, the system that is built, the BSD split: `bin/` and `sbin/` are what works with only the root
 partition mounted (linked static), `usr/bin/` and `usr/sbin/` the rest; `bin` and `usr/bin`
 are for the user, `sbin` and `usr/sbin` for operating the system. Inside each, the programs
 are grouped by what they do. A concept the tradition spreads over two trees keeps a distinct
@@ -339,7 +374,7 @@ New code is ISC (`LICENSE`).
 
 PROGRAM_DOC = """# The contract of a program
 
-Every program and library directory of this repository (`bin/`, `sbin/`, `usr/bin/`,
+Every program and library directory under `base/` (`bin/`, `sbin/`, `usr/bin/`,
 `usr/sbin/`, `libexec/`, `lib/`, `compiler/`) is one solution, laid out the same way.
 `tools/layout.py` creates the skeleton; the people and agents who work on the program fill
 it. There are two classes, told apart by the first word of `STATUS`.
@@ -414,15 +449,15 @@ closes, as the kernel bumps its LZ pin.
   2026-10-25), and nothing in the repository names another
   system for a written program. An imported one is never edited in place:
   patches only, and a patch needs a reason.
-- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc`,
-  `libexec/rtld` and `lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
+- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `base/lib/libc`,
+  `base/libexec/rtld` and `base/lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
   host tests.
 
 ## The common grammar (the user's decision of 2026-10-24, taken with `ls`)
 
 A written program is a query over records with a schema (`schemas/<record>.v1.json`); the
 human and machine outputs are renderers of the same record, from the shared crate
-`lib/crates/cli`, so the user learns the grammar once:
+`base/lib/crates/cli`, so the user learns the grammar once:
 
 | | |
 |---|---|
@@ -449,7 +484,7 @@ XSI: it is the output selector, as in kubectl.
 From that one table `cli` derives the parser (values arrive converted and checked, the
 error already worded, as in `ls: --max-depth: 'x' is not a whole number` with the value
 in backticks), `--help` as text,
-`--help -o json` as a `CommandHelp` record (`lib/crates/cli/schemas/command-help.v1.json`,
+`--help -o json` as a `CommandHelp` record (`base/lib/crates/cli/schemas/command-help.v1.json`,
 with the type of every option, so an agent can drive the program without reading prose), the
 usage line, and the `name: message` prefix of every diagnostic. No program declares `--help`
 or writes a `parse::<usize>()` of its own. Every option carries its origin, and `--help`
@@ -498,7 +533,7 @@ prose): every diagnostic of a written program goes through `cli` (`warn`, `repor
 `usage_error`, the parser's own), so one rule covers them all. To a terminal and under
 `-o name|table|wide`, the text form: `name: message` or `name: subject: message`, and the
 usage line after a wrong command line. Under `-o json` or `-o yaml`, each diagnostic is a
-`Diagnostic` record (`lib/crates/cli/schemas/diagnostic.v1.json`), one JSON text per line on
+`Diagnostic` record (`base/lib/crates/cli/schemas/diagnostic.v1.json`), one JSON text per line on
 standard error, standard output untouched: `program`; `severity`, `usage` (nothing was done,
 exit 2) or `error` (something asked was not done, exit 1); `code`, the errno name (`EACCES`,
 `ENOENT`) when the system refused, `usage`, `request`, or `error` when nothing finer is
@@ -529,9 +564,9 @@ ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` i
 so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
 program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
 is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
-exist); the toolchain's `crt-static` replaces it if `compiler/rust` finds that target respects
+exist); the toolchain's `crt-static` replaces it if `base/compiler/rust` finds that target respects
 it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
-does not pay `std` once per program: `distrib/installer` builds `bin/` and `sbin/` into one
+does not pay `std` once per program: `base/distrib/installer` builds `bin/` and `sbin/` into one
 multi-call crate, the Rust form of `crunchgen(8)`.
 
 ## Versions (the user's decision of 2026-10-23)
@@ -547,7 +582,7 @@ Two levels, because they answer two questions.
   applies: `breaking` bumps `MINOR`, `feature` and `fix` bump `PATCH`. An imported program's
   version is `version` in `UPSTREAM.toml`: the upstream's, plus our patch level as build
   metadata (`9.9+emibsd.2`); a new patch raises the level, a pin bump changes the base.
-- **The system: calendar, `YEAR.MONTH`** (`2027.04`), the release `distrib/` builds, like
+- **The system: calendar, `YEAR.MONTH`** (`2027.04`), the release `base/distrib/` builds, like
   the BSDs' release every six months with the date said. The question there is "how old is
   what I run?". It is a level apart from the `EmiBSD 8.0` the kernel shows userland, which
   does not move while the Kernel's ABI does not.
@@ -567,7 +602,7 @@ PROGRAM_JUST = """# Shared recipes for every program and library; each one's jus
 # The program's name is its directory's name; the class is the first word of STATUS.
 
 name := file_name(justfile_directory())
-root := justfile_directory() / "../../.."
+root := `git rev-parse --show-toplevel`
 
 # Build: a written program through cargo; an imported one through build/ after fetch.
 build:
@@ -619,7 +654,7 @@ cve:
 ROOT_JUST = """# EmiBSD Userland: the recipes over the whole monorepo. Each program has its own justfile
 # importing tools/program.just; these run across all of them.
 
-trees := "bin sbin usr libexec lib compiler"
+trees := "base"
 
 # Progress: how many programs sit at each STATUS (written: planned..shipped; imported: imported..).
 status:
@@ -687,7 +722,7 @@ authors = ["Emilio Navarrete Lineros <enavarre@outlook.com>"]
 """
 
 TOOLCHAIN = """# Stable, pinned, the same channel as Kernel. Bumping is its own commit.
-# No targets yet: the `*-unknown-openbsd` targets (the Kernel's ABI) are tier 3; compiler/rust builds their std (README).
+# No targets yet: the targets of the Kernel's ABI are tier 3; their std comes with DevTools' toolchain (README).
 [toolchain]
 channel = "1.99.1"
 profile = "minimal"
@@ -1192,7 +1227,7 @@ def put(path: Path, text: str, force: bool) -> int:
 
 def crate_skeleton(leaf: str, name: str) -> int:
     """A shared Rust crate: a written program with no counterpart elsewhere, section 3."""
-    d = OUT / "lib" / leaf / name
+    d = BASE / "lib" / leaf / name
     force = regenerable(d)
     rel = os.path.relpath(OUT / "tools" / "program.just", d)
     n = 0
@@ -1211,7 +1246,7 @@ def crate_skeleton(leaf: str, name: str) -> int:
 def own_skeleton(top: str, leaf: str, name: str) -> int:
     """A program of EmiBSD's own: written, with no counterpart in any reference tree; its
     specification comes from the standards it implements and from the common grammar."""
-    d = OUT / top / leaf / name
+    d = BASE / top / leaf / name
     force = regenerable(d)
     section = DEFAULT_SECTION[top]
     rel = os.path.relpath(OUT / "tools" / "program.just", d)
@@ -1230,7 +1265,7 @@ def own_skeleton(top: str, leaf: str, name: str) -> int:
 
 
 def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
-    d = OUT / top / leaf / name
+    d = BASE / top / leaf / name
     force = regenerable(d)
     section = man_section(top, src_dir, name)
     origin = f"{src_dir}/{name}"
@@ -1269,7 +1304,7 @@ def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
 
 
 def compiler_skeleton(name: str, the_pin: str) -> int:
-    d = OUT / "compiler" / name
+    d = BASE / "compiler" / name
     force = regenerable(d)
     spec = dict(COMPILERS[name])
     if spec.get("commit") == "@PIN@":
@@ -1334,15 +1369,16 @@ def main() -> int:
 
     tree, created, programs, imported = [], 0, 0, 0
     for top, purpose, leaves in LAYOUT:
-        tree.append(f"{top}/")
-        (OUT / top).mkdir(parents=True, exist_ok=True)
+        where = OUT if top == "regress" else BASE   # the battery lives beside base/, not in it
+        tree.append(f"{top}/" if where is OUT else f"base/{top}/")
+        (where / top).mkdir(parents=True, exist_ok=True)
         top_md = [f"# {top}", "", purpose, "", "| Directory | What |", "|---|---|"]
         src = SOURCE_DIR.get(top)
         for i, (leaf, what, progs) in enumerate(leaves):
             last = i == len(leaves) - 1
             tree.append(f"{'└── ' if last else '├── '}{leaf:<20} {what}")
             top_md.append(f"| `{leaf}/` | {what} |")
-            d = OUT / top / leaf
+            d = where / top / leaf
             d.mkdir(parents=True, exist_ok=True)
             lines = [f"# {top}/{leaf}", "", what, "",
                      "Programs of this group:", ""]
@@ -1384,7 +1420,7 @@ def main() -> int:
                 continue   # the compiler tree's leaves are the programs themselves
             (d / "README.md").write_text("\n".join(lines) + "\n")
         top_md += ["", "Each entry is a group; each group's README lists its programs." if (src or top == "compiler") else "Nothing written yet."]
-        (OUT / top / "README.md").write_text("\n".join(top_md) + "\n")
+        (where / top / "README.md").write_text("\n".join(top_md) + "\n")
     (OUT / "README.md").write_text(TOPLEVEL_README.format(tree="\n".join(tree) + "\n"))
     (OUT / "docs").mkdir(exist_ok=True)
     (OUT / "docs" / "PROGRAM.md").write_text(PROGRAM_DOC)

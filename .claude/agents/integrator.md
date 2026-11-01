@@ -32,7 +32,7 @@ completely.
    - the root `Cargo.toml`: every member of both sides, in tree order; `Cargo.lock`: take
      either side and run `cargo update --workspace` (no network: it only re-resolves the
      path crates) so it matches the members.
-   - `lib/crates/cli` and `lib/crates/sys`: both sides' additions kept; one version per
+   - `base/lib/crates/cli` and `base/lib/crates/sys`: both sides' additions kept; one version per
      crate after the merge, the higher of the two bumps, and the merge commit carries the
      `Change:` the hook asks for.
    - READMEs and `docs/PROGRAM.md`: regenerated with `just layout` from the merged

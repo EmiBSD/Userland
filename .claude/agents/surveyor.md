@@ -26,7 +26,7 @@ the repository.
 
 Read first: `docs/PROGRAM.md` (the contract and the common grammar), `.claude/rules/subagents.md`
 (the common contract), the program's skeleton (`<dir>/DEFINITION.md`), and
-`lib/crates/cli/src/command.rs` and `lib/crates/sys/src/lib.rs` (what exists for the program
+`base/lib/crates/cli/src/command.rs` and `base/lib/crates/sys/src/lib.rs` (what exists for the program
 to use).
 
 ## How

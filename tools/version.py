@@ -78,7 +78,12 @@ def expected_bump(old, kind):
 def check_commit(msg_file: str) -> int:
     message = Path(msg_file).read_text()
     kinds = TRAILER.findall(message)
-    files = [f for f in git("diff", "--cached", "--name-only").splitlines() if f]
+    files = []
+    for line in git("diff", "--cached", "--name-status", "-M").splitlines():
+        status, *paths = line.split("\t")
+        if status == "R100" or not paths:   # a pure rename (a tree moved) changes no code
+            continue
+        files.append(paths[-1])
     touched = {}
     for f in files:
         prog = program_of(f)

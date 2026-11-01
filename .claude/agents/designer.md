@@ -34,7 +34,7 @@ manual's front; you never write `src/`, never build, never commit code.
 Read first: the "Rules that apply to this work" block of your prompt, `docs/PROGRAM.md`
 whole, `.claude/rules/subagents.md` (the common contract), `.claude/rules/rust.md` (the
 practices a design must leave room for), the survey, and the two programs
-that set the pattern: `bin/files/ls` (a query) and `bin/files/cp` (an action), their
+that set the pattern: `base/bin/files/ls` (a query) and `base/bin/files/cp` (an action), their
 DEFINITION.md, DESIGN.md and `schemas/`. Re-check in the reference every fact the design
 rests on against the standard's text and, where the survey cites it, the reference (as the
 surveyor reads it, with `git show`): a survey can be wrong. Nothing you write names the
