@@ -14,7 +14,8 @@ tests of the branch in the checkout your prompt names (`PATH=/opt/homebrew/opt/r
 `just lint`, `just test` in the program's directory) and nothing heavier. Your output is your
 final message.
 
-Read first: `README.md` ("Rules"), `docs/PROGRAM.md` whole, `.claude/rules/subagents.md`, the
+Read first: `README.md` ("Rules"), `docs/PROGRAM.md` whole, `.claude/rules/subagents.md`,
+`.claude/rules/rust.md` (the practices you check against), the
 program's DEFINITION.md, DESIGN.md, `schemas/` and manual, and `lib/crates/cli/src/command.rs`
 (what the declaration can express). POSIX.1-2024 is the frame where it defines the program
 (`man 1p` on the host). You may read the reference implementation's manual and code the way

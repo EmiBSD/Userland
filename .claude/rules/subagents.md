@@ -76,7 +76,9 @@ The definitions are generic; the prompt of each launch supplies the specifics:
 6. the block "Rules that apply to this work": the 10-15 lines that bind the task (the common
    grammar's points that matter for it, the POSIX forms that must match byte for byte, the
    `pledge` promises the program needs, what is forbidden) and the files the agent reads
-   whole: always `docs/PROGRAM.md` and this file; the reviewer reads `README.md` too.
+   whole: always `docs/PROGRAM.md`, this file and `rust.md` beside it (the practices; the
+   writing roles follow its compressed list, the reviewer checks against it); the reviewer
+   reads `README.md` too.
 
 A prompt that misses one of these gets a question back, not a guess.
 
@@ -86,11 +88,11 @@ A prompt that misses one of these gets a question back, not a guess.
   `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')`. `upstream/` (fetched
   sources, gitignored) lives only there: `ln -s "$MAIN/upstream" upstream` when an import is
   the work, unlinked before the worktree is removed. The Kernel's `reference/` tree is read
-  by the surveyor, the designer and the reviewer with
-  `git -C $MAIN/../Kernel/reference/openbsd-src show HEAD:<path>`, to write and check the
-  specification; the implementer never opens it (the user's rule of 2026-10-24: the
-  implementation comes from the specification alone); nobody `cd`s into it or writes there,
-  the hook refuses both.
+  by every role with `git -C $MAIN/../Kernel/reference/openbsd-src show HEAD:<path>`: the
+  surveyor, the designer and the reviewer to write and check the specification; the
+  implementer (the user's decision of 2026-10-25, replacing the rule of 2026-10-24) to settle
+  what the DEFINITION leaves open and to check a behaviour, taking the behaviour and never
+  the structure or the text. Nobody `cd`s into it or writes there, the hook refuses both.
 - `PATH=/opt/homebrew/opt/rustup/bin:$PATH` before `cargo` or `just`. Install nothing. The
   worktree has its own `target/`; the main checkout's is never used.
 - `just setup` once, so the `commit-msg` hook runs (it is `core.hooksPath`, shared by the
@@ -103,9 +105,11 @@ A prompt that misses one of these gets a question back, not a guess.
 - Author block: every file starts with the author's ISC block (`LICENSE`; copy the header of
   `lib/crates/cli/src/lib.rs`). Everything in the repository is in English.
 - A written program is written from scratch under its DEFINITION. The reference manual and
-  code are read only to write that DEFINITION (what each parameter does, how the output is
-  formatted, the exit codes); the code is written from the DEFINITION alone, never from the
-  reference, and nothing in the repository names the reference system for a written program. A program parses nothing itself: its `Command`
+  code are read to write that DEFINITION (what each parameter does, how the output is
+  formatted, the exit codes) and, while implementing, to settle what it leaves open and to
+  check a behaviour; nothing is copied or translated from the reference (its behaviour, never
+  its structure or its text), a gap found that way goes into the DEFINITION, and nothing in
+  the repository names the reference system for a written program. A program parses nothing itself: its `Command`
   declares the options with their types and `cli` does the rest (`docs/PROGRAM.md`, "The
   common grammar"). `#![forbid(unsafe_code)]`; `unsafe` only in `lib/crates/sys` with a
   `// SAFETY:` proof, and only for what `std` lacks.

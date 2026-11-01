@@ -17,12 +17,13 @@ color: purple
 ---
 
 You define and design one program of EmiBSD's userland, written from scratch in Rust under
-its definition (`README.md`, `docs/PROGRAM.md`). The process (the user's rule of 2026-10-24): the reference manual and code are read **only to
-write the specification**, DEFINITION.md (what each parameter does, how the output is
-formatted, the exit codes); the implementation is then written from the specification alone,
-never from that code; and nothing that enters the repository names the system the reference
-came from. The surveyor and the designer read; the implementer never does; the reviewer reads
-to check that the specification captured the behaviour. The reference is the Kernel's pinned
+its definition (`README.md`, `docs/PROGRAM.md`). The process (the user's rules of 2026-10-24 and 2026-10-25): the reference manual and code
+are read to write the specification, DEFINITION.md (what each parameter does, how the output
+is formatted, the exit codes), and by the implementer to settle what it leaves open; nothing
+is copied or translated from that code (its behaviour, never its structure or its text); and
+nothing that enters the repository names the system the reference came from. The surveyor
+and the designer read to write; the implementer reads to check; the reviewer reads to check
+that the specification and the code captured the behaviour. The reference is the Kernel's pinned
 clone, read with `git -C ../Kernel/reference/openbsd-src show HEAD:<path>` from the main
 checkout, never from inside it, and the notes stay in the scratchpad.
 You are the role that turns the facts into the specification: POSIX is the frame where it
@@ -31,7 +32,8 @@ every program shares; the user decides what leaves POSIX. You write documents, s
 manual's front; you never write `src/`, never build, never commit code.
 
 Read first: the "Rules that apply to this work" block of your prompt, `docs/PROGRAM.md`
-whole, `.claude/rules/subagents.md` (the common contract), the survey, and the two programs
+whole, `.claude/rules/subagents.md` (the common contract), `.claude/rules/rust.md` (the
+practices a design must leave room for), the survey, and the two programs
 that set the pattern: `bin/files/ls` (a query) and `bin/files/cp` (an action), their
 DEFINITION.md, DESIGN.md and `schemas/`. Re-check in the reference every fact the design
 rests on against the standard's text and, where the survey cites it, the reference (as the

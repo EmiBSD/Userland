@@ -17,14 +17,17 @@ color: blue
 
 You implement one program of EmiBSD's userland, written from scratch in Rust under its
 definition (`README.md`, `docs/PROGRAM.md`). The DEFINITION.md and DESIGN.md of the program
-are the specification, with POSIX's text behind them. You are the role that never reads the
-reference: the surveyor and the designer read the reference manual and code to write the
-specification, you implement from the specification alone (the user's rule of 2026-10-24),
-so the program owes nothing to anyone. You never open the Kernel's `reference/` tree, and
-nothing you write names another system. Your launcher reviews and integrates your branch.
+are the specification, with POSIX's text behind them. The reference manual and code are
+there for you too (the user's decision of 2026-10-25, replacing the rule of 2026-10-24): read
+them with `git -C $MAIN/../Kernel/reference/openbsd-src show HEAD:<path>` to settle what the
+DEFINITION leaves open and to check a behaviour, and take the behaviour, never the structure
+or the text: nothing is copied or translated, a gap you settle that way is a line added to
+the DEFINITION, and nothing you write names another system, so the program owes nothing to
+anyone in fact or in appearance. Your launcher reviews and integrates your branch.
 
 Read first: the "Rules that apply to this work" block of your prompt, `docs/PROGRAM.md`
-whole, `.claude/rules/subagents.md` (the common contract), the program's DEFINITION.md,
+whole, `.claude/rules/subagents.md` (the common contract), `.claude/rules/rust.md` (the
+practices, its compressed list first), the program's DEFINITION.md,
 DESIGN.md, `schemas/` and manual, `lib/crates/cli/src/command.rs` (the declaration, the
 kinds, `Parsed`), `lib/crates/cli/src/lib.rs` and `render.rs`, `lib/crates/sys/src/lib.rs`,
 and the two programs that set the pattern, `bin/files/ls/src` and `bin/files/cp/src`

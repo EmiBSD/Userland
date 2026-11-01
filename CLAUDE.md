@@ -4,12 +4,14 @@ The monorepo of EmiBSD's own userland: the programs, libraries and configuration
 Kernel (`../Kernel`, GitHub `EmiBSD/Kernel`), **written from scratch in Rust** under one
 contract. Phase 3 of the project: until the kernel's redesign closes at N9, EmiBSD runs an
 inherited base system unmodified; this repository is where the system that replaces it is
-written. The process (the user's decisions of 2026-10-23, "no vamos a migrar", and
-2026-10-24): the reference manual and code are read only to write a program's specification
-(DEFINITION.md: what each parameter does, how the output is formatted, the exit codes); the
-implementation is written from the specification alone, never from that code; and the
-repository names another system only where code under its copyright is compiled, the
-imported class. The written programs owe nothing to anyone, in fact and in appearance.
+written. The process (the user's decisions of 2026-10-23, "no vamos a migrar", 2026-10-24
+and 2026-10-25): the reference manual and code are read to write a program's specification
+(DEFINITION.md: what each parameter does, how the output is formatted, the exit codes) and,
+while implementing, to resolve what the specification leaves open and to check a behaviour;
+the specification stays the contract, the code takes the behaviour and never the structure
+or the text (nothing is copied or translated), and the repository names another system only
+where code under its copyright is compiled, the imported class. The written programs owe
+nothing to anyone, in fact and in appearance.
 
 Everything in this repository (code, comments, docs, commits) is in English. The user is
 answered in Spanish.
@@ -17,7 +19,8 @@ answered in Spanish.
 ## Non-negotiables
 
 - `README.md` ("Rules") and `docs/PROGRAM.md` (the contract of a program, the common grammar,
-  linking, versions) are the rules; this file points at them.
+  linking, versions) are the rules; this file points at them. `.claude/rules/rust.md` is
+  the practice under them: how Rust is written here, with the compressed list for agents.
 - Two classes: **written** (from scratch, Rust, `#![forbid(unsafe_code)]`) and **imported**
   (`UPSTREAM.toml` pin, patches, never rewritten). `unsafe` only in `lib/libc`, `libexec/rtld`
   and `lib/crates/sys`, each site with a `// SAFETY:` proof.

@@ -21,7 +21,8 @@ every file it touches, the same way each time, and nothing else. Your launcher i
 branch and runs `just check`.
 
 Read first: the "Rules that apply to this work" block of your prompt, `docs/PROGRAM.md`, and
-`.claude/rules/subagents.md` (the common contract). Merge the branch your prompt names.
+`.claude/rules/subagents.md` (the common contract) and `.claude/rules/rust.md` (the
+practices, its compressed list first). Merge the branch your prompt names.
 
 ## What you do
 

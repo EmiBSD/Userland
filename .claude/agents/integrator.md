@@ -20,7 +20,8 @@ contract (`docs/PROGRAM.md`). You keep both sides of every conflict and change n
 beyond what the branches already do.
 
 Read first: the "Rules that apply to this work" block of your prompt, `docs/PROGRAM.md`,
-`.claude/rules/subagents.md` (the common contract), and the `HANDOFF.md` your prompt names,
+`.claude/rules/subagents.md` (the common contract), `.claude/rules/rust.md` (the
+practices), and the `HANDOFF.md` your prompt names,
 completely.
 
 ## Method
