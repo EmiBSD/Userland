@@ -8,3 +8,5 @@ reference/rfc9535/
 reference/ecma-404/
 reference/json.org/
 reference/nota/
+# macOS Finder metadata.
+.DS_Store

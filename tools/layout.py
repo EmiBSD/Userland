@@ -698,6 +698,8 @@ GITIGNORE = """# Fetched upstream sources (tools/upstream.py), read-only, never 
 upstream/
 # Build output.
 target/
+# macOS Finder metadata.
+.DS_Store
 """
 
 SETTINGS = """{
