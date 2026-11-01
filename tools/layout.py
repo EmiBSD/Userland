@@ -409,7 +409,9 @@ closes, as the kernel bumps its LZ pin.
 - A written program is written from scratch under its definition. The definition is the
   specification, written from POSIX where the standard defines the program and from what the
   tradition settled (what each parameter does, how the output is formatted, the exit codes);
-  the code is written from the definition alone, and nothing in the repository names another
+  the code is written under the definition, with the reference consulted to settle what it
+  leaves open and to check a behaviour, never copied or translated (the user's decision of
+  2026-10-25), and nothing in the repository names another
   system for a written program. An imported one is never edited in place:
   patches only, and a patch needs a reason.
 - Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `lib/libc`,
@@ -687,7 +689,7 @@ authors = ["Emilio Navarrete Lineros <enavarre@outlook.com>"]
 TOOLCHAIN = """# Stable, pinned, the same channel as Kernel. Bumping is its own commit.
 # No targets yet: the `*-unknown-openbsd` targets (the Kernel's ABI) are tier 3; compiler/rust builds their std (README).
 [toolchain]
-channel = "1.98.1"
+channel = "1.99.1"
 profile = "minimal"
 components = ["rustfmt", "clippy", "rust-src"]
 """
