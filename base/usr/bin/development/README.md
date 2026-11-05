@@ -4,7 +4,7 @@ Build tools, source generators, version control and tracing.
 
 Programs of this group:
 
-- [`make`](make/) (imported)
+- [`make`](make/)
 - [`yacc`](yacc/) (imported)
 - [`lex`](lex/) (imported)
 - [`m4`](m4/) (imported)

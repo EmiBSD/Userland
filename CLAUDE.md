@@ -67,7 +67,9 @@ tools/                                 layout.py, version.py, upstream.py, cve.p
 ## Working
 
 `PATH=/opt/homebrew/opt/rustup/bin:$PATH`; `just check` at the root (fmt, clippy `-D
-warnings`, tests, once a written program brings the workspace back); `just lint`, `just test`, `just man` in a program's directory; `just
+warnings`, tests, once a written program brings the workspace back); `just host-make` builds
+the base system's make for the host from its inherited `src/` (the inherited C is built with
+it, never with GNU make or an installed bmake); `just lint`, `just test`, `just man` in a program's directory; `just
 status` for the progress numbers. A program is made by the roles of
 `.claude/rules/subagents.md`: `surveyor` (the standard's facts), `designer` (DEFINITION, DESIGN,
 schemas), `implementer` (src, tests, manual), `reviewer`, `integrator`; `mechanical` for the

@@ -26,7 +26,8 @@ upstream; *written*, EmiBSD's own.
 
 OpenBSD's base system, as the kernel inherited OpenBSD's: each program as it is at the pin,
 every copyright and licence notice kept whole, placed by what it does, built by its own
-Makefile through the build driver, changed only by `patches/`. The pin is LandingZone's,
+Makefile with the base system's own make (`just host-make` builds it for the development
+host), changed only by `patches/`. The pin is LandingZone's,
 because it fixes the ABI the kernel implements; the build refuses to run when the Kernel's
 pin differs. The source comes from the mirror, never from LandingZone, which holds no
 userland, and it is committed (the user's decision of 2026-11-04): it is the product, and

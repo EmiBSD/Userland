@@ -23,6 +23,10 @@ fetch-check:
 layout src="../Kernel/reference/openbsd-src":
     python3 -I tools/layout.py {{src}} .
 
+# The base system's make(1) built for the development host from its inherited src/, into target/host/bin/make.
+host-make:
+    sh tools/host/bootstrap-make.sh
+
 # Format, clippy and tests over the workspace; the root Cargo.toml comes back with the first written program.
 check:
     #!/bin/sh

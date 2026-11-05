@@ -57,7 +57,7 @@ IMPORTED = {
     # the legacy giants
     "vi": "nvi:nvi", "less": "gnu:less", "tmux": "tmux_project:tmux", "mandoc": "mandoc:mandoc",
     "awk": "onetrueawk:awk", "bc": "openbsd:openbsd", "dc": "openbsd:openbsd", "m4": "openbsd:openbsd",
-    "yacc": "byacc:byacc", "lex": "flex_project:flex", "make": "openbsd:openbsd", "patch": "openbsd:openbsd",
+    "yacc": "byacc:byacc", "lex": "flex_project:flex", "patch": "openbsd:openbsd",
     "diff": "openbsd:openbsd", "diff3": "openbsd:openbsd", "sdiff": "openbsd:openbsd",
     "rcs": "openbsd:openrcs", "cvs": "openbsd:opencvs",
     "libcurses": "gnu:ncurses", "libform": "gnu:ncurses", "libmenu": "gnu:ncurses", "libpanel": "gnu:ncurses",
@@ -318,10 +318,13 @@ from DevTools; OS assembles the sets with the kernel into a release.
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,
   gitignored and read-only; a build applies `patches/` to a copy under `target/`, never to
   `upstream/`. `tools/upstream.py` fetches, verifies (commit, SHA-256, signature) and pins.
-- **`just`.** Every program carries a `justfile` that imports `tools/program.just`; the root
-  `justfile` runs over all of them. `cargo` builds the written programs; the inherited and
-  imported C is built by its own Makefiles through the build driver (README, Open); `just` is
-  the recipes.
+- **`just` and make.** Every program carries a `justfile` that imports `tools/program.just`;
+  the root `justfile` runs over all of them. `cargo` builds the written programs; the
+  inherited C is built by its own Makefiles with the base system's own make (the user's
+  decision of 2026-11-04): `just host-make` builds that make for the development host from
+  its inherited `src/` with DevTools' clang, without any make, and it reads the `share/mk` of
+  the same pin. Nothing else is installed for it; `tools/host/compat.h` gives the host tools
+  what macOS lacks, and is never shipped. `just` is the recipes.
 - **Versions.** Semver per program (`src/Cargo.toml`, or `version` in `UPSTREAM.toml` with
   our patch level as `+emibsd.N`); a calendar version, `YEAR.MONTH`, for the system release.
   A commit that changes a program's code carries `Change: breaking|feature|fix` and the bump
@@ -356,10 +359,10 @@ one place in it, and each place is filled by its class.
 - **The inherited class is in the tree, not built.** Every program of the base system has
   its directory at the pin in `src/`, copied by `tools/layout.py` (committed, the user's
   decision of 2026-11-04). The trees that are not programs (`etc/`, `share/`, `distrib/`)
-  are not copied yet. To build: `patches/` applied to a copy, the `Makefile.inc` each
-  relocated Makefile needs, and the build driver (the evaluator of BSD Makefiles with which
-  the Kernel cross-builds its userland today) moved here, told each program's original
-  path. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
+  are not copied yet, and `share/mk` is among them. To build: the host make (`just
+  host-make`, it builds and evaluates the tree's Makefiles today), `share/mk` in the tree,
+  `patches/` applied to a copy, the `Makefile.inc` each relocated Makefile needs (a Makefile
+  that reaches a sibling by `${{.CURDIR}}/..`), and the cross build for the Kernel's ABI. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
 - **Decisions the user has still to take** about the inherited class: whether the Kernel
   keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
   the milestone letter and the first milestone (proposed: the 110 programs the Kernel builds
@@ -404,7 +407,8 @@ upstream; *written*, EmiBSD's own.
 
 OpenBSD's base system, as the kernel inherited OpenBSD's: each program as it is at the pin,
 every copyright and licence notice kept whole, placed by what it does, built by its own
-Makefile through the build driver, changed only by `patches/`. The pin is LandingZone's,
+Makefile with the base system's own make (`just host-make` builds it for the development
+host), changed only by `patches/`. The pin is LandingZone's,
 because it fixes the ABI the kernel implements; the build refuses to run when the Kernel's
 pin differs. The source comes from the mirror, never from LandingZone, which holds no
 userland, and it is committed (the user's decision of 2026-11-04): it is the product, and
@@ -717,6 +721,10 @@ fetch-check:
 # Regenerate the READMEs and the skeletons still at planned/imported (needs Kernel's reference tree).
 layout src="../Kernel/reference/openbsd-src":
     python3 -I tools/layout.py {{src}} .
+
+# The base system's make(1) built for the development host from its inherited src/, into target/host/bin/make.
+host-make:
+    sh tools/host/bootstrap-make.sh
 
 # Format, clippy and tests over the workspace; the root Cargo.toml comes back with the first written program.
 check:
@@ -1290,7 +1298,7 @@ def materialise(dst: Path, origin: str, the_pin: str) -> int:
     prefix, n = origin.rstrip("/") + "/", 0
     with tarfile.open(fileobj=io.BytesIO(tar)) as tf:
         for m in tf.getmembers():
-            if m.name == origin:   # an entry that is one file (lib/check_sym), not a directory
+            if m.name == origin and m.isfile():   # an entry that is one file (lib/check_sym)
                 target = dst / Path(origin).name
             elif not m.name.startswith(prefix) or m.name == prefix:
                 continue
