@@ -1,0 +1,256 @@
+# The contract of a program
+
+Every program and library directory under `base/` (`bin/`, `sbin/`, `usr/bin/`,
+`usr/sbin/`, `libexec/`, `lib/`) is one solution, laid out the same way.
+`tools/layout.py` creates the skeleton; the people and agents who work on the program fill
+it. There are three classes, told apart by the first word of `STATUS` (the user's decision
+of 2026-11-04): *inherited*, the base system as it is at the pin; *imported*, a third-party
+upstream; *written*, EmiBSD's own.
+
+## Inherited (the base system's C at the pin, in our layout)
+
+```
+<group>/<name>/
+├── STATUS            inherited | inherited-built | inherited-shipped
+├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
+│                     program's directory in that tree
+├── patches/          our patches, a numbered series, each with its reason in its header
+├── DEFINITION.md     what the program is for here, the compatibility others rely on, the
+│                     security history tracked against the upstream
+├── tests/            it builds against our libc, starts under our rc; cve/ for what we patched
+├── man/              the program's own manual, from the tree; a change to it is one more patch
+├── DELIVERY.md
+└── justfile
+```
+
+OpenBSD's base system, as the kernel inherited OpenBSD's: each program as it is at the pin,
+every copyright and licence notice kept whole, placed by what it does, built by its own
+Makefile through the build driver, changed only by `patches/`. The pin is LandingZone's,
+because it fixes the ABI the kernel implements; the build refuses to run when the Kernel's
+pin differs. The source comes from the mirror, never from LandingZone, which holds no
+userland. Whether the C is committed under the directory or fetched under `upstream/` is the
+user's decision (README, Open). A program leaves this class only when its written
+replacement ships; until then the inherited one is what runs.
+
+## Written (from scratch, in Rust)
+
+No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
+proof of concept: their code is on the `experimental` branch, their documents stay in their
+directories at `designed`, and the root `Cargo.toml` and `rust-toolchain.toml` come back
+with the first program implemented again. What follows is the contract that program meets.
+
+```
+<group>/<name>/
+├── STATUS            planned | defined | designed | implemented | shipped
+├── DEFINITION.md     the functional design: what it does, scope, constraints, inputs,
+│                     parameters, outputs, exit codes, signals, compatibility, the
+│                     performance budget, the security history (CVEs of the reference)
+├── DESIGN.md         the architecture: mermaid diagrams, concurrency model, threat model,
+│                     security (pledge, unveil, privileges), decisions, dependencies
+├── schemas/          the machine-readable contracts: output.v1.json, config.v1.json
+│                     (what `-o json` / `-o yaml` emit; versioned, kubectl's apiVersion)
+├── src/              the Rust sources, a Cargo package; unit tests beside the code
+├── tests/            integration tests; property tests for every parser; stress/ on four
+│                     CPUs for what serves many; cve/ one test per entry of the security
+│                     history; golden/ the differential tests against a reference system
+├── bench/            host benchmarks (harness = false) against a reference system's program on the
+│                     same input; `just bench` prints the ratio
+├── man/<name>.<n>    the manual, mdoc(7) source; HTML and Markdown are rendered from it
+├── etc/              the default configuration installed under /etc, when it has one
+├── DELIVERY.md       the install set, path, static or dynamic, owner and mode, MAKEDEV
+└── justfile          `import` of tools/program.just
+```
+
+The order: **planned** (the skeleton; DEFINITION names the standard that defines the program), **defined**
+(DEFINITION complete; *Compatibility* is the section that matters most: what the rest of the
+base system expects, the flags `rc` uses, the output another program parses, the exit codes
+a script branches on), **designed** (DESIGN and schemas complete; the pledge and unveil
+profile is the least the program needs), **implemented** (builds; unit,
+integration, property, stress, cve and differential tests pass; bench within budget; the
+manual complete with EXAMPLES; the package joined the workspace), **shipped** (DELIVERY
+complete, `distrib/` installs it).
+
+## Imported (compiled from upstream, never rewritten)
+
+```
+<group>/<name>/
+├── STATUS            imported | imported-built | imported-shipped
+├── UPSTREAM.toml     the pin: mirror, origin, path, commit or tag, version, licence, CPE
+├── patches/          our patches, a numbered series, each with its reason in its header
+├── build/            the glue: what is built, with which flags, against which libc and libtls
+├── DEFINITION.md     what it gives us, what we build of it, compatibility, configuration we
+│                     ship, the security history tracked against the upstream's CPE
+├── DESIGN.md         the integration: pledge kept, privileges, concurrency as upstream has it
+├── tests/            our integration: it builds against our libc, starts under our rc, and
+│                     behaves as OpenBSD's binary (golden/); cve/ for what we patched
+├── man/              the upstream manual; a change to it is one more patch
+├── DELIVERY.md
+└── justfile
+```
+
+The source itself lives under `upstream/`, gitignored and read-only, fetched by
+`tools/upstream.py fetch` and verified against `UPSTREAM.toml` (commit for git, SHA-256 and
+signature for a tarball); a build copies it to `target/`, applies `patches/`, builds there.
+`upstream/.pin` must match the TOML or `just build` refuses. Most imports point at
+`EmiBSD/OpenBSD-src` at the Kernel's pin (OpenSSH, LibreSSL, `unbound`, `smtpd`, `nvi`,
+`mandoc`, ncurses, LLVM all live in that tree): one shared clone, one fetch. Moving an
+import to a newer version is a `upstream:` commit that bumps the pin and lists the CVEs it
+closes, as the kernel bumps its LZ pin.
+
+## Rules
+
+- A written program is written from scratch under its definition. The definition is the
+  specification, written from POSIX where the standard defines the program and from what the
+  tradition settled (what each parameter does, how the output is formatted, the exit codes);
+  the code is written under the definition, with the reference consulted to settle what it
+  leaves open and to check a behaviour, never copied or translated (the user's decision of
+  2026-10-25), and nothing in the repository names another
+  system for a written program. An imported one is never edited in place:
+  patches only, and a patch needs a reason.
+- Rust; `#![forbid(unsafe_code)]` at the crate root. `unsafe` only in `base/lib/libc`,
+  `base/libexec/rtld` and `base/lib/crates/sys`, each site with a `// SAFETY:` proof. Miri on their
+  host tests.
+
+## The common grammar (the user's decision of 2026-10-24, taken with `ls`)
+
+A written program is a query over records with a schema (`schemas/<record>.v1.json`); the
+human and machine outputs are renderers of the same record, from the shared crate
+`base/lib/crates/cli`, so the user learns the grammar once:
+
+| | |
+|---|---|
+| `-o name` | one identifier per line (to a pipe) or in columns (to a terminal) |
+| `-o table` | the classic columns; `--no-headers` drops the header line |
+| `-o wide` | every field of the record as a table |
+| `-o json`, `-o yaml` | the record, versioned (`apiVersion`) |
+| `-o custom-columns=NAME:.name,SIZE:.size` | the fields you ask for |
+| `--sort-by=.field`, `-r` | any field of the record, reversed |
+| `--type=`, `--since=`, `--max-depth=` | filters, where the record has them |
+| `--request=FILE` or `--request='{...}'` | the whole invocation as one JSON document |
+| `--show-request` | print the command line as that document instead of running it |
+
+POSIX's short flags keep their meaning (`ls -la` is `ls -la`). To a pipe, the output of a
+POSIX-defined form (`ls -l`, `-1`, `-i`, `-s`) is POSIX's byte for byte, so the world's
+scripts keep working. To a terminal, the defaults are modern: ISO 8601 dates, human sizes,
+a header on tables. BSD extensions nobody remembers are not carried (`ls -m`, `-x`, `-T`);
+what they did is `-o` or `--sort-by`. `-o` itself is the one conscious break with POSIX
+XSI: it is the output selector, as in kubectl.
+
+**One declaration per program** (the user's decision of 2026-10-24, taken with `cli` 0.2 and
+`cp`): a `Command` in `src/options.rs` names every option once, with its type (`Flag`,
+`Str`, `Choice`, `List`, `Int {min, max}`, `Duration`, `Size`, `Path`, `Field`, `Format`).
+From that one table `cli` derives the parser (values arrive converted and checked, the
+error already worded, as in `ls: --max-depth: 'x' is not a whole number` with the value
+in backticks), `--help` as text,
+`--help -o json` as a `CommandHelp` record (`base/lib/crates/cli/schemas/command-help.v1.json`,
+with the type of every option, so an agent can drive the program without reading prose), the
+usage line, and the `name: message` prefix of every diagnostic. No program declares `--help`
+or writes a `parse::<usize>()` of its own. Every option carries its origin, and `--help`
+shows the options in four sections, POSIX's, BSD compatibility (flags the BSDs have beyond
+POSIX, kept so their scripts work), EmiBSD's own for this program, and the common grammar
+every program shares (`-o`, `--sort-by`, `--no-headers`, `--request`, `--show-request`,
+`--help`; `origin` in the record), so a user tells at a glance what works everywhere, what
+is this program's, and what is the same in every EmiBSD program: `cli` knows the grammar's
+names; a short flag is POSIX's unless the declaration says `.bsd()` or `.emibsd()`; a
+long-only option is EmiBSD's. The exit codes are shared: **0** everything asked
+was done, **1** something could not be done and the rest was, **2** the command line was
+wrong and nothing was done; a program may define more above 2 and lists them in its
+`Command`. An action is a stream of records too: `cp` makes one record per source examined,
+with `action` saying what happened (created, replaced, merged, skipped, planned, failed);
+`-v` and `-o` are two renderings of the same records, and `--dry-run` produces them without
+the effect. The `pledge` promises follow the options (`cp` adds `dpath` under `-R` and
+`chown` under `-p`); `cli` may grow a general form of that.
+
+**The request** (the user's decision of 2026-10-24: one program for a person and for a
+machine): the whole invocation of a written program can be one JSON document, so a script or
+an agent builds a dictionary instead of a shell line, and a person saves an invocation and
+runs it again. `--request=FILE` reads it from a file; a value that starts with `{` is the
+document inline (`cp --request='{"R": true, "operands": ["a", "b"]}'`): no shell, no quoting,
+no temporary file. Never from stdin: stdin is the data's. The document is an object; each key
+is an option under the name `cli` already uses, the long form when it has one (`output`,
+`sort-by`) else the letter (`l`, `R`); the value follows the option's type (`true` for a flag,
+text or number for a value, an array for a `List`); `operands` is the array of the operands.
+`cli` lowers the document to the command line it spells and hands it to the one parser, so the
+exclusive groups, the diagnostics and the exit codes are the ones every option already has:
+nothing is parsed twice and nothing has two meanings. `--request` may stand among ordinary
+options and expands where it is written, so the last one given wins as always; a malformed
+document, an unknown key or a value of the wrong type is a usage error, exit **2**. The
+inverse, `--show-request`, prints the command line as that document instead of running it:
+how a person learns the format from the flags they know, saves an invocation without writing
+JSON by hand, or hands an agent exactly what they did; and the round trip, flags to document
+to flags, is the test. The keys are published: `--help -o json` carries `key` on every option,
+so the procedure of a machine that does not know the program is the same for every program:
+ask the help as a record, write the document, run. In the document the common grammar's
+keys (`output`, `sort-by`, `no-headers`) are applied after the program's own whatever their
+place, so `"output": "json"` means JSON beside any format flag (`"l": true`); on the
+command line the order rules as always, and `--show-request` prints the document in that
+order. The imported programs, outside the grammar, have none of this, as they have no `-o`.
+
+**Diagnostics** (the user's decision of 2026-10-24: a tool decides by a code, never by
+prose): every diagnostic of a written program goes through `cli` (`warn`, `report`,
+`usage_error`, the parser's own), so one rule covers them all. To a terminal and under
+`-o name|table|wide`, the text form: `name: message` or `name: subject: message`, and the
+usage line after a wrong command line. Under `-o json` or `-o yaml`, each diagnostic is a
+`Diagnostic` record (`base/lib/crates/cli/schemas/diagnostic.v1.json`), one JSON text per line on
+standard error, standard output untouched: `program`; `severity`, `usage` (nothing was done,
+exit 2) or `error` (something asked was not done, exit 1); `code`, the errno name (`EACCES`,
+`ENOENT`) when the system refused, `usage`, `request`, or `error` when nothing finer is
+known; `subject`, the operand or the option; `message`, the same text as the text form. The
+exit codes do not change: they stay the summary. An action's failures are also in its
+records (`cp`'s `action: failed` and `error`); the diagnostic is the same fact for whoever
+reads standard error. A program hands `report` the `io::Error` itself, not its text, so the
+code travels; where it has already made the error a sentence, the code is `error`.
+- A new crate dependency needs the user's OK and a row in the allowlist (to be written with
+  the first program). Fuzzing: property tests on stable (`cargo-fuzz` needs nightly).
+- Performance: a commit that moves a benchmark more than 10 % carries `Bench:` lines and a
+  reason, or stops (the kernel's decision 43).
+- Security: three layers. What the program forbids itself (pledge, unveil, privileges,
+  verified by running its tests on EmiBSD, where a violation kills the process); the CVE
+  history of the reference or upstream (a table in DEFINITION, a test per entry in
+  `tests/cve/`); and our dependencies (`cargo audit`, `cargo deny` in `just check`, pending).
+- The manual's source is mdoc(7), the format of the system; `mandoc -T markdown` and
+  `-T html` render it for the site. EXAMPLES is not optional.
+- Every file starts with the author's ISC block (`LICENSE`).
+- `just status` at the root counts the STATUS files; that count is the progress of the
+  userland, as `cargo xtask lz status` is the kernel's.
+
+## Linking (the user's decision of 2026-10-24)
+
+The BSD rule, kept: the programs of `bin/` and `sbin/` are linked **statically**, so
+they run with only the root partition mounted, in single-user mode and on the installer's
+ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` is dynamic,
+so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
+program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
+is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
+exist); the toolchain's `crt-static` replaces it if DevTools' Rust finds that target respects
+it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
+does not pay `std` once per program: `base/distrib/installer` builds `bin/` and `sbin/` into one
+multi-call crate, the Rust form of `crunchgen(8)`.
+
+## Versions (the user's decision of 2026-10-23)
+
+Two levels, because they answer two questions.
+
+- **A program: semver, `MAJOR.MINOR.PATCH`**, because a program has interfaces others depend
+  on (flags, `-o json`, exit codes, its configuration format) and the question its users ask
+  is "does it break me?". `MAJOR` rises when a flag, an exit code, a schema (`output.v1` to
+  `v2`) or the configuration format is removed or changed; `MINOR` when something is added;
+  `PATCH` when something is fixed with nothing visible changed. A written program's version
+  is `version` in `src/Cargo.toml`, starting at `0.1.0`; while `MAJOR` is 0, Cargo's reading
+  applies: `breaking` bumps `MINOR`, `feature` and `fix` bump `PATCH`. An imported program's
+  version is `version` in `UPSTREAM.toml`: the upstream's, plus our patch level as build
+  metadata (`9.9+emibsd.2`); a new patch raises the level, a pin bump changes the base.
+- **The system: calendar, `YEAR.MONTH`** (`2027.04`), the release `base/distrib/` builds, like
+  the BSDs' release every six months with the date said. The question there is "how old is
+  what I run?". It is a level apart from the `EmiBSD 8.0` the kernel shows userland, which
+  does not move while the Kernel's ABI does not.
+
+The rule, mechanical: a commit that changes a program's code (`src/`; for an import
+`patches/`, `build/` or `UPSTREAM.toml`) carries one trailer, `Change: breaking`, `Change:
+feature` or `Change: fix`, and the version it carries is the bump that trailer calls for.
+`tools/version.py check-commit` runs as the `commit-msg` hook (`just setup` installs
+`.githooks/`) and refuses the commit otherwise; a commit that touches only tests, manuals or
+docs needs no trailer and no bump. `CHANGELOG.md` of a program is generated from those
+trailers by `just changelog`, never written by hand. A schema carries its own `apiVersion`,
+raised only when the JSON stops being compatible, and that raise is `breaking` by
+definition.

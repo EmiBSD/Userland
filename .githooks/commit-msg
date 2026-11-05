@@ -1,0 +1,4 @@
+#!/bin/sh
+# commit-msg: a change to a program's code carries a Change: trailer and the version bump it
+# calls for (docs/PROGRAM.md, Versions). Installed by `just setup` (core.hooksPath).
+exec python3 -I "$(git rev-parse --show-toplevel)/tools/version.py" check-commit "$1"

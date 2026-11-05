@@ -1,0 +1,6 @@
+# Fetched upstream sources (tools/upstream.py), read-only, never committed.
+upstream/
+# Build output.
+target/
+# macOS Finder metadata.
+.DS_Store

@@ -1,0 +1,48 @@
+# usr/bin/text
+
+Filters and transformers of text streams.
+
+Programs of this group:
+
+- [`awk`](awk/) (imported)
+- [`sed`](sed/)
+- [`grep`](grep/)
+- [`diff`](diff/) (imported)
+- [`diff3`](diff3/) (imported)
+- [`sdiff`](sdiff/) (imported)
+- [`cmp`](cmp/)
+- [`comm`](comm/)
+- [`sort`](sort/)
+- [`uniq`](uniq/)
+- [`join`](join/)
+- [`cut`](cut/)
+- [`paste`](paste/)
+- [`tr`](tr/)
+- [`wc`](wc/)
+- [`head`](head/)
+- [`tail`](tail/)
+- [`fold`](fold/)
+- [`fmt`](fmt/)
+- [`pr`](pr/)
+- [`col`](col/)
+- [`colrm`](colrm/)
+- [`column`](column/)
+- [`expand`](expand/)
+- [`unexpand`](unexpand/)
+- [`nl`](nl/)
+- [`rev`](rev/)
+- [`rs`](rs/)
+- [`lam`](lam/)
+- [`csplit`](csplit/)
+- [`split`](split/)
+- [`look`](look/)
+- [`spell`](spell/)
+- [`ul`](ul/)
+- [`deroff`](deroff/)
+- [`vis`](vis/)
+- [`unvis`](unvis/)
+- [`uuencode`](uuencode/)
+- [`uudecode`](uudecode/)
+- [`hexdump`](hexdump/)
+
+Each entry is a program directory laid out as `docs/PROGRAM.md` says.

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://emibsd.org/schemas/ls/entry.v1.json",
+  "title": "FileList",
+  "description": "What `ls -o json` prints: every entry of every listing, in the order they were listed. `ls -o yaml` is the same document.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "items"],
+  "properties": {
+    "apiVersion": { "const": "emibsd.org/v1" },
+    "kind": { "const": "FileList" },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/entry" } }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "description": "One file. The fields after `type` are present when the file could be examined; `error` when it could not.",
+      "required": ["name", "path", "dir", "type"],
+      "properties": {
+        "name": { "type": "string", "description": "The name as listed: the operand as given, or the directory entry's name. Non-UTF-8 bytes are shown as U+FFFD." },
+        "path": { "type": "string", "description": "The path used to reach the file." },
+        "dir": { "type": "string", "description": "The directory the entry was listed in; empty for an operand." },
+        "type": { "enum": ["file", "dir", "symlink", "fifo", "socket", "char", "block", "unknown"] },
+        "mode": { "type": "string", "pattern": "^[-dlcbps?][-rwxsStT]{9}$", "description": "As `ls -l` shows it." },
+        "perm": { "type": "string", "pattern": "^[0-7]{4}$", "description": "The permission and set-id bits in octal." },
+        "nlink": { "type": "integer", "minimum": 0 },
+        "uid": { "type": "integer", "minimum": 0 },
+        "owner": { "type": "string", "description": "The login name, or the uid as text when unknown or with -n." },
+        "gid": { "type": "integer", "minimum": 0 },
+        "group": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0, "description": "Bytes." },
+        "blocks": { "type": "integer", "minimum": 0, "description": "512-byte blocks allocated." },
+        "flags": { "type": "string", "description": "chflags(1) names, comma-separated; empty when none." },
+        "inode": { "type": "integer", "minimum": 0 },
+        "atime": { "type": "string", "format": "date-time", "description": "RFC 3339 with nanoseconds, in the zone TZ names." },
+        "mtime": { "type": "string", "format": "date-time" },
+        "ctime": { "type": "string", "format": "date-time" },
+        "major": { "type": "integer", "description": "Character and block devices only." },
+        "minor": { "type": "integer" },
+        "target": { "type": ["string", "null"], "description": "Symbolic links only: what the link holds, unresolved." },
+        "error": { "type": ["string", "null"], "description": "Why the file could not be examined." }
+      },
+      "additionalProperties": false
+    }
+  }
+}

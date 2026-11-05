@@ -1,0 +1,2 @@
+# Agent memories are merged line by line: both sides kept, no conflict (.claude/rules/subagents.md).
+.claude/agent-memory/**/MEMORY.md merge=union
