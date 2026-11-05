@@ -116,6 +116,12 @@ def step_host(arch: str, out: Path) -> None:
         link = HOST / "bin" / name
         link.unlink(missing_ok=True)
         link.symlink_to(ROOT / "tools/host" / script)
+    # Some rules call the binary tools by name, not through ${AR} (bsd.lib.mk's `ar cqD`):
+    # under those names the build finds DevTools' LLVM ones, never the host's.
+    for name in ("ar", "ranlib", "nm", "objcopy", "objdump", "readelf", "size", "strings"):
+        link = HOST / "bin" / name
+        link.unlink(missing_ok=True)
+        link.symlink_to(LLVM / f"llvm-{name}")
     for tool in HOST_TOOLS:
         obj = HOST / "obj" / tool
         obj.mkdir(parents=True, exist_ok=True)
@@ -238,6 +244,12 @@ def distrib_dirs(out: Path, root: Path) -> None:
 def step_includes(arch: str, out: Path) -> None:
     sysroot = out / "sysroot"
     distrib_dirs(out, sysroot)
+    # libc and the programs link -lcompiler_rt, which the base system builds from gnu/: the
+    # compiler's runtime is DevTools', the builtins of its clang for this target.
+    triple = MACHINES[arch]["triple"]
+    resources = subprocess.run([f"{LLVM}/clang", "-print-resource-dir"], capture_output=True, text=True,
+                               check=True).stdout.strip()
+    shutil.copy2(Path(resources) / f"lib/{triple}/libclang_rt.builtins.a", sysroot / "usr/lib/libcompiler_rt.a")
     make(arch, out, "include", "includes", "copies", objdir=False)
 
 
@@ -403,8 +415,86 @@ def step_image(arch: str, out: Path) -> None:
     print(f"image: {image} ({image.stat().st_size // 1024} KiB, {len(lines)} entries with attributes)")
 
 
+# The trees `make build` walks after the libraries, by their own Makefiles' SUBDIR. gnu/ is
+# DevTools' (the comp set); games/ is not in the map yet.
+BASE_TREES = ("bin", "libexec", "sbin", "usr.bin", "usr.sbin", "share")
+
+
+# The base system's lld takes these by default when it targets the base system (its
+# Driver.cpp, under __OpenBSD__): a version script may name symbols a library does not
+# define (libc's Symbols.list names __data_start), and protected symbols stay preemptible.
+# DevTools' lld for aarch64-emibsd does not yet; until it does (a DevTools matter), they are
+# given to every link, and only to links, by a clang configuration file under target/.
+LINK_DEFAULTS = ("--undefined-version", "--ignore-function-address-equality")
+
+
+def link_config(out: Path) -> Path:
+    cfg = out / "clang-link.cfg"
+    cfg.write_text("".join(f"$-Wl,{flag}\n" for flag in LINK_DEFAULTS))
+    return cfg
+
+
+def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
+    """make in `directory` and down its SUBDIR, each subdirectory in its own `obj` (made by
+    `make obj`); -k, so one failure does not hide the next. Returns make's status."""
+    m = MACHINES[arch]
+    sysroot = out / "sysroot"
+    cfg = link_config(out)
+    cc = f"{LLVM}/clang --config={cfg} --target={m['triple']} --sysroot={sysroot}"
+    args = [str(HOST / "bin/make"), "-k", f"-j{os.cpu_count()}", "-m", str(out / "src/share/mk"),
+            f"BSDSRCDIR={out / 'src'}", f"BSDOBJDIR={out / 'obj'}", f"DESTDIR={sysroot}",
+            f"CC={cc}", f"CXX={LLVM}/clang++ --config={cfg} --target={m['triple']} --sysroot={sysroot}",
+            f"CPP={cc} -E", f"LD={LLVM}/ld.lld", f"AR={LLVM}/llvm-ar", f"RANLIB={LLVM}/llvm-ranlib",
+            f"NM={LLVM}/llvm-nm", f"OBJCOPY={LLVM}/llvm-objcopy", f"STRIP={LLVM}/llvm-strip",
+            f"HOSTCC={host_cc()}", "NOMAN=1", *targets]
+    env = make_env(arch, out)
+    return subprocess.run(args, cwd=out / "src" / directory, env=env).returncode
+
+
+def step_obj(arch: str, out: Path) -> None:
+    (out / "obj").mkdir(parents=True, exist_ok=True)
+    for d in ("lib",) + BASE_TREES:
+        make_walk(arch, out, d, "obj")
+
+
+def step_lib(arch: str, out: Path) -> None:
+    """lib/ as the base system's Makefile.cross does it: csu and libc built and installed
+    first (every shared library links against them), then the rest, built and installed."""
+    for first in ("lib/csu", "lib/libc"):
+        if make_walk(arch, out, first) or make_walk(arch, out, first, "install"):
+            raise SystemExit(f"lib: {first} failed")
+    status = make_walk(arch, out, "lib")
+    status = make_walk(arch, out, "lib", "install") or status
+    print(f"lib: make exited {status}")
+
+
+def step_base(arch: str, out: Path) -> None:
+    for d in BASE_TREES:
+        status = make_walk(arch, out, d)
+        status = make_walk(arch, out, d, "install") or status
+        print(f"base: {d}: make exited {status}")
+
+
 STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "csu": step_csu,
-         "libc": step_libc, "programs": step_programs, "image": step_image}
+         "libc": step_libc, "programs": step_programs, "image": step_image,
+         "obj": step_obj, "lib": step_lib, "base": step_base}
+
+
+def case_sensitive(out: Path) -> None:
+    """target/<arch> on a case-sensitive volume: the base system has names that differ only
+    in case (libc's _Exit and _exit objects, terminfo's directories), which the host's file
+    system folds into one. A sparse disk image beside it, made and attached the first time
+    (hdiutil, as the user; `hdiutil detach target/<arch>` and removing the image undo it)."""
+    if os.path.ismount(out):
+        return
+    image = out.parent / f"{out.name}.sparseimage"
+    if not image.exists():
+        subprocess.run(["hdiutil", "create", "-quiet", "-size", "60g", "-type", "SPARSE", "-fs",
+                        "Case-sensitive APFS", "-volname", f"emibsd-{out.name}", str(image)], check=True)
+    out.mkdir(parents=True, exist_ok=True)
+    if any(out.iterdir()):
+        raise SystemExit(f"world: {out} holds files and is not the case-sensitive volume; move them away")
+    subprocess.run(["hdiutil", "attach", "-quiet", "-nobrowse", "-mountpoint", str(out), str(image)], check=True)
 
 
 def main() -> int:
@@ -413,6 +503,7 @@ def main() -> int:
         return 2
     arch = sys.argv[1]
     out = ROOT / "target" / arch
+    case_sensitive(out)
     for name in sys.argv[2:] or STEPS:
         if name not in STEPS:
             print(f"world: no step {name}", file=sys.stderr)
