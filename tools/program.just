@@ -4,12 +4,14 @@
 name := file_name(justfile_directory())
 root := `git rev-parse --show-toplevel`
 
-# Build: a written program through cargo; an imported one through build/ after fetch.
+# Build: a written program through cargo; an imported one through build/ after fetch; an
+# inherited one through the build driver, which is not here yet (README, Open).
 build:
     #!/bin/sh
     set -e
     case "$(cat STATUS)" in
       imported*) python3 -I "{{root}}/tools/upstream.py" check . && sh build/build.sh ;;
+      inherited*) echo "{{name}}: inherited; the build driver is not in this repository yet (README, Open)"; exit 1 ;;
       *) cargo build --manifest-path src/Cargo.toml ;;
     esac
 
