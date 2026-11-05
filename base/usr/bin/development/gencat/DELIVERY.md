@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/gencat.1 |
+| Manual | src/gencat.1 |
 | Default configuration | none / etc/ |

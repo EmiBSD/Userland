@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/eigrpctl.8 |
+| Manual | src/eigrpctl.8 |
 | Default configuration | none / etc/ |

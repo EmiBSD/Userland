@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libossaudio.3 |
+| Manual | src/libossaudio.3 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/sa.8 |
+| Manual | src/sa.8 |
 | Default configuration | none / etc/ |

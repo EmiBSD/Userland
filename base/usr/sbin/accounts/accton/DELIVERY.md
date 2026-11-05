@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/accton.8 |
+| Manual | src/accton.8 |
 | Default configuration | none / etc/ |

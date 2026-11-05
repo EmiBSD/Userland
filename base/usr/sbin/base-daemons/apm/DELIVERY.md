@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/apm.8 |
+| Manual | src/apm.8 |
 | Default configuration | none / etc/ |

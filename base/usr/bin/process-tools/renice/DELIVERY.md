@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/renice.8 |
+| Manual | src/renice.8 |
 | Default configuration | none / etc/ |

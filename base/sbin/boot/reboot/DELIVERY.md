@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/reboot.8 |
+| Manual | src/reboot.8 |
 | Default configuration | none / etc/ |

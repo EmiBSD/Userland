@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/bioctl.8 |
+| Manual | src/bioctl.8 |
 | Default configuration | none / etc/ |

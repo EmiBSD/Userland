@@ -14,11 +14,12 @@ upstream; *written*, EmiBSD's own.
 ├── STATUS            inherited | inherited-built | inherited-shipped
 ├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
 │                     program's directory in that tree
+├── src/              that directory at the pin, byte for byte: the Makefile, the sources,
+│                     the manual; written whole by tools/layout.py, never edited by hand
 ├── patches/          our patches, a numbered series, each with its reason in its header
 ├── DEFINITION.md     what the program is for here, the compatibility others rely on, the
 │                     security history tracked against the upstream
 ├── tests/            it builds against our libc, starts under our rc; cve/ for what we patched
-├── man/              the program's own manual, from the tree; a change to it is one more patch
 ├── DELIVERY.md
 └── justfile
 ```
@@ -28,16 +29,19 @@ every copyright and licence notice kept whole, placed by what it does, built by 
 Makefile through the build driver, changed only by `patches/`. The pin is LandingZone's,
 because it fixes the ABI the kernel implements; the build refuses to run when the Kernel's
 pin differs. The source comes from the mirror, never from LandingZone, which holds no
-userland. Whether the C is committed under the directory or fetched under `upstream/` is the
-user's decision (README, Open). A program leaves this class only when its written
-replacement ships; until then the inherited one is what runs.
+userland, and it is committed (the user's decision of 2026-11-04): it is the product, and
+what is read on GitHub. `just layout` copies it from Kernel's read-only clone of the mirror
+at the pin, so a pin bump is a re-run, and the patches that no longer apply. A program leaves
+this class only when its written replacement ships; until then the inherited one is what
+runs.
 
 ## Written (from scratch, in Rust)
 
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
-proof of concept: their code is on the `experimental` branch, their documents stay in their
-directories at `designed`, and the root `Cargo.toml` and `rust-toolchain.toml` come back
-with the first program implemented again. What follows is the contract that program meets.
+proof of concept: their code and their documents are on the `experimental` branch; `ls` and
+`cp` are inherited like the rest, and only the two shared crates keep their documents here
+at `designed`. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
+program implemented again. What follows is the contract that program meets.
 
 ```
 <group>/<name>/

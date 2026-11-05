@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/bgplg.8 |
+| Manual | src/bgplg.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/getty.8 |
+| Manual | src/getty.8 |
 | Default configuration | none / etc/ |

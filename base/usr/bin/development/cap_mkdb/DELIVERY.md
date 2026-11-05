@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/cap_mkdb.1 |
+| Manual | src/cap_mkdb.1 |
 | Default configuration | none / etc/ |

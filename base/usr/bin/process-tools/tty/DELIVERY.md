@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/tty.1 |
+| Manual | src/tty.1 |
 | Default configuration | none / etc/ |

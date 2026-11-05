@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/mktemp.1 |
+| Manual | src/mktemp.1 |
 | Default configuration | none / etc/ |

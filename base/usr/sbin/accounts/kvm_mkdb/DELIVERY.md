@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/kvm_mkdb.8 |
+| Manual | src/kvm_mkdb.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/x99token.1 |
+| Manual | src/x99token.1 |
 | Default configuration | none / etc/ |

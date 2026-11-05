@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/unwind.8 |
+| Manual | src/unwind.8 |
 | Default configuration | none / etc/ |

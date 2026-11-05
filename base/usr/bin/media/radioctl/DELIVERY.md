@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/radioctl.1 |
+| Manual | src/radioctl.1 |
 | Default configuration | none / etc/ |

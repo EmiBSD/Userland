@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/uuencode.1 |
+| Manual | src/uuencode.1 |
 | Default configuration | none / etc/ |

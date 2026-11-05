@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/mailwrapper.8 |
+| Manual | src/mailwrapper.8 |
 | Default configuration | none / etc/ |

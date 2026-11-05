@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/liby.3 |
+| Manual | src/liby.3 |
 | Default configuration | none / etc/ |

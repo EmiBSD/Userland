@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/chpass.1 |
+| Manual | src/chpass.1 |
 | Default configuration | none / etc/ |

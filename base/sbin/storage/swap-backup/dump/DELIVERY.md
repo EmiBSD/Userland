@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/dump.8 |
+| Manual | src/dump.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ktrace.1 |
+| Manual | src/ktrace.1 |
 | Default configuration | none / etc/ |

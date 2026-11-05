@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/spamd-setup.8 |
+| Manual | src/spamd-setup.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/adduser.8 |
+| Manual | src/adduser.8 |
 | Default configuration | none / etc/ |

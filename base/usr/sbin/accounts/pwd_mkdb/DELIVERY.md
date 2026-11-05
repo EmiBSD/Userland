@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/pwd_mkdb.8 |
+| Manual | src/pwd_mkdb.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ypcat.1 |
+| Manual | src/ypcat.1 |
 | Default configuration | none / etc/ |

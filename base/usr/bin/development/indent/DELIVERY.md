@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/indent.1 |
+| Manual | src/indent.1 |
 | Default configuration | none / etc/ |

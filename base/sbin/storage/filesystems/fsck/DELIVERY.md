@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/fsck.8 |
+| Manual | src/fsck.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/acpidump.8 |
+| Manual | src/acpidump.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/savecore.8 |
+| Manual | src/savecore.8 |
 | Default configuration | none / etc/ |

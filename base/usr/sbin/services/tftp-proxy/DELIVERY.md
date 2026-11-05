@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/tftp-proxy.8 |
+| Manual | src/tftp-proxy.8 |
 | Default configuration | none / etc/ |

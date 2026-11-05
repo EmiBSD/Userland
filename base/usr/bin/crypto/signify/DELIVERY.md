@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/signify.1 |
+| Manual | src/signify.1 |
 | Default configuration | none / etc/ |

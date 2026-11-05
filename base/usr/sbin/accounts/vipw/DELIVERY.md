@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/vipw.8 |
+| Manual | src/vipw.8 |
 | Default configuration | none / etc/ |

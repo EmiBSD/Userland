@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ractl.8 |
+| Manual | src/ractl.8 |
 | Default configuration | none / etc/ |

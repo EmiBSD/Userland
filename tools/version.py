@@ -109,14 +109,16 @@ def check_commit(msg_file: str) -> int:
     errors = 0
     for prog in touched:
         status = (ROOT / prog / "STATUS").read_text().strip()
-        if status.startswith("imported"):
+        if status.startswith(("imported", "inherited")):
             path = prog / "UPSTREAM.toml"
             new_text = staged(path)
             if not new_text:
-                print(f"version: {prog}: imported, but no UPSTREAM.toml staged")
+                print(f"version: {prog}: {status.split('-')[0]}, but no UPSTREAM.toml staged")
                 errors += 1
                 continue
             new, old_text = version_in(new_text, str(path)), committed(path)
+            if not old_text:
+                continue   # a program new to the tree: its pin is where its version starts
             old = version_in(old_text, str(path)) if old_text else ""
             if new == old:
                 print(f"version: {prog}: UPSTREAM.toml version unchanged ({new or 'empty'}); raise the patch level (+emibsd.N) or the base")
@@ -160,7 +162,7 @@ def changelog(prog_dir: str) -> int:
         if not m:
             continue
         status = (ROOT / prog / "STATUS").read_text().strip()
-        vpath = prog / ("UPSTREAM.toml" if status.startswith("imported") else "src/Cargo.toml")
+        vpath = prog / ("UPSTREAM.toml" if status.startswith(("imported", "inherited")) else "src/Cargo.toml")
         text = git("show", f"{sha}:{vpath}", check=False)
         ver = version_in(text, str(vpath)) if text else "?"
         entries.append((ver, date, m[1], subject, sha[:12]))

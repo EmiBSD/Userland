@@ -5,9 +5,10 @@ Kernel (`../Kernel`, GitHub `EmiBSD/Kernel`). Phase 3 of the project. Since the 
 decision of 2026-11-04 its base is **inherited**: OpenBSD's base system at LandingZone's pin,
 in this repository's layout, changed only by patches; the programs **written from scratch in
 Rust** grow from it one at a time. The first written programs (`cli`, `sys`, `ls`, `cp`)
-were a proof of concept: their code is on the `experimental` branch (read it with `git show
-experimental:<path>`), their documents stay in `main` at `designed`, and `main` has no Rust
-code, no `Cargo.toml` and no toolchain pin until a written program is implemented again.
+were a proof of concept: their code and documents are on the `experimental` branch (read
+them with `git show experimental:<path>`); `ls` and `cp` are inherited like the rest, only
+the documents of `cli` and `sys` stay in `main` at `designed`, and `main` has no Rust code, no
+`Cargo.toml` and no toolchain pin until a written program is implemented again.
 The process of a written program (the user's decisions of 2026-10-23, that nothing is ported,
 2026-10-24 and 2026-10-25): the reference manual and code are read to write a program's specification
 (DEFINITION.md: what each parameter does, how the output is formatted, the exit codes) and,
@@ -28,9 +29,9 @@ substance, in English. The user is answered in Spanish.
   the practice under them: how Rust is written here, with the compressed list for agents.
 - Three classes: **inherited** (the base system's C at the pin, in our layout, patches only),
   **imported** (a third-party upstream, `UPSTREAM.toml` pin, patches, never rewritten) and
-  **written** (from scratch, Rust, `#![forbid(unsafe_code)]`). The inherited class is decided
-  but not built yet: `tools/layout.py` still writes those skeletons as written programs at
-  `planned` (README, "Open"). `unsafe` only in `base/lib/libc`, `base/libexec/rtld`
+  **written** (from scratch, Rust, `#![forbid(unsafe_code)]`). An inherited program's `src/`
+  is its directory at the pin byte for byte, written whole by `just layout` and never edited
+  by hand; a change is a patch. It is committed, not yet built (README, "Open"). `unsafe` only in `base/lib/libc`, `base/libexec/rtld`
   and `base/lib/crates/sys`, each site with a `// SAFETY:` proof.
 - **One grammar**: a program is a query over records (or an action whose steps are records)
   with a schema; one `Command` declares its options with their types and `cli` derives the

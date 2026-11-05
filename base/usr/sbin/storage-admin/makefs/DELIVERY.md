@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/makefs.8 |
+| Manual | src/makefs.8 |
 | Default configuration | none / etc/ |

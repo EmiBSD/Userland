@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/getcap.1 |
+| Manual | src/getcap.1 |
 | Default configuration | none / etc/ |

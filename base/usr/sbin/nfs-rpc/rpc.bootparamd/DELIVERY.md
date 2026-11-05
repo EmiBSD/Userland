@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/rpc.bootparamd.8 |
+| Manual | src/rpc.bootparamd.8 |
 | Default configuration | none / etc/ |

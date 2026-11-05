@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/portmap.8 |
+| Manual | src/portmap.8 |
 | Default configuration | none / etc/ |

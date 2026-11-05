@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/newfs.8 |
+| Manual | src/newfs.8 |
 | Default configuration | none / etc/ |

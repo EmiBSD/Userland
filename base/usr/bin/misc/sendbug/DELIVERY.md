@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/sendbug.1 |
+| Manual | src/sendbug.1 |
 | Default configuration | none / etc/ |

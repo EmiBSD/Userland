@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/tokenadm.8 |
+| Manual | src/tokenadm.8 |
 | Default configuration | none / etc/ |

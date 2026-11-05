@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libskey.3 |
+| Manual | src/libskey.3 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/wsconscfg.8 |
+| Manual | src/wsconscfg.8 |
 | Default configuration | none / etc/ |

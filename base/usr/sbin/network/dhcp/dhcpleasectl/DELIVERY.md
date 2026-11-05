@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/dhcpleasectl.8 |
+| Manual | src/dhcpleasectl.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/login_ldap.8 |
+| Manual | src/login_ldap.8 |
 | Default configuration | none / etc/ |

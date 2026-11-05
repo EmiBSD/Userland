@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/iscsid.8 |
+| Manual | src/iscsid.8 |
 | Default configuration | none / etc/ |

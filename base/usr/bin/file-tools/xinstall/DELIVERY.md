@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/xinstall.1 |
+| Manual | src/xinstall.1 |
 | Default configuration | none / etc/ |

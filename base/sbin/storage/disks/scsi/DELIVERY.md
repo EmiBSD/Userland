@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/scsi.8 |
+| Manual | src/scsi.8 |
 | Default configuration | none / etc/ |

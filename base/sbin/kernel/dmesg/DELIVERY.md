@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/dmesg.8 |
+| Manual | src/dmesg.8 |
 | Default configuration | none / etc/ |

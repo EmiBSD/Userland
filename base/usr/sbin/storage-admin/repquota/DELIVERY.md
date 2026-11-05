@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/repquota.8 |
+| Manual | src/repquota.8 |
 | Default configuration | none / etc/ |

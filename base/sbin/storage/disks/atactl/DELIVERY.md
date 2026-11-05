@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/atactl.8 |
+| Manual | src/atactl.8 |
 | Default configuration | none / etc/ |

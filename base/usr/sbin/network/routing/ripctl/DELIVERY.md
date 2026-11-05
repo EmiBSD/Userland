@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ripctl.8 |
+| Manual | src/ripctl.8 |
 | Default configuration | none / etc/ |

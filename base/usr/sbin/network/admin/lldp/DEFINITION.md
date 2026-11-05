@@ -1,61 +1,27 @@
-# lldp
+# lldp (inherited)
 
-STATUS: see `STATUS`. EmiBSD's own `lldp`, written from scratch under this definition (the
-user's decision of 2026-10-23): this document is the specification, written from POSIX where
-the standard defines the program and from the behaviour the tradition settled; the code is
-written from this document alone.
+STATUS: see `STATUS`. The base system's program at the pin of `UPSTREAM.toml`, in this
+layout (the user's decision of 2026-11-04): `src/` is OpenBSD's `usr.sbin/lldp` byte for byte,
+every notice in it kept whole, rewritten from the pin by `tools/layout.py` and never edited
+by hand. What we change is a patch under `patches/`. Manual lldp(8), in `src/`.
 
-## What it does
-
-## Scope
-
-What is in, what is out, and why.
-
-## Constraints
-
-Root partition only (static) or not; privileges; what it may never do.
-
-## Inputs
-
-Arguments, standard input, environment variables, files it reads, configuration.
-
-## Parameters
-
-| Flag | Argument | Meaning | Default |
-|---|---|---|---|
-
-## Outputs
-
-Human output; `-o json` / `-o yaml` (`schemas/output.v1.json`); what goes to stderr.
-
-## Exit codes
-
-| Code | Meaning |
-|---|---|
-| 0 | success |
-
-## Signals and failure behaviour
-
-SIGHUP, SIGTERM, SIGINT; disk full, permission denied, interrupted.
+## What it is for here
 
 ## Compatibility
 
-What the rest of the base system expects of this program: who calls it (rc, other
-programs, the installer), with which flags, which output they parse, which exit codes they
-branch on. Nothing here changes without checking every caller.
+Who in the base system depends on it and how (flags, output, exit codes, configuration
+paths). Our patches, if any, never change what callers see.
 
-## Performance budget
+## Patches
 
-The measure that matters for this program and its floor: never slower than a reference
-system's lldp on the same machine and input (`bench/`, `just bench`).
+The series under `patches/`, each with its reason; none today.
 
 ## Security history
 
-The CVEs of the programs of this name on other systems, each with its class
-and what makes it impossible here (a type, a check, the language) or the test in
-`tests/cve/` that proves it.
+The advisories and errata of the base system that touch `usr.sbin/lldp` at the pin, the pin bump
+that closes them, and `tests/cve/` for what we patched ourselves.
 
-| CVE | Class | Here |
+| Advisory | Fix | Here |
 |---|---|---|
 
 ## Open questions

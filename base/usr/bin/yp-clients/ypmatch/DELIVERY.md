@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ypmatch.1 |
+| Manual | src/ypmatch.1 |
 | Default configuration | none / etc/ |

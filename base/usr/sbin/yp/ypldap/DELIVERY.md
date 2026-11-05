@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ypldap.8 |
+| Manual | src/ypldap.8 |
 | Default configuration | none / etc/ |

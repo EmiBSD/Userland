@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/usbdevs.8 |
+| Manual | src/usbdevs.8 |
 | Default configuration | none / etc/ |

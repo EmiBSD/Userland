@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/pctr.1 |
+| Manual | src/pctr.1 |
 | Default configuration | none / etc/ |

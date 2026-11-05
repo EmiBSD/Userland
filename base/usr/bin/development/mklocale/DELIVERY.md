@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/mklocale.1 |
+| Manual | src/mklocale.1 |
 | Default configuration | none / etc/ |

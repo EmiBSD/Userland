@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/quota.1 |
+| Manual | src/quota.1 |
 | Default configuration | none / etc/ |

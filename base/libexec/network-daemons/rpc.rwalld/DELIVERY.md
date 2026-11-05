@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/rpc.rwalld.8 |
+| Manual | src/rpc.rwalld.8 |
 | Default configuration | none / etc/ |

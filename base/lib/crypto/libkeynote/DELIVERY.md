@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libkeynote.3 |
+| Manual | src/libkeynote.3 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/nfsd.8 |
+| Manual | src/nfsd.8 |
 | Default configuration | none / etc/ |

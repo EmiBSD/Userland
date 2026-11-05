@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/syspatch.8 |
+| Manual | src/syspatch.8 |
 | Default configuration | none / etc/ |

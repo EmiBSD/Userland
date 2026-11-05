@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libtool.1 |
+| Manual | src/libtool.1 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/echo.1 |
+| Manual | src/echo.1 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/kill.1 |
+| Manual | src/kill.1 |
 | Default configuration | none / etc/ |

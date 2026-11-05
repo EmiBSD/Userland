@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/authpf.8 |
+| Manual | src/authpf.8 |
 | Default configuration | none / etc/ |

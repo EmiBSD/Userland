@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/fgen.1 |
+| Manual | src/fgen.1 |
 | Default configuration | none / etc/ |

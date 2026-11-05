@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ping.8 |
+| Manual | src/ping.8 |
 | Default configuration | none / etc/ |

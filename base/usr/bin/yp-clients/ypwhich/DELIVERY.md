@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ypwhich.1 |
+| Manual | src/ypwhich.1 |
 | Default configuration | none / etc/ |

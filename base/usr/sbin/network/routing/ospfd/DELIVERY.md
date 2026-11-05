@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ospfd.8 |
+| Manual | src/ospfd.8 |
 | Default configuration | none / etc/ |

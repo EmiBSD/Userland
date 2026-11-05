@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/whois.1 |
+| Manual | src/whois.1 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/fdisk.8 |
+| Manual | src/fdisk.8 |
 | Default configuration | none / etc/ |

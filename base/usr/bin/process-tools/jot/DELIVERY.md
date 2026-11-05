@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/jot.1 |
+| Manual | src/jot.1 |
 | Default configuration | none / etc/ |

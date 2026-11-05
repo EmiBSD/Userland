@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/xargs.1 |
+| Manual | src/xargs.1 |
 | Default configuration | none / etc/ |

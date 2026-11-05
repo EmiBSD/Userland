@@ -52,10 +52,10 @@ from DevTools; OS assembles the sets with the kernel into a release.
   is worth it; nothing is a port or a translation of another system's program. `just status`
   counts the three.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
-  showed the written class and its grammar; their code lives on the `experimental` branch,
-  and their documents (DEFINITION, DESIGN, schemas, the manual) stay here at `designed` for
-  the day each is written again. `main` carries no Rust code, no workspace and no toolchain
-  pin until then.
+  showed the written class and its grammar; their code and documents live on the
+  `experimental` branch. `ls` and `cp` are inherited here like every other program; the
+  documents of the two shared crates stay at `designed`. `main` carries no Rust code, no
+  workspace and no toolchain pin until a written program returns.
 - **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
   syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `base/lib/libc`,
   `base/libexec/rtld` and `base/lib/crates/sys` (the thin FFI the programs share), each site with a
@@ -196,21 +196,17 @@ one place in it, and each place is filled by its class.
 
 ## Open
 
-- **The inherited class is decided, not built.** `tools/layout.py` still writes every
-  skeleton that is not imported as a written program at `planned`; it is to write them as
-  inherited instead (`STATUS`, `UPSTREAM.toml` with the mirror, the pin and the program's
-  directory in the base system's tree). The tree is generated, never moved by hand: a
-  materialiser fetches the pin, places each directory, applies `patches/` and writes the
-  `Makefile.inc` each relocated Makefile needs, so a pin bump is a re-run plus the patches that
-  no longer apply. The build driver (the evaluator of BSD Makefiles with which the Kernel
-  cross-builds its userland today) moves here, told each program's original path. `gnu/`
-  stays out; the base system's own `regress/` is brought per program when needed.
-- **Decisions the user has still to take** about the inherited class: whether its C is
-  committed here (proposed: it is the product, and what is read on GitHub) or fetched under
-  `upstream/` like an import; whether the Kernel keeps its own userland build until N9
-  (proposed) or consumes this repository's ramdisk now; the milestone letter and the first
-  milestone (proposed: the 110 programs the Kernel builds today, in this layout, booting its
-  smokes).
+- **The inherited class is in the tree, not built.** Every program of the base system has
+  its directory at the pin in `src/`, copied by `tools/layout.py` (committed, the user's
+  decision of 2026-11-04). The trees that are not programs (`etc/`, `share/`, `distrib/`)
+  are not copied yet. To build: `patches/` applied to a copy, the `Makefile.inc` each
+  relocated Makefile needs, and the build driver (the evaluator of BSD Makefiles with which
+  the Kernel cross-builds its userland today) moved here, told each program's original
+  path. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
+- **Decisions the user has still to take** about the inherited class: whether the Kernel
+  keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
+  the milestone letter and the first milestone (proposed: the 110 programs the Kernel builds
+  today, in this layout, booting its smokes).
 - **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are traditionally Perl, and
   Perl (Artistic or GPL, dual) is not in the tree: inherit it under the Artistic licence for
   those five, leave them out, or write them in Rust. The user's decision; their skeletons say so.

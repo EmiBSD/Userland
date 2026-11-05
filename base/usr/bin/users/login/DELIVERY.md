@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/login.1 |
+| Manual | src/login.1 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/timeout.1 |
+| Manual | src/timeout.1 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/rdate.8 |
+| Manual | src/rdate.8 |
 | Default configuration | none / etc/ |

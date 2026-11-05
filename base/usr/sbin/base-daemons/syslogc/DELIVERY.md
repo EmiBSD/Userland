@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/syslogc.8 |
+| Manual | src/syslogc.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/rtrctl.8 |
+| Manual | src/rtrctl.8 |
 | Default configuration | none / etc/ |

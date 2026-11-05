@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/usbhidctl.1 |
+| Manual | src/usbhidctl.1 |
 | Default configuration | none / etc/ |

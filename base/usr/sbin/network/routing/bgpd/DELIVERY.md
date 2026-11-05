@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/bgpd.8 |
+| Manual | src/bgpd.8 |
 | Default configuration | none / etc/ |

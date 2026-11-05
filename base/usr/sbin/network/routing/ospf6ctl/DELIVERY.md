@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ospf6ctl.8 |
+| Manual | src/ospf6ctl.8 |
 | Default configuration | none / etc/ |

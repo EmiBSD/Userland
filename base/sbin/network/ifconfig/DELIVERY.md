@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ifconfig.8 |
+| Manual | src/ifconfig.8 |
 | Default configuration | none / etc/ |

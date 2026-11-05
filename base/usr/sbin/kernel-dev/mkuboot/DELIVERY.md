@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/mkuboot.8 |
+| Manual | src/mkuboot.8 |
 | Default configuration | none / etc/ |

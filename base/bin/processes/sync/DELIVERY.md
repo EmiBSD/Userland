@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/sync.8 |
+| Manual | src/sync.8 |
 | Default configuration | none / etc/ |

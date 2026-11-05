@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/encrypt.1 |
+| Manual | src/encrypt.1 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/fingerd.8 |
+| Manual | src/fingerd.8 |
 | Default configuration | none / etc/ |

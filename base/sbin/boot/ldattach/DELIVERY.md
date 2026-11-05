@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ldattach.8 |
+| Manual | src/ldattach.8 |
 | Default configuration | none / etc/ |

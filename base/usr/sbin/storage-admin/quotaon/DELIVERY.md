@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/quotaon.8 |
+| Manual | src/quotaon.8 |
 | Default configuration | none / etc/ |

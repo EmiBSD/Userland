@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/printenv.1 |
+| Manual | src/printenv.1 |
 | Default configuration | none / etc/ |

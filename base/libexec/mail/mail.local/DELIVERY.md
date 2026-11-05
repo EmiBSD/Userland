@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/mail.local.8 |
+| Manual | src/mail.local.8 |
 | Default configuration | none / etc/ |

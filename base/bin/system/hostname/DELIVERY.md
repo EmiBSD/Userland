@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/hostname.1 |
+| Manual | src/hostname.1 |
 | Default configuration | none / etc/ |

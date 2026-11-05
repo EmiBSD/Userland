@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ncheck_ffs.8 |
+| Manual | src/ncheck_ffs.8 |
 | Default configuration | none / etc/ |

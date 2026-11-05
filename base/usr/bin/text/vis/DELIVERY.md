@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/vis.1 |
+| Manual | src/vis.1 |
 | Default configuration | none / etc/ |

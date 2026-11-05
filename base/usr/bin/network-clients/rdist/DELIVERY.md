@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/rdist.1 |
+| Manual | src/rdist.1 |
 | Default configuration | none / etc/ |

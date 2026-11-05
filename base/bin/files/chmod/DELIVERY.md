@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/chmod.1 |
+| Manual | src/chmod.1 |
 | Default configuration | none / etc/ |

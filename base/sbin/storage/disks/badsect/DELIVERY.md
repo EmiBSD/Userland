@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/badsect.8 |
+| Manual | src/badsect.8 |
 | Default configuration | none / etc/ |

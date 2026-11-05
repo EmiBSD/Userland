@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/systat.1 |
+| Manual | src/systat.1 |
 | Default configuration | none / etc/ |

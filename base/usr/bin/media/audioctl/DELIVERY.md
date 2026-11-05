@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/audioctl.8 |
+| Manual | src/audioctl.8 |
 | Default configuration | none / etc/ |

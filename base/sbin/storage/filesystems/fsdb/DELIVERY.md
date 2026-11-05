@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/fsdb.8 |
+| Manual | src/fsdb.8 |
 | Default configuration | none / etc/ |

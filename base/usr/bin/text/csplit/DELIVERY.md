@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/csplit.1 |
+| Manual | src/csplit.1 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libagentx.3 |
+| Manual | src/libagentx.3 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/lldp.8 |
+| Manual | src/lldp.8 |
 | Default configuration | none / etc/ |

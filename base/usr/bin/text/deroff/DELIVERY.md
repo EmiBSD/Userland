@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/deroff.1 |
+| Manual | src/deroff.1 |
 | Default configuration | none / etc/ |

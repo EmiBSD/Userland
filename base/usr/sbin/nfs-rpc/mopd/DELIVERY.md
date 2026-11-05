@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/mopd.8 |
+| Manual | src/mopd.8 |
 | Default configuration | none / etc/ |

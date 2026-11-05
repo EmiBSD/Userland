@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/hostctl.8 |
+| Manual | src/hostctl.8 |
 | Default configuration | none / etc/ |

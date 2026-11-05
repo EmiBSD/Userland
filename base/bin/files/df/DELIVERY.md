@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/df.1 |
+| Manual | src/df.1 |
 | Default configuration | none / etc/ |

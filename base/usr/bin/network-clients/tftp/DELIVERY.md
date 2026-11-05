@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/tftp.1 |
+| Manual | src/tftp.1 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/newsyslog.8 |
+| Manual | src/newsyslog.8 |
 | Default configuration | none / etc/ |

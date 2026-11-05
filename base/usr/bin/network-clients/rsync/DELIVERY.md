@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/rsync.1 |
+| Manual | src/rsync.1 |
 | Default configuration | none / etc/ |

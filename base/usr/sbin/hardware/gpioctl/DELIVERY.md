@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/gpioctl.8 |
+| Manual | src/gpioctl.8 |
 | Default configuration | none / etc/ |

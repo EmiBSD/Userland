@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/dhcp6leased.8 |
+| Manual | src/dhcp6leased.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/mrinfo.8 |
+| Manual | src/mrinfo.8 |
 | Default configuration | none / etc/ |

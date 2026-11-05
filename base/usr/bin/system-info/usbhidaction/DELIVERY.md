@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/usbhidaction.1 |
+| Manual | src/usbhidaction.1 |
 | Default configuration | none / etc/ |

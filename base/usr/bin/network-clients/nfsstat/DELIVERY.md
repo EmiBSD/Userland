@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/nfsstat.1 |
+| Manual | src/nfsstat.1 |
 | Default configuration | none / etc/ |

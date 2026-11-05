@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/librthread.3 |
+| Manual | src/librthread.3 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/pdisk.8 |
+| Manual | src/pdisk.8 |
 | Default configuration | none / etc/ |

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libl.3 |
+| Manual | src/libl.3 |
 | Default configuration | none / etc/ |

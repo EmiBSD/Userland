@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/talkd.8 |
+| Manual | src/talkd.8 |
 | Default configuration | none / etc/ |

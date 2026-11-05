@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ldomd.8 |
+| Manual | src/ldomd.8 |
 | Default configuration | none / etc/ |

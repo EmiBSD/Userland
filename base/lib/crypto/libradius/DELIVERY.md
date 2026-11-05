@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libradius.3 |
+| Manual | src/libradius.3 |
 | Default configuration | none / etc/ |

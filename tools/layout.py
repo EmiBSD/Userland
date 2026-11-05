@@ -11,13 +11,18 @@ and lib/ is mapped to exactly one leaf, in the tree it lives in there; the scrip
 otherwise.
 
 Three classes of program (docs/PROGRAM.md): `inherited` (the base system's C at the pin,
-in this layout; the skeletons are not yet written as such, README "Open"), `imported`
-(compiled from its upstream at the pin of UPSTREAM.toml, never rewritten) and `written`
-(from scratch, in Rust, under its definition). A skeleton whose STATUS is still `planned` or `imported` is regenerated from the
-templates; one that moved on is left alone.
+in this layout: src/ is the reference tree's directory at the pin, byte for byte, replaced
+whole on every run), `imported` (compiled from its upstream at the pin of UPSTREAM.toml, never
+rewritten) and `written` (from scratch, in Rust, under its definition). A skeleton whose
+STATUS is still `planned`, `inherited` or `imported` is regenerated from the templates; one
+that moved on is left alone.
 """
+import io
 import os
+import shutil
+import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 SRC = Path(sys.argv[1])
@@ -285,10 +290,10 @@ from DevTools; OS assembles the sets with the kernel into a release.
   is worth it; nothing is a port or a translation of another system's program. `just status`
   counts the three.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
-  showed the written class and its grammar; their code lives on the `experimental` branch,
-  and their documents (DEFINITION, DESIGN, schemas, the manual) stay here at `designed` for
-  the day each is written again. `main` carries no Rust code, no workspace and no toolchain
-  pin until then.
+  showed the written class and its grammar; their code and documents live on the
+  `experimental` branch. `ls` and `cp` are inherited here like every other program; the
+  documents of the two shared crates stay at `designed`. `main` carries no Rust code, no
+  workspace and no toolchain pin until a written program returns.
 - **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
   syscall stubs. `#![forbid(unsafe_code)]` in every program; `unsafe` only in `base/lib/libc`,
   `base/libexec/rtld` and `base/lib/crates/sys` (the thin FFI the programs share), each site with a
@@ -348,21 +353,17 @@ one place in it, and each place is filled by its class.
 
 ## Open
 
-- **The inherited class is decided, not built.** `tools/layout.py` still writes every
-  skeleton that is not imported as a written program at `planned`; it is to write them as
-  inherited instead (`STATUS`, `UPSTREAM.toml` with the mirror, the pin and the program's
-  directory in the base system's tree). The tree is generated, never moved by hand: a
-  materialiser fetches the pin, places each directory, applies `patches/` and writes the
-  `Makefile.inc` each relocated Makefile needs, so a pin bump is a re-run plus the patches that
-  no longer apply. The build driver (the evaluator of BSD Makefiles with which the Kernel
-  cross-builds its userland today) moves here, told each program's original path. `gnu/`
-  stays out; the base system's own `regress/` is brought per program when needed.
-- **Decisions the user has still to take** about the inherited class: whether its C is
-  committed here (proposed: it is the product, and what is read on GitHub) or fetched under
-  `upstream/` like an import; whether the Kernel keeps its own userland build until N9
-  (proposed) or consumes this repository's ramdisk now; the milestone letter and the first
-  milestone (proposed: the 110 programs the Kernel builds today, in this layout, booting its
-  smokes).
+- **The inherited class is in the tree, not built.** Every program of the base system has
+  its directory at the pin in `src/`, copied by `tools/layout.py` (committed, the user's
+  decision of 2026-11-04). The trees that are not programs (`etc/`, `share/`, `distrib/`)
+  are not copied yet. To build: `patches/` applied to a copy, the `Makefile.inc` each
+  relocated Makefile needs, and the build driver (the evaluator of BSD Makefiles with which
+  the Kernel cross-builds its userland today) moved here, told each program's original
+  path. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
+- **Decisions the user has still to take** about the inherited class: whether the Kernel
+  keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
+  the milestone letter and the first milestone (proposed: the 110 programs the Kernel builds
+  today, in this layout, booting its smokes).
 - **Perl.** `pkg_add`, `adduser`, `libtool`, `pkgconf` and `security` are traditionally Perl, and
   Perl (Artistic or GPL, dual) is not in the tree: inherit it under the Artistic licence for
   those five, leave them out, or write them in Rust. The user's decision; their skeletons say so.
@@ -391,11 +392,12 @@ upstream; *written*, EmiBSD's own.
 ├── STATUS            inherited | inherited-built | inherited-shipped
 ├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
 │                     program's directory in that tree
+├── src/              that directory at the pin, byte for byte: the Makefile, the sources,
+│                     the manual; written whole by tools/layout.py, never edited by hand
 ├── patches/          our patches, a numbered series, each with its reason in its header
 ├── DEFINITION.md     what the program is for here, the compatibility others rely on, the
 │                     security history tracked against the upstream
 ├── tests/            it builds against our libc, starts under our rc; cve/ for what we patched
-├── man/              the program's own manual, from the tree; a change to it is one more patch
 ├── DELIVERY.md
 └── justfile
 ```
@@ -405,16 +407,19 @@ every copyright and licence notice kept whole, placed by what it does, built by 
 Makefile through the build driver, changed only by `patches/`. The pin is LandingZone's,
 because it fixes the ABI the kernel implements; the build refuses to run when the Kernel's
 pin differs. The source comes from the mirror, never from LandingZone, which holds no
-userland. Whether the C is committed under the directory or fetched under `upstream/` is the
-user's decision (README, Open). A program leaves this class only when its written
-replacement ships; until then the inherited one is what runs.
+userland, and it is committed (the user's decision of 2026-11-04): it is the product, and
+what is read on GitHub. `just layout` copies it from Kernel's read-only clone of the mirror
+at the pin, so a pin bump is a re-run, and the patches that no longer apply. A program leaves
+this class only when its written replacement ships; until then the inherited one is what
+runs.
 
 ## Written (from scratch, in Rust)
 
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
-proof of concept: their code is on the `experimental` branch, their documents stay in their
-directories at `designed`, and the root `Cargo.toml` and `rust-toolchain.toml` come back
-with the first program implemented again. What follows is the contract that program meets.
+proof of concept: their code and their documents are on the `experimental` branch; `ls` and
+`cp` are inherited like the rest, and only the two shared crates keep their documents here
+at `designed`. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
+program implemented again. What follows is the contract that program meets.
 
 ```
 <group>/<name>/
@@ -639,12 +644,14 @@ PROGRAM_JUST = """# Shared recipes for every program and library; each one's jus
 name := file_name(justfile_directory())
 root := `git rev-parse --show-toplevel`
 
-# Build: a written program through cargo; an imported one through build/ after fetch.
+# Build: a written program through cargo; an imported one through build/ after fetch; an
+# inherited one through the build driver, which is not here yet (README, Open).
 build:
     #!/bin/sh
     set -e
     case "$(cat STATUS)" in
       imported*) python3 -I "{{root}}/tools/upstream.py" check . && sh build/build.sh ;;
+      inherited*) echo "{{name}}: inherited; the build driver is not in this repository yet (README, Open)"; exit 1 ;;
       *) cargo build --manifest-path src/Cargo.toml ;;
     esac
 
@@ -1084,6 +1091,35 @@ Numbered, each with its reason and what was rejected.
 Crates used, each with why; the allowlist governs.
 """
 
+DEFINITION_INHERITED = """# {name} (inherited)
+
+STATUS: see `STATUS`. The base system's program at the pin of `UPSTREAM.toml`, in this
+layout (the user's decision of 2026-11-04): `src/` is OpenBSD's `{origin}` byte for byte,
+every notice in it kept whole, rewritten from the pin by `tools/layout.py` and never edited
+by hand. What we change is a patch under `patches/`. Manual {name}({section}), in `src/`.
+
+## What it is for here
+
+## Compatibility
+
+Who in the base system depends on it and how (flags, output, exit codes, configuration
+paths). Our patches, if any, never change what callers see.
+
+## Patches
+
+The series under `patches/`, each with its reason; none today.
+
+## Security history
+
+The advisories and errata of the base system that touch `{origin}` at the pin, the pin bump
+that closes them, and `tests/cve/` for what we patched ourselves.
+
+| Advisory | Fix | Here |
+|---|---|---|
+
+## Open questions
+{notes}"""
+
 DESIGN_IMPORTED = """# {name}: integration
 
 ## How it is built
@@ -1145,10 +1181,10 @@ MAN_IMPORTED = """.\\" {name}({section}) is imported: the manual is the upstream
 """
 
 
-def upstream_toml(name: str, spec: dict) -> str:
+def upstream_toml(name: str, spec: dict, cls: str = "imported") -> str:
     def arr(v):
         return "[" + ", ".join(f'"{x}"' for x in v) + "]"
-    lines = ["# The pin of an imported program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.",
+    lines = [f"# The pin of an {cls} program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.",
              "[upstream]",
              f'name    = "{spec["name"]}"',
              f'kind    = "{spec["kind"]}"',
@@ -1227,9 +1263,51 @@ def notes_for(name: str) -> str:
     return ("\n" + "\n".join(out) + "\n") if out else "\n"
 
 
+def inherited_notes(name: str) -> str:
+    out = []
+    if name in PERL:
+        out.append("- A Perl program, and Perl is not in this tree (Artistic or GPL, dual): it runs only "
+                   "once the user decides on Perl (README, Open).")
+    if name in ON_DISK:
+        out.append("- Writes or repairs an on-disk format: a bug corrupts a file system. A patch to it is "
+                   "tested on an image, bit for bit against the unpatched build.")
+    return ("\n" + "\n".join(out) + "\n") if out else "\n"
+
+
 def regenerable(d: Path) -> bool:
     s = d / "STATUS"
-    return not s.exists() or s.read_text().strip() in ("planned", "imported")
+    return not s.exists() or s.read_text().strip() in ("planned", "inherited", "imported")
+
+
+def materialise(dst: Path, origin: str, the_pin: str) -> int:
+    """`dst` becomes the reference tree's `origin` at the pin, byte for byte: removed and
+    written whole, so nothing edited by hand survives a run (a change is a patch)."""
+    tar = subprocess.run(["git", "-C", str(SRC), "archive", "--format=tar", the_pin, "--", origin],
+                         capture_output=True, check=True).stdout
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.mkdir(parents=True)
+    prefix, n = origin.rstrip("/") + "/", 0
+    with tarfile.open(fileobj=io.BytesIO(tar)) as tf:
+        for m in tf.getmembers():
+            if m.name == origin:   # an entry that is one file (lib/check_sym), not a directory
+                target = dst / Path(origin).name
+            elif not m.name.startswith(prefix) or m.name == prefix:
+                continue
+            else:
+                target = dst / m.name[len(prefix):]
+            if m.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+            elif m.issym():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.symlink_to(m.linkname)
+                n += 1
+            elif m.isfile():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(tf.extractfile(m).read())
+                target.chmod(0o755 if m.mode & 0o111 else 0o644)
+                n += 1
+    return n
 
 
 def put(path: Path, text: str, force: bool) -> int:
@@ -1283,6 +1361,8 @@ def own_skeleton(top: str, leaf: str, name: str) -> int:
 
 
 def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
+    """A program of the reference tree: imported (fetched, built from upstream/) or inherited
+    (its directory at the pin copied into src/)."""
     d = BASE / top / leaf / name
     force = regenerable(d)
     section = man_section(top, src_dir, name)
@@ -1290,34 +1370,34 @@ def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     rel = os.path.relpath(OUT / "tools" / "program.just", d)
     imported = name in IMPORTED
     n = 0
-    n += put(d / "STATUS", ("imported\n" if imported else "planned\n"), force)
+    n += put(d / "STATUS", ("imported\n" if imported else "inherited\n"), force)
     n += put(d / "justfile", f"import '{rel}'\n", force)
-    n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section=section), force)
-    for sub in ("schemas", "src", "tests", "bench") if not imported else ("tests",):
-        n += put(d / sub / ".gitkeep", "", False)
+    n += put(d / "patches" / ".gitkeep", "", False)
     n += put(d / "tests" / "cve" / ".gitkeep", "", False)
+    pin_spec = dict(name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN, path=[origin],
+                    commit=the_pin, version="", license=[], cpe=IMPORTED.get(name, ""))
     if imported:
+        n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section=section), force)
         n += put(d / "DEFINITION.md", DEFINITION_IMPORTED.format(name=name, origin=origin, section=section, notes=notes_for(name)), force)
         n += put(d / "DESIGN.md", DESIGN_IMPORTED.format(name=name), force)
-        n += put(d / "UPSTREAM.toml", upstream_toml(name, dict(
-            name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN, path=[origin],
-            commit=the_pin, version="", license=[], cpe=IMPORTED[name])), force)
-        n += put(d / "patches" / ".gitkeep", "", False)
+        n += put(d / "UPSTREAM.toml", upstream_toml(name, pin_spec), force)
         n += put(d / "build" / "build.sh", BUILD_SH, force)
         n += put(d / "man" / "README.md", MAN_IMPORTED.format(name=name, section=section), force)
-        for stale in (d / "schemas", d / "src", d / "bench", d / "man" / f"{name}.{section}"):
-            if stale.is_file():
-                stale.unlink()
-            elif stale.is_dir() and not any(p.name != ".gitkeep" for p in stale.iterdir()):
-                for p in stale.iterdir():
-                    p.unlink()
-                stale.rmdir()
+        stale = (d / "schemas", d / "src", d / "bench", d / "man" / f"{name}.{section}")
     else:
-        n += put(d / "DEFINITION.md", DEFINITION.format(name=name, origin=origin, section=section, notes=notes_for(name)), force)
-        n += put(d / "DESIGN.md", DESIGN.format(name=name, section=section), force)
-        n += put(d / "man" / f"{name}.{section}", MAN.format(name=name, NAME=name.upper(), section=section), force)
-        n += put(d / "tests" / "stress" / ".gitkeep", "", False)
-        n += put(d / "tests" / "golden" / ".gitkeep", "", False)
+        delivery = DELIVERY.format(name=name, section=section).replace("| Manual | man/", "| Manual | src/")
+        n += put(d / "DELIVERY.md", delivery, force)
+        n += put(d / "DEFINITION.md", DEFINITION_INHERITED.format(name=name, origin=origin, section=section, notes=inherited_notes(name)), force)
+        n += put(d / "UPSTREAM.toml", upstream_toml(name, pin_spec, "inherited"), force)
+        if force:
+            n += materialise(d / "src", origin, the_pin)
+        stale = (d / "DESIGN.md", d / "schemas", d / "bench", d / "man", d / "tests" / "golden", d / "tests" / "stress")
+    if force:
+        for s in stale:
+            if s.is_file() or s.is_symlink():
+                s.unlink()
+            elif s.is_dir():
+                shutil.rmtree(s)
     return n
 
 
@@ -1362,7 +1442,7 @@ def main() -> int:
         print("IMPORTED names that are no program:", unknown_imports)
         return 1
 
-    tree, created, programs, imported = [], 0, 0, 0
+    tree, created, programs, imported, inherited = [], 0, 0, 0, 0
     for top, purpose, leaves in LAYOUT:
         where = OUT if top == "regress" else BASE   # the battery lives beside base/, not in it
         tree.append(f"{top}/" if where is OUT else f"base/{top}/")
@@ -1398,6 +1478,7 @@ def main() -> int:
                     created += skeleton(top, leaf, name, src, the_pin)
                     programs += 1
                     imported += name in IMPORTED
+                    inherited += name not in IMPORTED
                 else:
                     lines.append(f"- `{name}` ({origin})")
             if src is not None:
@@ -1424,7 +1505,8 @@ def main() -> int:
     put(OUT / ".claude" / "settings.json", SETTINGS, False)
     total = sum(len(progs) for _, _, leaves in LAYOUT for _, _, progs in leaves)
     print(f"ok: {len(LAYOUT)} trees, {sum(len(l) for _, _, l in LAYOUT)} leaves, {total} entries, "
-          f"{programs} programs ({imported} imported, {programs - imported} written; {created} files written this run);",
+          f"{programs} programs ({inherited} inherited, {imported} imported, {programs - imported - inherited} written; "
+          f"{created} files written this run);",
           {d: len(s) for d, s in sorted(sources.items())})
     return 0
 

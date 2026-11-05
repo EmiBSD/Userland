@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/kstat.1 |
+| Manual | src/kstat.1 |
 | Default configuration | none / etc/ |

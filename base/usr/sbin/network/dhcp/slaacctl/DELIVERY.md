@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/slaacctl.8 |
+| Manual | src/slaacctl.8 |
 | Default configuration | none / etc/ |

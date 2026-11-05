@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/pkg_add.1 |
+| Manual | src/pkg_add.1 |
 | Default configuration | none / etc/ |

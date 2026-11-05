@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/tee.1 |
+| Manual | src/tee.1 |
 | Default configuration | none / etc/ |

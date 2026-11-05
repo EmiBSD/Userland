@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libkvm.3 |
+| Manual | src/libkvm.3 |
 | Default configuration | none / etc/ |
