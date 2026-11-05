@@ -14,7 +14,9 @@ paths). Our patches, if any, never change what callers see.
 
 ## Patches
 
-The series under `patches/`, each with its reason in its header: none today.
+The series under `patches/`, each with its reason in its header:
+
+- `0001-empty-password-record-length.patch`: The insecure record of an account with an empty password is as long as the secure one, not one byte longer.
 
 ## Security history
 

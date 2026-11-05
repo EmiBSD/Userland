@@ -16,7 +16,7 @@
 
 usage: world.py <arch> [step...]
 
-The steps, in order (the first seven when none is named):
+The steps, in order (the first eight, through sets, when none is named):
 
   tree      target/<arch>/src: every inherited directory's src/ copied back to its path in
             the base system's tree, so each Makefile finds its neighbours where it expects
@@ -32,6 +32,8 @@ The steps, in order (the first seven when none is named):
             the failures are listed in target/<arch>/failed
   etc       etc/Makefile's distribution-etc-root-var: /etc, /root, /var, pwd.db, etc.tgz;
             the manual's mandoc.db
+  sets      target/<arch>/sets: base, comp, game and man as gzipped archives, from the
+            sysroot by distrib/sets/lists, and their SHA256
   retry     the directories that failed, again
   image     target/<arch>/ramdisk.ffs: the mtree skeleton, the programs, ld.so and the
             shared libraries, /etc from the tree, /dev by MAKEDEV's `ramdisk` target, made
@@ -41,6 +43,11 @@ The steps, in order (the first seven when none is named):
 make is target/host/bin/make (`just host-make`); the compiler is DevTools' clang, whose
 default target is EmiBSD's (EMIBSD_LLVM_BIN). Nothing is installed on the host and nothing
 is written outside target/.
+
+A build is reproducible: two builds of one commit, in any two checkouts, give the same
+sets and the same SHA256. Every time a build writes into what it ships is
+$SOURCE_DATE_EPOCH, or the commit's time when it is unset (the reproducible builds' rule),
+and no path of the checkout reaches a file.
 """
 import os
 import re
@@ -56,6 +63,9 @@ BASE = ROOT / "base"
 TREES = ("etc", "data", "distrib")   # their entries keep their full paths under src/
 LLVM = Path(os.environ.get("EMIBSD_LLVM_BIN",
                            Path.home() / "devel/emibsd/toolchains/llvm-23.1.4+emibsd.1-aarch64-apple-darwin/bin"))
+EPOCH = os.environ.get("SOURCE_DATE_EPOCH") or \
+    subprocess.run(["git", "-C", str(ROOT), "log", "-1", "--format=%ct"], capture_output=True,
+                   text=True, check=True).stdout.strip()
 MACHINES = {"arm64": dict(MACHINE="arm64", MACHINE_ARCH="aarch64", MACHINE_CPU="aarch64",
                           triple="aarch64-emibsd-emibsd8.0")}
 
@@ -134,13 +144,15 @@ def make_env(arch: str, out: Path) -> dict:
     env["WORLD_DESTDIR"] = str(out / "sysroot")
     env["WORLD_PASSWD"] = str(out / "src/etc/master.passwd")
     env["WORLD_GROUP"] = str(out / "src/etc/group")
+    # clang's __DATE__ and __TIME__, owners.h's clamp of the tree's times.
+    env["SOURCE_DATE_EPOCH"] = EPOCH
     return env
 
 
 # The stand-ins for a build run by a user (tools/host): they record in the metalog what
 # they cannot do (owners, groups, device nodes) instead of failing.
 WRAPPERS = {"install": "install.sh", "chown": "chown.sh", "chgrp": "chgrp.sh", "chmod": "chmod.sh",
-            "mknod": "mknod.sh"}
+            "mknod": "mknod.sh", "gzip": "gzip.sh"}
 
 
 def step_host(arch: str, out: Path) -> None:
@@ -280,8 +292,9 @@ def host_base_tools(out: Path) -> None:
         env = dict(os.environ, MAKEOBJDIR=str(obj), PATH=f"{HOST / 'bin'}:{os.environ['PATH']}")
         cc = f"{host_cc()} -I{ROOT / 'tools/host/include'} -idirafter {inc} {cflags}"
         subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), f"CC={cc}", "NOMAN=1",
-                        "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", "LDSTATIC=", "WARNINGS=no", "DPADD=",
-                        f"LDADD={HOST / 'lib/libbasehost.a'} {libs}"],
+                        "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", "LDSTATIC=", "WARNINGS=no",
+                        # the library, not the target's, is what a tool relinks after
+                        f"DPADD={HOST / 'lib/libbasehost.a'}", f"LDADD={HOST / 'lib/libbasehost.a'} {libs}"],
                        cwd=out / "src" / tool, env=env, check=True)
         prog = subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), "-V", "PROG"],
                               cwd=out / "src" / tool, env=env, capture_output=True, text=True).stdout.strip()
@@ -607,7 +620,11 @@ def compiler_headers(out: Path) -> Path:
 
 def link_config(out: Path) -> Path:
     cfg = out / "clang-link.cfg"
-    cfg.write_text("".join(f"{flag}\n" for flag in COMPILE_DEFAULTS) +
+    # The checkout's paths out of what is compiled (__FILE__ in an assert's message): the
+    # tree, its objects and the sysroot as the base system's own build has them.
+    prefixes = (f"-ffile-prefix-map={out / 'src'}=/usr/src", f"-ffile-prefix-map={out / 'obj'}=/usr/obj",
+                f"-ffile-prefix-map={out / 'sysroot'}/=/")
+    cfg.write_text("".join(f"{flag}\n" for flag in COMPILE_DEFAULTS + prefixes) +
                    f"-idirafter {out / 'compiler-include'}\n" +
                    "".join(f"$-Wl,{flag}\n" for flag in LINK_DEFAULTS))
     return cfg
@@ -810,8 +827,10 @@ def step_sets(arch: str, out: Path) -> None:
     """The install sets, as distrib/sets/maketars makes them (one gzipped archive per set,
     from DESTDIR, in its list's order with the libraries first), with the owners, groups and
     modes the metalog and the mtree specification give, not the building user's: bsdtar
-    reads an mtree description of each entry. distrib/sets/checkflist's comparison of the
-    lists with DESTDIR is written to sets/checkflist."""
+    reads an mtree description of each entry. Every entry's time is the epoch and the gzip
+    header has none, so the archives are the same in every build of one commit; SHA256 is
+    the base system's sha256 over them, as a release lists them. distrib/sets/checkflist's
+    comparison of the lists with DESTDIR is written to sets/checkflist."""
     sysroot, sets = out / "sysroot", out / "sets"
     if sets.exists():
         shutil.rmtree(sets)
@@ -836,7 +855,8 @@ def step_sets(arch: str, out: Path) -> None:
             rec = attrs.get(rel, {})
             st = f.lstat()
             mode = rec.get("mode") if rec.get("mode", "").isdigit() else f"{st.st_mode & 0o7777:o}"
-            owner = f"uid={users.get(rec.get('uname', 'root'), 0)} gid={groups.get(rec.get('gname', 'wheel'), 0)}"
+            owner = (f"uid={users.get(rec.get('uname', 'root'), 0)} gid={groups.get(rec.get('gname', 'wheel'), 0)} "
+                     f"time={EPOCH}.0")
             if f.is_symlink():
                 spec.append(f"{mtree_quote(e)} type=link {owner} mode=0755 link={mtree_quote(os.readlink(f))}")
             elif f.is_dir():
@@ -845,11 +865,14 @@ def step_sets(arch: str, out: Path) -> None:
                 spec.append(f"{mtree_quote(e)} type=file {owner} mode={mode} contents={mtree_quote(str(f))}")
         (sets / f"{name}.mtree").write_text("\n".join(spec) + "\n")
         archive = sets / f"{name}{OSREV}.tgz"
-        subprocess.run(["bsdtar", "-c", "-z", "--format=ustar", "-f", str(archive), f"@{sets / (name + '.mtree')}"],
-                       check=True)
+        subprocess.run(["bsdtar", "-c", "-z", "--options", "gzip:!timestamp", "--format=ustar", "-f", str(archive),
+                        f"@{sets / (name + '.mtree')}"], check=True)
         report.append(f"{name}: {len(entries) - len(missing)} of {len(entries)} entries, "
                       f"{archive.stat().st_size // 1024} KiB")
         (sets / f"{name}.missing").write_text("".join(m + "\n" for m in missing))
+    sums = subprocess.run([str(HOST / "bin/sha256"), *(f"{name}{OSREV}.tgz" for name in SETS)], cwd=sets,
+                          capture_output=True, text=True, check=True).stdout
+    (sets / "SHA256").write_text(sums)
     installed = {str(p.relative_to(sysroot)) for p in sysroot.rglob("*")}
     # The etc list is no set: its files travel in base's var/sysmerge/etc.tgz.
     listed.update(e[2:] for e in set_list(out, "etc", arch))
@@ -879,7 +902,7 @@ STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "obj":
 # `just world arm64` with no step: the base system built and installed into the sysroot.
 # `make obj` first, as in the base system: include/Makefile has librpcsvc generate its
 # headers, which then must be in that library's obj, where its sources are compiled.
-DEFAULT = ("tree", "host", "obj", "includes", "lib", "base", "etc")
+DEFAULT = ("tree", "host", "obj", "includes", "lib", "base", "etc", "sets")
 
 
 def case_sensitive(out: Path) -> None:

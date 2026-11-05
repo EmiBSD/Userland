@@ -21,8 +21,10 @@
  * $WORLD_METALOG holds one record per line, "<path> [uname=<name>] [gname=<name>]
  * [mode=<octal>]", a later field for the same path winning. $WORLD_DESTDIR is the tree;
  * only a path under it is corrected. $WORLD_PASSWD and $WORLD_GROUP are the tree's
- * master.passwd(5) and group(5), which turn the recorded names into ids. Compiled without
- * owners.h, so the host's functions are the ones called here.
+ * master.passwd(5) and group(5), which turn the recorded names into ids. With
+ * $SOURCE_DATE_EPOCH set, no time of a path under the tree is later than it, so what a tool
+ * archives from the tree (etc.tgz) is the same in every build of one commit. Compiled
+ * without owners.h, so the host's functions are the ones called here.
  */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -37,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #define NAME_LEN 64
@@ -62,6 +65,7 @@ static size_t		 nusers, ngroups;
 static char		 destdir[PATH_MAX];
 static size_t		 destdirlen;
 static int		 loaded;
+static time_t		 epoch = -1;	/* $SOURCE_DATE_EPOCH, -1 when unset */
 
 /* The open trees and the directory each was opened from, which their paths are relative to. */
 #define MAX_TREES 16
@@ -160,6 +164,13 @@ load(void)
 	if (loaded)
 		return;
 	loaded = 1;
+	if ((p = getenv("SOURCE_DATE_EPOCH")) != NULL && *p != '\0') {
+		char *end;
+		long long v = strtoll(p, &end, 10);
+
+		if (*end == '\0' && v >= 0)
+			epoch = (time_t)v;
+	}
 	load_ids(getenv("WORLD_PASSWD"), &users, &nusers);
 	load_ids(getenv("WORLD_GROUP"), &groups, &ngroups);
 	if ((root = getenv("WORLD_DESTDIR")) == NULL || realpath(root, destdir) == NULL)
@@ -256,6 +267,16 @@ number_of(const struct id *ids, size_t n, const char *name)
 	return *end == '\0' && end != name ? (unsigned int)v : 0;
 }
 
+/* A time no later than the epoch, as the reproducible builds' clamp has it. */
+static void
+clamp(struct timespec *ts)
+{
+	if (ts->tv_sec > epoch || (ts->tv_sec == epoch && ts->tv_nsec > 0)) {
+		ts->tv_sec = epoch;
+		ts->tv_nsec = 0;
+	}
+}
+
 /* The tree's view of `path` (relative to `cwd`) written over what the host said in `sb`. */
 static void
 correct(const char *path, const char *cwd, struct stat *sb)
@@ -300,6 +321,12 @@ correct(const char *path, const char *cwd, struct stat *sb)
 	sb->st_gid = r != NULL && r->gname[0] != '\0' ? number_of(groups, ngroups, r->gname) : 0;
 	if (r != NULL && r->has_mode)
 		sb->st_mode = (sb->st_mode & S_IFMT) | r->mode;
+	if (epoch != -1) {
+		clamp(&sb->st_atimespec);
+		clamp(&sb->st_mtimespec);
+		clamp(&sb->st_ctimespec);
+		clamp(&sb->st_birthtimespec);
+	}
 }
 
 int
