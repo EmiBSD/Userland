@@ -103,7 +103,11 @@ def step_tree(arch: str, out: Path) -> None:
 HOST = ROOT / "target" / "host"
 # The tools a Makefile of the base system runs while building, built for the host first so
 # no host program of the same name (macOS's rpcgen, bison, flex) is ever used.
-HOST_TOOLS = ("usr.bin/rpcgen", "usr.bin/yacc", "usr.bin/lex", "usr.bin/mklocale")
+HOST_TOOLS = ("usr.bin/rpcgen", "usr.bin/yacc", "usr.bin/lex", "usr.bin/mklocale",
+              # fortune's data files are indexed by it; its index is in network byte order
+              "games/fortune/strfile",
+              # boggle's dictionary and its index, both text
+              "games/boggle/mkdict", "games/boggle/mkindex")
 # A host tool's own header, forced in after compat.h (tools/host).
 HOST_HEADERS = {"usr.bin/mklocale": "mklocale.h"}
 
@@ -155,6 +159,27 @@ def step_host(arch: str, out: Path) -> None:
         print(f"host: {HOST / 'bin' / prog}")
     host_makefs(out)
     host_base(out)
+    host_tic(out)
+
+
+def host_tic(out: Path) -> None:
+    """tic(1) for the host, on libcurses built for the host from the same tree: the terminfo
+    database share/termtypes compiles must be the base system's tic's, never the host's
+    (macOS's lays it out in other directories)."""
+    env = dict(os.environ, PATH=f"{HOST / 'bin'}:{os.environ['PATH']}")   # its ar is LLVM's
+    lib = HOST / "obj/lib/libcurses"
+    lib.mkdir(parents=True, exist_ok=True)
+    subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), f"CC={host_cc()}",
+                    f"HOSTCC={host_cc()}", "AWK=awk", "NOMAN=1", "NOPIC=1", "NOPROFILE=1", "WARNINGS=no"],
+                   cwd=out / "src/lib/libcurses", env=dict(env, MAKEOBJDIR=str(lib)), check=True)
+    obj = HOST / "obj/usr.bin/tic"
+    obj.mkdir(parents=True, exist_ok=True)
+    subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), f"CC={host_cc()}",
+                    "NOMAN=1", "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", "DPADD=",
+                    f"LDADD={lib / 'libcurses.a'}", "WARNINGS=no"],
+                   cwd=out / "src/usr.bin/tic", env=dict(env, MAKEOBJDIR=str(obj)), check=True)
+    shutil.copy2(obj / "tic", HOST / "bin/tic")
+    print(f"host: {HOST / 'bin/tic'}")
 
 
 def host_base(out: Path) -> None:
@@ -488,6 +513,14 @@ CONFIGURE_ANSWERS = {"ac_cv_func_memcmp_working": "yes", "ac_cv_func_malloc_0_no
                      "ac_cv_func_realloc_0_nonnull": "yes"}
 
 
+# The host tools a Makefile names by path, or finds as the program it just built for the
+# target, by the variable that names them, for that directory only (tput's TIC is the
+# directory of tic's sources, not the program).
+HOST_TOOL_VARS = {"share/termtypes": (("TIC", "tic"),),
+                  "games/fortune/datfiles": (("STRFILE", "strfile"),),
+                  "games/boggle": (("MKDICT", "mkdict"), ("MKINDEX", "mkindex"))}
+
+
 def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
     """make in `directory` and down its SUBDIR, each subdirectory in its own `obj` (made by
     `make obj`); -k, so one failure does not hide the next. A parallel run that fails is run
@@ -509,7 +542,9 @@ def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
             "STACK_PROTECTOR=",
             # A cross build, as Makefile.cross says it: ld.so then does not run the test
             # program it just linked, which the host cannot execute (only ld.so reads it).
-            f"CROSSDIR={sysroot}", *targets]
+            f"CROSSDIR={sysroot}",
+            *(f"{var}={HOST / 'bin' / tool}" for var, tool in HOST_TOOL_VARS.get(directory, ())),
+            *targets]
     env = make_env(arch, out)
     if (out / "src" / directory / "Makefile.bsd-wrapper").exists():   # as bsd.subdir.mk does
         args[1:1] = ["-f", "Makefile.bsd-wrapper"]
@@ -556,9 +591,10 @@ def step_lib(arch: str, out: Path) -> None:
         raise SystemExit("lib: csu and libc are needed by everything else")
 
 
-def subdirs(arch: str, out: Path, directory: str) -> list:
+def subdirs(arch: str, out: Path, directory: str, target: str = "") -> list:
     """The directories under `directory` that build something, in its Makefiles' SUBDIR
-    order (make -V SUBDIR, down to the directories that have none)."""
+    order (make -V SUBDIR, down to the directories that have none). With `target`, the
+    SUBDIR a make of that target walks (games/fortune leaves strfile out of `install`)."""
     env = make_env(arch, out)
     makefile = out / "src" / directory / "Makefile"
     text = makefile.read_text(errors="replace") if makefile.exists() else ""
@@ -566,15 +602,31 @@ def subdirs(arch: str, out: Path, directory: str) -> list:
     # SUBDIR=man beside its library) is made as one: its own make goes down its SUBDIR.
     if not makefile.exists() or re.search(r"bsd\.(prog|lib)\.mk", text):
         return [directory]
-    value = subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), "-V", "SUBDIR"],
+    value = subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), "-V", "SUBDIR",
+                            *([target] if target else [])],
                            cwd=out / "src" / directory, env=env, capture_output=True, text=True).stdout.split()
     if not value:
         return [directory]
     found = []
     for s in value:
         if (out / "src" / directory / s).is_dir():
-            found += subdirs(arch, out, f"{directory}/{s}")
+            found += subdirs(arch, out, f"{directory}/{s}", target)
     return found
+
+
+def install_hooks(out: Path, tree: str, dirs: list) -> list:
+    """The directories above `dirs` whose own Makefile walks a SUBDIR and adds to its
+    install (share/man's COPYRIGHT, games/boggle's dictionary): bsd.subdir.mk runs their
+    beforeinstall and afterinstall around the walk, which building each directory on its
+    own skips."""
+    parents = sorted({str(Path(d).parents[i]) for d in dirs for i in range(len(Path(d).parts) - 1)
+                      if Path(d).parents[i].is_relative_to(tree)} - set(dirs))
+    hooks = []
+    for d in parents:
+        makefile = out / "src" / d / "Makefile"
+        if makefile.exists() and re.search(r"^(before|after)install:", makefile.read_text(errors="replace"), re.M):
+            hooks.append(d)
+    return hooks
 
 
 # What cannot be built inside the tree, and why: the userland takes nothing GPL.
@@ -605,7 +657,11 @@ def step_base(arch: str, out: Path) -> None:
     failed = []
     for tree in BASE_TREES:
         dirs = [d for d in subdirs(arch, out, tree) if d not in EXCLUDED]
-        bad = [d for d in dirs if make_walk(arch, out, d) or make_walk(arch, out, d, "install")]
+        installed = set(subdirs(arch, out, tree, "install"))
+        bad = [d for d in dirs if make_walk(arch, out, d) or (d in installed and make_walk(arch, out, d, "install"))]
+        # Their hooks alone, after their subdirectories: SUBDIR emptied, so the walk is not
+        # made again (afterinstall depends on beforeinstall through realinstall).
+        bad += [d for d in install_hooks(out, tree, dirs) if make_walk(arch, out, d, "SUBDIR=", "afterinstall")]
         failed += bad
         print(f"base: {tree}: {len(dirs) - len(bad)} of {len(dirs)} built and installed")
     (out / "failed").write_text("".join(f"{d}\n" for d in failed))

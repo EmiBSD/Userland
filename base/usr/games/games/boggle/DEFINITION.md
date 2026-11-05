@@ -14,7 +14,9 @@ paths). Our patches, if any, never change what callers see.
 
 ## Patches
 
-The series under `patches/`, each with its reason in its header: none today.
+The series under `patches/`, each with its reason in its header:
+
+- `0001-dictionary-from-destdir.patch`: The dictionary is made from the words of the system being built (DESTDIR's share/dict), not of the machine building it.
 
 ## Security history
 

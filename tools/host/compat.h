@@ -108,4 +108,13 @@ emibsd_host_unveil(const char *path, const char *permissions)
 #define unveil emibsd_host_unveil
 #define srandom_deterministic(seed) srandom(seed)
 
+/*
+ * The base system's login name length, which the host's <limits.h> lacks: a host helper
+ * that writes the target's structures (phantasia's setup) must size them as the target does.
+ */
+#include <limits.h>
+#ifndef LOGIN_NAME_MAX
+#define LOGIN_NAME_MAX 32
+#endif
+
 #endif /* EMIBSD_HOST_COMPAT_H */

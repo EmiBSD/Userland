@@ -1,0 +1,16 @@
+The dictionary is made from the words of the system being built (DESTDIR's share/dict), not of the machine building it.
+
+A native build has DESTDIR empty and reads the same file as before; a cross build reads the
+tree's own list instead of the host's.
+
+--- a/Makefile
++++ b/Makefile
+@@ -9,7 +9,7 @@
+ 
+ beforeinstall:
+ 	rm -f ${DESTDIR}/usr/share/games/boggle/dictionary
+-	${MKDICT} < /usr/share/dict/words > \
++	${MKDICT} < ${DESTDIR}/usr/share/dict/words > \
+ 	    ${DESTDIR}/usr/share/games/boggle/dictionary
+ 	rm -f ${DESTDIR}/usr/share/games/boggle/dictindex
+ 	${MKINDEX} < ${DESTDIR}/usr/share/games/boggle/dictionary > \
