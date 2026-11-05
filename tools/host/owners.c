@@ -362,6 +362,22 @@ emibsd_host_stat(const char *path, struct stat *sb)
 	return 0;
 }
 
+/*
+ * An open file seen as its path is: pax checks after copying that what it archived is
+ * unchanged, and the host's time would differ from the clamped one it recorded.
+ */
+int
+emibsd_host_fstat(int fd, struct stat *sb)
+{
+	char path[PATH_MAX];
+
+	if (fstat(fd, sb) == -1)
+		return -1;
+	if (S_ISREG(sb->st_mode) && fcntl(fd, F_GETPATH, path) != -1)
+		correct(path, NULL, sb);
+	return 0;
+}
+
 int
 emibsd_host_lstat(const char *path, struct stat *sb)
 {

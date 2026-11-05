@@ -21,7 +21,7 @@
  * stand-ins record them in $WORLD_METALOG instead (tools/host/*.sh). With this header a
  * tool sees the tree as the target will have it (owners.c):
  *
- * - stat, lstat and the entries fts(3) returns carry, for a path under $WORLD_DESTDIR,
+ * - stat, lstat, fstat and the entries fts(3) returns carry, for a path under $WORLD_DESTDIR,
  *   the owner, group and permission bits the metalog last recorded for it (root and
  *   wheel for a path it never named);
  * - a user or group name is the tree's, from $WORLD_PASSWD and $WORLD_GROUP (its
@@ -46,6 +46,7 @@
 
 int emibsd_host_stat(const char *, struct stat *);
 int emibsd_host_lstat(const char *, struct stat *);
+int emibsd_host_fstat(int, struct stat *);
 FTS *emibsd_host_fts_open(char * const *, int, int (*)(const FTSENT **, const FTSENT **));
 int emibsd_host_fts_close(FTS *);
 FTSENT *emibsd_host_fts_read(FTS *);
@@ -64,6 +65,7 @@ pid_t emibsd_host_getpid(void);
 
 #define stat(path, sb) emibsd_host_stat(path, sb)
 #define lstat(path, sb) emibsd_host_lstat(path, sb)
+#define fstat(fd, sb) emibsd_host_fstat(fd, sb)
 #define fts_open emibsd_host_fts_open
 #define fts_close emibsd_host_fts_close
 #define fts_read(ftsp) emibsd_host_fts_read(ftsp)
