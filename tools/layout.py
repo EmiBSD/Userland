@@ -244,6 +244,9 @@ LAYOUT = [
             "sys/netinet", "sys/netinet6", "sys/netmpls", "sys/net80211", "sys/nfs", "sys/ntfs", "sys/scsi",
             "sys/sys", "sys/ufs", "sys/uvm", "sys/arch/<arch>/include"]),
         ("share", "/usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages.", ["share/mk", "share/man", "share/btrace", "share/snmp", "share/tmac", "share/Makefile", "share/Makefile.inc"]),
+        ("kernel", "The kernel's sources the userland compiles too, reached by the Makefiles' .PATH into sys/: bpf_filter for libpcap, pf_ruleset for pfctl, pf_osfp for tcpdump, ffs_subr and ffs_tables for fsck_ffs and fsdb, ext2fs_bswap for the ext2fs tools, syscalls for btrace.", [
+            "sys/net/bpf_filter.c", "sys/net/pf_ruleset.c", "sys/net/pf_osfp.c", "sys/ufs/ffs/ffs_subr.c",
+            "sys/ufs/ffs/ffs_tables.c", "sys/ufs/ext2fs/ext2fs_bswap.c", "sys/kern/syscalls.c"]),
         ("build", "The base system's build glue, which belongs to no program: the top Makefile and Makefile.cross, and the Makefile and Makefile.inc of each tree (bin/Makefile.inc makes every /bin program static).", [
             "Makefile", "Makefile.cross", "bin/Makefile", "bin/Makefile.inc", "sbin/Makefile", "sbin/Makefile.inc",
             "usr.bin/Makefile", "usr.bin/Makefile.inc", "usr.sbin/Makefile", "usr.sbin/Makefile.inc",
@@ -1373,10 +1376,11 @@ The series under `patches/`, each with its reason in its header:{patches}
 """
 
 
-def keep_in_tree(name: str) -> bool:
+def keep_in_tree(name: str, exact: set) -> bool:
     """The kernel's headers that /usr/include gets: only `*.h` under sys/, and not the
-    firmware or the DRM ones (include/Makefile, `copies`)."""
-    if not name.startswith("sys/"):
+    firmware or the DRM ones (include/Makefile, `copies`); a sys/ file an entry names
+    itself (distrib/kernel's sources) is kept whole."""
+    if not name.startswith("sys/") or name in exact:
         return True
     return name.endswith(".h") and not name.startswith(("sys/dev/microcode/", "sys/dev/pci/drm/"))
 
@@ -1392,7 +1396,7 @@ def materialise_tree(dst: Path, origins: list, the_pin: str) -> int:
     n = 0
     with tarfile.open(fileobj=io.BytesIO(tar)) as tf:
         for m in tf.getmembers():
-            if m.isdir() or not keep_in_tree(m.name):
+            if m.isdir() or not keep_in_tree(m.name, set(origins)):
                 continue
             target = dst / m.name
             target.parent.mkdir(parents=True, exist_ok=True)

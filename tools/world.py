@@ -439,11 +439,16 @@ BASE_TREES = ("bin", "libexec", "sbin", "usr.bin", "usr.sbin", "share")
 # DevTools' lld for aarch64-emibsd does not yet; until it does (a DevTools matter), they are
 # given to every link, and only to links, by a clang configuration file under target/.
 LINK_DEFAULTS = ("--undefined-version", "--ignore-function-address-equality")
+# Likewise the base system's clang leaves -Wpointer-sign off by default and upstream's turns
+# it on: the Makefiles that build with -Werror (LibreSSL's) mix char and unsigned char
+# pointers and expect no warning for it.
+COMPILE_DEFAULTS = ("-Wno-pointer-sign",)
 
 
 def link_config(out: Path) -> Path:
     cfg = out / "clang-link.cfg"
-    cfg.write_text("".join(f"$-Wl,{flag}\n" for flag in LINK_DEFAULTS))
+    cfg.write_text("".join(f"{flag}\n" for flag in COMPILE_DEFAULTS) +
+                   "".join(f"$-Wl,{flag}\n" for flag in LINK_DEFAULTS))
     return cfg
 
 
