@@ -16,26 +16,31 @@
 
 usage: world.py <arch> [step...]
 
-The steps, in order (all of them when none is named):
+The steps, in order (the first six when none is named):
 
-  host      the base system's own tools the build runs on the development host (rpcgen,
-            yacc, lex, ...), built by the same make, into target/host/bin
   tree      target/<arch>/src: every inherited directory's src/ copied back to its path in
             the base system's tree, so each Makefile finds its neighbours where it expects
-            them (${.CURDIR}/.., BSDSRCDIR); patches/ applied to the copy, src/ only read
+            them (${.CURDIR}/.., BSDSRCDIR); patches/ applied to the copy, src/ only read;
+            __OpenBSD__ renamed __EmiBSD__ in the copy
+  host      the base system's own tools the build runs on the development host (rpcgen,
+            yacc, lex, mklocale, makefs), built by the same make, into target/host/bin
+  obj       `make obj` over lib/ and the trees of the base
   includes  target/<arch>/sysroot/usr/include, by include/Makefile's own targets
-  csu       the C start-up objects into the sysroot's /usr/lib
-  libc      libc.a, then the libraries the programs link
-  programs  the programs, installed into the sysroot (DESTDIR)
-  image     target/<arch>/ramdisk.ffs: the mtree skeleton, the programs, /etc from the
-            tree, /dev by MAKEDEV's `ramdisk` target, made by the base system's makefs
-            with the owners, modes and nodes the metalog recorded
+  lib       lib/ as Makefile.cross builds it: csu and libc first, then the rest
+  base      every directory the trees' SUBDIR reach, each built and installed on its own;
+            the failures are listed in target/<arch>/failed
+  retry     the directories that failed, again
+  image     target/<arch>/ramdisk.ffs: the mtree skeleton, the programs, ld.so and the
+            shared libraries, /etc from the tree, /dev by MAKEDEV's `ramdisk` target, made
+            by the base system's makefs with the owners, modes and nodes the metalog
+            recorded
 
 make is target/host/bin/make (`just host-make`); the compiler is DevTools' clang, whose
 default target is EmiBSD's (EMIBSD_LLVM_BIN). Nothing is installed on the host and nothing
 is written outside target/.
 """
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -98,7 +103,9 @@ def step_tree(arch: str, out: Path) -> None:
 HOST = ROOT / "target" / "host"
 # The tools a Makefile of the base system runs while building, built for the host first so
 # no host program of the same name (macOS's rpcgen, bison, flex) is ever used.
-HOST_TOOLS = ("usr.bin/rpcgen", "usr.bin/yacc", "usr.bin/lex")
+HOST_TOOLS = ("usr.bin/rpcgen", "usr.bin/yacc", "usr.bin/lex", "usr.bin/mklocale")
+# A host tool's own header, forced in after compat.h (tools/host).
+HOST_HEADERS = {"usr.bin/mklocale": "mklocale.h"}
 
 
 def host_cc() -> str:
@@ -139,13 +146,33 @@ def step_host(arch: str, out: Path) -> None:
         obj = HOST / "obj" / tool
         obj.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, MAKEOBJDIR=str(obj))
-        subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), f"CC={host_cc()}",
+        extra = f" -include {ROOT / 'tools/host' / HOST_HEADERS[tool]}" if tool in HOST_HEADERS else ""
+        subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), f"CC={host_cc()}{extra}",
                         "NOMAN=1", "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", "WARNINGS=no"],
                        cwd=out / "src" / tool, env=env, check=True)
         prog = Path(tool).name
         shutil.copy2(obj / prog, HOST / "bin" / prog)
         print(f"host: {HOST / 'bin' / prog}")
     host_makefs(out)
+    host_base(out)
+
+
+def host_base(out: Path) -> None:
+    """What the base system's host helpers (make's generate, compiled with HOSTCC during the
+    target build) take from libutil and the host lacks: ohash, header and object."""
+    inc, lib = HOST / "include-base", HOST / "lib"
+    inc.mkdir(parents=True, exist_ok=True)
+    lib.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(out / "src/lib/libutil/ohash.h", inc / "ohash.h")
+    o = HOST / "obj/ohash.o"
+    subprocess.run(f"{host_cc()} -I{inc} -c {out / 'src/lib/libutil/ohash.c'} -o {o}", shell=True, check=True)
+    subprocess.run([f"{LLVM}/llvm-ar", "rcs", str(lib / "libbasehost.a"), str(o)], check=True)
+    print(f"host: {lib / 'libbasehost.a'}")
+
+
+def target_hostcc() -> str:
+    """HOSTCC for the target builds: the host compiler, with libutil's ohash."""
+    return f"{host_cc()} -idirafter {HOST / 'include-base'} {HOST / 'lib/libbasehost.a'}"
 
 
 # The base system's headers makefs needs that the host lacks, copied from the tree for its
@@ -264,37 +291,7 @@ def step_includes(arch: str, out: Path) -> None:
                                check=True).stdout.strip()
     shutil.copy2(Path(resources) / f"lib/{triple}/libclang_rt.builtins.a", sysroot / "usr/lib/libcompiler_rt.a")
     make(arch, out, "include", "includes", "copies", objdir=False)
-
-
-def step_csu(arch: str, out: Path) -> None:
-    make(arch, out, "lib/csu", "all", "install")
-
-
-# The libraries the programs link, in the order their own dependencies need.
-LIBRARIES = ("lib/libc", "lib/libutil", "lib/libm", "lib/libz", "lib/libcurses", "lib/libkvm")
-
-
-def step_libc(arch: str, out: Path) -> None:
-    for lib in LIBRARIES:
-        make(arch, out, lib, "all", "install", extra=("NOPIC=1", "NOPROFILE=1"))
-
-
-# The first set: what a single-user boot of the ramdisk reaches (init, the shell, mounting,
-# the file and system utilities a session at its prompt uses). WORLD_PROGRAMS overrides it.
-PROGRAMS = (
-    "sbin/init", "bin/ksh", "bin/cat", "bin/chmod", "bin/cp", "bin/date", "bin/dd", "bin/df",
-    "bin/echo", "bin/ed", "bin/hostname", "bin/kill", "bin/ln", "bin/ls", "bin/mkdir", "bin/mv",
-    "bin/ps", "bin/pwd", "bin/rm", "bin/rmdir", "bin/sleep", "bin/stty", "bin/sync",
-    "sbin/dmesg", "sbin/mount", "sbin/mount_ffs", "sbin/reboot", "sbin/sysctl", "sbin/umount",
-    "usr.bin/id", "usr.bin/uname",
-)
-
-
-def step_programs(arch: str, out: Path) -> None:
-    # Static like the install media's programs: there is no ld.so in the image yet, and the
-    # Makefiles of /usr/bin link dynamically.
-    for prog in os.environ.get("WORLD_PROGRAMS", "").split() or PROGRAMS:
-        make(arch, out, prog, "all", "install", extra=("LDSTATIC=-static",))
+    compiler_headers(out)
 
 
 # What the ramdisk's /etc holds, from the tree (the arm64 files from etc/etc.<arch>), and
@@ -304,8 +301,10 @@ ETC_FILES = {"etc/master.passwd": 0o600, "etc/group": 0o644, "etc/shells": 0o644
              "etc/services": 0o644, "etc/ksh.kshrc": 0o644, "etc/rc": 0o644,
              "etc/rc.conf": 0o644, "etc/netstart": 0o644, "etc/etc.<arch>/ttys": 0o644,
              "etc/etc.<arch>/login.conf": 0o644}
-# The trees of the sysroot the ramdisk takes: the programs, not the headers and archives.
+# The trees of the sysroot the ramdisk takes: the programs and what runs them (ld.so in
+# usr/libexec, the shared libraries), not the headers and archives.
 IMAGE_TREES = ("bin", "sbin", "usr/bin", "usr/sbin", "usr/libexec")
+IMAGE_LIBS = re.compile(r"^lib.*\.so\.[0-9.]+$")
 
 
 def copy_tree(src: Path, dst: Path, links: dict) -> None:
@@ -361,6 +360,9 @@ def step_image(arch: str, out: Path) -> None:
     for tree in IMAGE_TREES:
         if (sysroot / tree).is_dir():
             copy_tree(sysroot / tree, staging / tree, links)
+    for lib in (sysroot / "usr/lib").iterdir():
+        if IMAGE_LIBS.match(lib.name):
+            shutil.copy2(lib, staging / "usr/lib" / lib.name)
     modes = {}
     for src, mode in ETC_FILES.items():
         src = src.replace("<arch>", arch)
@@ -429,8 +431,8 @@ def step_image(arch: str, out: Path) -> None:
 
 
 # The trees `make build` walks after the libraries, by their own Makefiles' SUBDIR. gnu/ is
-# DevTools' (the comp set); games/ is not in the map yet.
-BASE_TREES = ("bin", "libexec", "sbin", "usr.bin", "usr.sbin", "share")
+# DevTools' (the compiler) or GPL (left out).
+BASE_TREES = ("bin", "libexec", "sbin", "usr.bin", "usr.sbin", "share", "games")
 
 
 # The base system's lld takes these by default when it targets the base system (its
@@ -442,19 +444,55 @@ LINK_DEFAULTS = ("--undefined-version", "--ignore-function-address-equality")
 # Likewise the base system's clang leaves -Wpointer-sign off by default and upstream's turns
 # it on: the Makefiles that build with -Werror (LibreSSL's) mix char and unsigned char
 # pointers and expect no warning for it.
-COMPILE_DEFAULTS = ("-Wno-pointer-sign",)
+COMPILE_DEFAULTS = ("-Wno-pointer-sign",
+                    # a warning DevTools' clang has and the pin's does not: kept, not fatal
+                    # under -Werror (sshd-auth)
+                    "-Wno-error=unused-but-set-global",
+                    # implicit declarations stay warnings, as the base system's clang has
+                    # them; the Makefiles that want them fatal still say so
+                    # (bin/Makefile.inc's -Werror-implicit-function-declaration comes after)
+                    "-Wno-error=implicit-function-declaration", "-Wno-error=implicit-int")
+
+
+def compiler_headers(out: Path) -> Path:
+    """The compiler's own headers the base system's /usr/include does not have
+    (stdnoreturn.h, arm_neon.h, ...): a build with DESTDIR set compiles with -nostdinc
+    (bsd.sys.mk), which drops them, though the compiler provides them to every native
+    build. Only names absent from the sysroot, so adding them after it changes nothing the
+    sysroot already resolves."""
+    resources = Path(subprocess.run([f"{LLVM}/clang", "-print-resource-dir"], capture_output=True,
+                                    text=True, check=True).stdout.strip()) / "include"
+    sysinc = out / "sysroot/usr/include"
+    dst = out / "compiler-include"
+    if dst.exists():
+        shutil.rmtree(dst)
+    for h in resources.rglob("*"):
+        rel = h.relative_to(resources)
+        if h.is_file() and not (sysinc / rel).exists():
+            (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(h, dst / rel)
+    return dst
 
 
 def link_config(out: Path) -> Path:
     cfg = out / "clang-link.cfg"
     cfg.write_text("".join(f"{flag}\n" for flag in COMPILE_DEFAULTS) +
+                   f"-idirafter {out / 'compiler-include'}\n" +
                    "".join(f"$-Wl,{flag}\n" for flag in LINK_DEFAULTS))
     return cfg
 
 
+# The answers a configure script gets by running a test program, which a cross build cannot
+# do; these are what the base system's libc gives.
+CONFIGURE_ANSWERS = {"ac_cv_func_memcmp_working": "yes", "ac_cv_func_malloc_0_nonnull": "yes",
+                     "ac_cv_func_realloc_0_nonnull": "yes"}
+
+
 def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
     """make in `directory` and down its SUBDIR, each subdirectory in its own `obj` (made by
-    `make obj`); -k, so one failure does not hide the next. Returns make's status."""
+    `make obj`); -k, so one failure does not hide the next. A parallel run that fails is run
+    again serially: some Makefiles do not order a generated header before its users
+    (librpcsvc's rpcgen output), which a serial run does. Returns make's status."""
     m = MACHINES[arch]
     sysroot = out / "sysroot"
     cfg = link_config(out)
@@ -464,9 +502,38 @@ def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
             f"CC={cc}", f"CXX={LLVM}/clang++ --config={cfg} --target={m['triple']} --sysroot={sysroot}",
             f"CPP={cc} -E", f"LD={LLVM}/ld.lld", f"AR={LLVM}/llvm-ar", f"RANLIB={LLVM}/llvm-ranlib",
             f"NM={LLVM}/llvm-nm", f"OBJCOPY={LLVM}/llvm-objcopy", f"STRIP={LLVM}/llvm-strip",
-            f"HOSTCC={host_cc()}", "NOMAN=1", *targets]
+            f"HOSTCC={target_hostcc()}",
+            # DevTools' clang protects the stack by default, where the base system's relies on
+            # RETGUARD for aarch64 and amd64: ld.so then needs its own stack-protector stubs,
+            # the branch its Makefile has for the architectures that use the protector.
+            "STACK_PROTECTOR=",
+            # A cross build, as Makefile.cross says it: ld.so then does not run the test
+            # program it just linked, which the host cannot execute (only ld.so reads it).
+            f"CROSSDIR={sysroot}", *targets]
     env = make_env(arch, out)
-    return subprocess.run(args, cwd=out / "src" / directory, env=env).returncode
+    if (out / "src" / directory / "Makefile.bsd-wrapper").exists():   # as bsd.subdir.mk does
+        args[1:1] = ["-f", "Makefile.bsd-wrapper"]
+        # Its configure must know it cross-compiles: the wrapper's own options, plus the
+        # target in the GNU form its config.sub knows (it knows no EmiBSD) and the host.
+        # The variable is the one its configure line passes (CONFIGURE_OPTS, or nsd's and
+        # unbound's own); a library it is told is in /usr is in the sysroot's /usr.
+        wrapper = (out / "src" / directory / "Makefile.bsd-wrapper").read_text()
+        found = re.search(r"configure \$\{(CONFIGURE_OPTS\w*)\}", wrapper)
+        if found:
+            var = found.group(1)
+            opts = subprocess.run(args[:1] + ["-f", "Makefile.bsd-wrapper", "-m", str(out / "src/share/mk"),
+                                   "-V", var], cwd=out / "src" / directory, env=env,
+                                  capture_output=True, text=True).stdout.strip()
+            opts = re.sub(r"(--with-(?:ssl|libevent|libexpat))=/usr\b", rf"\1={sysroot}/usr", opts)
+            args.append(f"{var}={opts} --host={m['MACHINE_ARCH']}-unknown-openbsd "
+                        f"--build={os.uname().machine}-apple-darwin")
+            # What a cross configure cannot learn by running a program, as the target answers.
+            env.update(CONFIGURE_ANSWERS)
+    status = subprocess.run(args, cwd=out / "src" / directory, env=env).returncode
+    if status:
+        serial = [a if not a.startswith("-j") else "-j1" for a in args]
+        status = subprocess.run(serial, cwd=out / "src" / directory, env=env).returncode
+    return status
 
 
 def step_obj(arch: str, out: Path) -> None:
@@ -476,26 +543,161 @@ def step_obj(arch: str, out: Path) -> None:
 
 
 def step_lib(arch: str, out: Path) -> None:
-    """lib/ as the base system's Makefile.cross does it: csu and libc built and installed
-    first (every shared library links against them), then the rest, built and installed."""
-    for first in ("lib/csu", "lib/libc"):
-        if make_walk(arch, out, first) or make_walk(arch, out, first, "install"):
-            raise SystemExit(f"lib: {first} failed")
-    status = make_walk(arch, out, "lib")
-    status = make_walk(arch, out, "lib", "install") or status
-    print(f"lib: make exited {status}")
+    """lib/ as Makefile.cross builds it, csu and libc first, then every library of its SUBDIR
+    built and installed before the next, as the base system's own /usr/lib would already
+    hold them for a native build (libssl links -lcrypto, libedit -lcurses). One that needs
+    a library later in the order is built again at the end."""
+    order = ["lib/csu", "lib/libc"] + [d for d in subdirs(arch, out, "lib") if d not in ("lib/csu", "lib/libc")]
+    bad = [d for d in order if make_walk(arch, out, d) or make_walk(arch, out, d, "install")]
+    bad = [d for d in bad if make_walk(arch, out, d) or make_walk(arch, out, d, "install")]
+    print(f"lib: {len(order) - len(bad)} of {len(order)} built and installed" +
+          (f"; failed: {' '.join(bad)}" if bad else ""))
+    if "lib/libc" in bad or "lib/csu" in bad:
+        raise SystemExit("lib: csu and libc are needed by everything else")
+
+
+def subdirs(arch: str, out: Path, directory: str) -> list:
+    """The directories under `directory` that build something, in its Makefiles' SUBDIR
+    order (make -V SUBDIR, down to the directories that have none)."""
+    env = make_env(arch, out)
+    makefile = out / "src" / directory / "Makefile"
+    text = makefile.read_text(errors="replace") if makefile.exists() else ""
+    # A directory that builds something itself (a program, a library: libcrypto has
+    # SUBDIR=man beside its library) is made as one: its own make goes down its SUBDIR.
+    if not makefile.exists() or re.search(r"bsd\.(prog|lib)\.mk", text):
+        return [directory]
+    value = subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), "-V", "SUBDIR"],
+                           cwd=out / "src" / directory, env=env, capture_output=True, text=True).stdout.split()
+    if not value:
+        return [directory]
+    found = []
+    for s in value:
+        if (out / "src" / directory / s).is_dir():
+            found += subdirs(arch, out, f"{directory}/{s}")
+    return found
+
+
+# What cannot be built inside the tree, and why: the userland takes nothing GPL.
+EXCLUDED = {
+    "usr.bin/bgplg/bgplgsh": "links readline, gnu/lib/libreadline (GPL), outside the tree",
+    "usr.sbin/amd/doc": "its info manual needs makeinfo (texinfo, GPL), outside the tree",
+    # Pending: their configure answers its tests by running programs, which a cross build
+    # cannot (it then assumes a broken memcmp, whose replacement the tree does not carry);
+    # the base system's own Makefile.cross skips nsd for that. They need the target's
+    # answers given to configure, or a build on EmiBSD itself.
+    "usr.sbin/nsd": "configure cannot run its tests when cross-compiling (pending)",
+    "usr.sbin/unbound": "configure cannot run its tests when cross-compiling (pending)",
+}
+
+
+def step_retry(arch: str, out: Path) -> None:
+    """Build again only the directories the last `base` listed as failed."""
+    dirs = (out / "failed").read_text().split()
+    bad = [d for d in dirs if make_walk(arch, out, d) or make_walk(arch, out, d, "install")]
+    (out / "failed").write_text("".join(f"{d}\n" for d in bad))
+    print(f"retry: {len(dirs) - len(bad)} of {len(dirs)} now built; {len(bad)} still fail")
 
 
 def step_base(arch: str, out: Path) -> None:
-    for d in BASE_TREES:
-        status = make_walk(arch, out, d)
-        status = make_walk(arch, out, d, "install") or status
-        print(f"base: {d}: make exited {status}")
+    """Each directory the trees' SUBDIR reach, built and installed on its own: the base
+    system's subdir loop stops at the first failure, and one program must not hide the
+    rest. The failures are listed in target/<arch>/failed."""
+    failed = []
+    for tree in BASE_TREES:
+        dirs = [d for d in subdirs(arch, out, tree) if d not in EXCLUDED]
+        bad = [d for d in dirs if make_walk(arch, out, d) or make_walk(arch, out, d, "install")]
+        failed += bad
+        print(f"base: {tree}: {len(dirs) - len(bad)} of {len(dirs)} built and installed")
+    (out / "failed").write_text("".join(f"{d}\n" for d in failed))
+    print(f"base: {len(failed)} failed, listed in {out / 'failed'}")
 
 
-STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "csu": step_csu,
-         "libc": step_libc, "programs": step_programs, "image": step_image,
-         "obj": step_obj, "lib": step_lib, "base": step_base}
+# The install sets maketars makes from DESTDIR, by distrib/sets/lists/<set>/{mi,md.<arch>}.
+SETS = ("base", "comp", "game", "man")
+OSREV = os.environ.get("WORLD_OSREV", "80")   # the kernel says EmiBSD 8.0
+
+
+def set_list(out: Path, name: str, arch: str) -> list:
+    lists = out / "src/distrib/sets/lists" / name
+    entries = set()
+    for f in ("mi", f"md.{arch}", f"clang.{arch}"):
+        if (lists / f).exists():
+            entries.update(l.strip() for l in (lists / f).read_text().splitlines() if l.strip())
+    return sorted(entries)
+
+
+def step_sets(arch: str, out: Path) -> None:
+    """The install sets, as distrib/sets/maketars makes them (one gzipped archive per set,
+    from DESTDIR, in its list's order with the libraries first), with the owners, groups and
+    modes the metalog and the mtree specification give, not the building user's: bsdtar
+    reads an mtree description of each entry. distrib/sets/checkflist's comparison of the
+    lists with DESTDIR is written to sets/checkflist."""
+    sysroot, sets = out / "sysroot", out / "sets"
+    if sets.exists():
+        shutil.rmtree(sets)
+    sets.mkdir()
+    users, groups = ids_of(out / "src/etc")
+    attrs = {p: dict(k) for p, k in mtree_entries(out / "src/etc/mtree/4.4BSD.dist")}
+    for path, rec in read_metalog(out / "metalog", sysroot).items():
+        attrs.setdefault(path, {}).update(rec)
+    listed, report = set(), []
+    for name in SETS:
+        entries = set_list(out, name, arch)
+        listed.update(e[2:] for e in entries)
+        entries = [e for e in entries if e.startswith("./usr/lib/lib")] + \
+                  [e for e in entries if not e.startswith("./usr/lib/lib")]
+        spec, missing = ["#mtree"], []
+        for e in entries:
+            rel = e[2:]
+            f = sysroot / rel
+            if not (f.exists() or f.is_symlink()):
+                missing.append(e)
+                continue
+            rec = attrs.get(rel, {})
+            st = f.lstat()
+            mode = rec.get("mode") if rec.get("mode", "").isdigit() else f"{st.st_mode & 0o7777:o}"
+            owner = f"uid={users.get(rec.get('uname', 'root'), 0)} gid={groups.get(rec.get('gname', 'wheel'), 0)}"
+            if f.is_symlink():
+                spec.append(f"{mtree_quote(e)} type=link {owner} mode=0755 link={mtree_quote(os.readlink(f))}")
+            elif f.is_dir():
+                spec.append(f"{mtree_quote(e)} type=dir {owner} mode={mode}")
+            else:
+                spec.append(f"{mtree_quote(e)} type=file {owner} mode={mode} contents={mtree_quote(str(f))}")
+        (sets / f"{name}.mtree").write_text("\n".join(spec) + "\n")
+        archive = sets / f"{name}{OSREV}.tgz"
+        subprocess.run(["bsdtar", "-c", "-z", "--format=ustar", "-f", str(archive), f"@{sets / (name + '.mtree')}"],
+                       check=True)
+        report.append(f"{name}: {len(entries) - len(missing)} of {len(entries)} entries, "
+                      f"{archive.stat().st_size // 1024} KiB")
+        (sets / f"{name}.missing").write_text("".join(m + "\n" for m in missing))
+    installed = {str(p.relative_to(sysroot)) for p in sysroot.rglob("*")}
+    extra = sorted(installed - listed - {p for p in installed if p.startswith(("usr/include", "var/db"))})
+    (sets / "extra").write_text("".join(f"./{e}\n" for e in extra))
+    (sets / "checkflist").write_text("\n".join(report) + f"\ninstalled but in no list: {len(extra)} (sets/extra)\n")
+    print((sets / "checkflist").read_text(), end="")
+
+
+def mtree_quote(path: str) -> str:
+    """A path in mtree(5) form: what is not printable or is a space, as \\ooo."""
+    return "".join(c if c.isprintable() and c not in " \\#" else "".join(f"\\{b:03o}" for b in c.encode())
+                   for c in path)
+
+
+def ids_of(etc: Path) -> tuple:
+    users = {l.split(":")[0]: int(l.split(":")[2]) for l in (etc / "master.passwd").read_text().splitlines()
+             if l and not l.startswith("#")}
+    groups = {l.split(":")[0]: int(l.split(":")[2]) for l in (etc / "group").read_text().splitlines()
+              if l and not l.startswith("#")}
+    return users, groups
+
+
+STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "obj": step_obj,
+         "lib": step_lib, "base": step_base, "retry": step_retry, "image": step_image,
+         "sets": step_sets}
+# `just world arm64` with no step: the base system built and installed into the sysroot.
+# `make obj` first, as in the base system: include/Makefile has librpcsvc generate its
+# headers, which then must be in that library's obj, where its sources are compiled.
+DEFAULT = ("tree", "host", "obj", "includes", "lib", "base")
 
 
 def case_sensitive(out: Path) -> None:
@@ -522,7 +724,7 @@ def main() -> int:
     arch = sys.argv[1]
     out = ROOT / "target" / arch
     case_sensitive(out)
-    for name in sys.argv[2:] or STEPS:
+    for name in sys.argv[2:] or DEFAULT:
         if name not in STEPS:
             print(f"world: no step {name}", file=sys.stderr)
             return 2

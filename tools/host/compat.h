@@ -51,6 +51,14 @@
 #ifndef __aligned
 #define __aligned(x) __attribute__((__aligned__(x)))
 #endif
+/* Its visibility markers, which mean nothing to a host tool. */
+#ifndef __BEGIN_HIDDEN_DECLS
+#define __BEGIN_HIDDEN_DECLS
+#define __END_HIDDEN_DECLS
+#endif
+#ifndef __dso_hidden
+#define __dso_hidden __attribute__((__visibility__("hidden")))
+#endif
 
 #ifndef _NSIG
 #define _NSIG NSIG

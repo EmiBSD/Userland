@@ -2,7 +2,7 @@
 
 STATUS: see `STATUS`. Files of the base system that belong to no program, at the pin of
 `UPSTREAM.toml`, in this layout (the user's decision of 2026-11-04): `src/` holds OpenBSD's
-`sys/net/bpf_filter.c`, `sys/net/pf_ruleset.c`, `sys/net/pf_osfp.c`, `sys/ufs/ffs/ffs_subr.c`, `sys/ufs/ffs/ffs_tables.c`, `sys/ufs/ext2fs/ext2fs_bswap.c`, `sys/kern/syscalls.c`, each at its own path in that tree, byte for byte and every notice kept whole,
+`sys/net/bpf_filter.c`, `sys/net/pf_ruleset.c`, `sys/net/pf_osfp.c`, `sys/ufs/ffs/ffs_subr.c`, `sys/ufs/ffs/ffs_tables.c`, `sys/ufs/ext2fs/ext2fs_bswap.c`, `sys/kern/syscalls.c`, `sys/dev/pci/drm/amd/amdgpu/amdgpu_devlist.h`, `sys/dev/pci/drm/i915/i915_devlist.h`, `sys/dev/pci/drm/radeon/radeon_devlist.h`, `sys/dev/pci/drm/include/uapi/drm/i915_drm.h`, `sys/dev/pci/drm/include/uapi/drm/drm.h`, `sys/dev/pci/drm/include/uapi/drm/drm_mode.h`, each at its own path in that tree, byte for byte and every notice kept whole,
 rewritten from the pin by `tools/layout.py` and never edited by hand. What we change is a
 patch under `patches/`.
 

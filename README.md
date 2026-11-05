@@ -201,7 +201,7 @@ base/distrib/
 ├── installer            The installer, its ramdisk and the per-architecture media.
 ├── include              /usr/include as include/Makefile assembles it: the C library's public headers (include/) and the kernel's, the ABI the kernel implements (sys/, headers only, without dev/microcode and dev/pci/drm, as that Makefile leaves them out). The libraries' own exported headers stay with each library.
 ├── share                /usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages.
-├── kernel               The kernel's sources the userland compiles too, reached by the Makefiles' .PATH into sys/: bpf_filter for libpcap, pf_ruleset for pfctl, pf_osfp for tcpdump, ffs_subr and ffs_tables for fsck_ffs and fsdb, ext2fs_bswap for the ext2fs tools, syscalls for btrace.
+├── kernel               The kernel's sources the userland compiles too, reached by the Makefiles' .PATH into sys/: bpf_filter for libpcap, pf_ruleset for pfctl, pf_osfp for tcpdump, ffs_subr and ffs_tables for fsck_ffs and fsdb, ext2fs_bswap for the ext2fs tools, syscalls for btrace, the three DRM device lists fw_update matches firmware with, and the DRM ioctls kdump decodes.
 └── build                The base system's build glue, which belongs to no program: the top Makefile and Makefile.cross, and the Makefile and Makefile.inc of each tree (bin/Makefile.inc makes every /bin program static).
 regress/
 ├── scenarios            One directory per scenario: the steps, the expected lines, the comparison with a reference system.
@@ -218,15 +218,18 @@ one place in it, and each place is filled by its class.
   its directory at the pin in `src/`, copied by `tools/layout.py` (committed, the user's
   decision of 2026-11-04), and so does every tree that is not a program (`etc/`, `data/`,
   `distrib/`: share/mk, /usr/include with the kernel's headers, the build glue). `just
-  world arm64` builds today /usr/include (identical to the Kernel's), csu, libc, libutil,
-  libm, libz, libcurses, libkvm and the first 31 programs (init, ksh, mount, ls, ...),
-  static, and `target/arm64/ramdisk.ffs`, made by the base system's makefs built for the
-  host (`tools/host/makefs.h`, `makefs-host.c`) with the owners and modes the metalog
-  recorded and the nodes of MAKEDEV's `ramdisk` target. It boots on the Kernel
-  single-user: the Kernel mounts it as `rd0a`, init offers the shell and ksh runs (the
-  Kernel's `xtask smoke --ramdisk`, 2026-11-04). Still to come: `/etc/pwd.db` (pwd_mkdb for
-  the host), a multi-user boot (rc, getty, login), ld.so and the shared libraries, the other
-  programs, amd64. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
+  world arm64` builds the whole inherited base system for EmiBSD in about four minutes from a
+  clean target: /usr/include, the 37 libraries of lib/ (static and shared) and ld.so, and
+  every program of bin, sbin, usr.bin, usr.sbin, libexec, share and games, each by its own
+  Makefile, dynamic where the base system links dynamically. Left out: what is GPL and
+  outside the tree (bgplgsh's readline, amd's info manual; perl, cvs, texinfo of gnu/),
+  and nsd and unbound, pending (their configure must run its tests, which a cross build
+  cannot). `just world arm64 sets` makes base, comp, game and man as distrib/sets/maketars
+  does, from DESTDIR by the lists, with the owners and modes of the metalog, and writes
+  what the lists name and was not installed (`target/arm64/sets/*.missing`). `just world
+  arm64 image` makes the single-user ramdisk that boots on the Kernel. Still to come: the
+  terminfo database (tic for the host), the etc set (makeetcset), the compiler's part of
+  comp (DevTools), Perl (the user's decision), amd64. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
 - **Decisions the user has still to take** about the inherited class: whether the Kernel
   keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
   the milestone letter and the first milestone (proposed: the 110 programs the Kernel builds

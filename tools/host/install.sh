@@ -16,11 +16,11 @@
 # install.sh: install(1) for a build run by a user, not by root. Every file and directory
 # is installed as the user; the owner, group and mode the Makefile asked for go to the
 # manifest $WORLD_METALOG instead ("<path> uname=<owner> gname=<group> mode=<mode>"), which sets them in the
-# image. -s strips with $STRIP (an ELF strip), never the host's. Takes the options of the
+# image; the user keeps read and write on the files. -s strips with $STRIP (an ELF strip), never the host's. Takes the options of the
 # base system's install(1).
 
 set -eu
-owner=root group=wheel mode= strip= dir= flags=
+owner=root group=wheel mode= strip= dir= flags= parents=
 while getopts B:bCcDdFf:g:m:o:pSs opt; do
 	case $opt in
 	o) owner=$OPTARG ;;
@@ -29,7 +29,8 @@ while getopts B:bCcDdFf:g:m:o:pSs opt; do
 	s) strip=1 ;;
 	d) dir=1; flags="$flags -d" ;;
 	c|C|p|S|b) flags="$flags -$opt" ;;
-	B|D|F|f) ;;
+	D) parents=1 ;;
+	B|F|f) ;;
 	*) exit 64 ;;
 	esac
 done
@@ -43,18 +44,31 @@ record() {
 
 if [ -n "$dir" ]; then
 	/usr/bin/install $flags "$@"
-	for d in "$@"; do record "$d"; done
+	for d in "$@"; do chmod u+rwx "$d"; record "$d"; done
 	exit 0
 fi
 
 eval "dest=\${$#}"
-/usr/bin/install $flags "$@"
 n=$#
 for f in "$@"; do
 	n=$((n - 1))
 	[ $n -ge 0 ] || break
 	[ $n -eq 0 ] && [ "$f" = "$dest" ] && break
 	if [ -d "$dest" ]; then t=$dest/${f##*/}; else t=$dest; fi
-	if [ -n "$strip" ]; then chmod u+w "$t"; "${STRIP:?install: -s needs STRIP}" "$t"; [ -n "$mode" ] && chmod "$mode" "$t"; fi
+	[ -n "$parents" ] && mkdir -p "${t%/*}"   # -D: the missing directories of the target
+	if [ -n "$strip" ]; then
+		# Strip a copy, then install it: the destination's directory may not be writable
+		# by the user (/var/www/cgi-bin), and strip writes beside the file it strips.
+		tmp=$(mktemp "${TMPDIR:-/tmp}/install.XXXXXX")
+		cp "$f" "$tmp"
+		"${STRIP:?install: -s needs STRIP}" "$tmp"
+		/usr/bin/install $flags "$tmp" "$t"
+		rm -f "$tmp"
+	else
+		/usr/bin/install $flags "$f" "$t"
+	fi
+	# The user keeps read and write on what it installed (the recorded mode is the image's),
+	# so the sets and the image can be made from it: some modes give the owner neither.
+	chmod u+rw "$t"
 	record "$t"
 done
