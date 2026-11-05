@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libform.3 |
+| Manual | src/libform.3 |
 | Default configuration | none / etc/ |

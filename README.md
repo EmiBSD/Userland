@@ -50,7 +50,10 @@ from DevTools; OS assembles the sets with the kernel into a release.
   `UPSTREAM.toml`, never rewritten; our patches are a numbered series, ideally empty.
   *Written*: from scratch, under a definition, in Rust, one program at a time where a program
   is worth it; nothing is a port or a translation of another system's program. `just status`
-  counts the three.
+  counts the three. No program is imported today: the entries once imported (ssh, LibreSSL,
+  ncurses, unbound, ...) come from the same mirror at the same pin and are inherited since
+  2026-11-04, their CPE kept in `UPSTREAM.toml` for their CVE history; the class stays for an
+  upstream outside the base system's tree.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
   showed the written class and its grammar; their code and documents live on the
   `experimental` branch. `ls` and `cp` are inherited here like every other program; the
@@ -186,8 +189,8 @@ base/data/
 base/distrib/
 ├── sets                 The install sets and their lists; the release version is YEAR.MONTH (docs/PROGRAM.md, Versions).
 ├── installer            The installer, its ramdisk and the per-architecture media.
-├── include              The recipe that assembles /usr/include from what each library of lib/ exports; no header is kept here.
-└── share                The recipe that assembles /usr/share: every program's man/ rendered, data/, share/mk; no file is kept here.
+├── include              /usr/include as include/Makefile assembles it: the C library's public headers (include/) and the kernel's, the ABI the kernel implements (sys/, headers only, without dev/microcode and dev/pci/drm, as that Makefile leaves them out). The libraries' own exported headers stay with each library.
+└── share                /usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages.
 regress/
 ├── scenarios            One directory per scenario: the steps, the expected lines, the comparison with a reference system.
 └── harness              Booting the images, driving the console, collecting and comparing.
@@ -201,10 +204,10 @@ one place in it, and each place is filled by its class.
 
 - **The inherited class is in the tree, not built.** Every program of the base system has
   its directory at the pin in `src/`, copied by `tools/layout.py` (committed, the user's
-  decision of 2026-11-04). The trees that are not programs (`etc/`, `share/`, `distrib/`)
-  are not copied yet, and `share/mk` is among them. To build: the host make (`just
-  host-make`, it builds and evaluates the tree's Makefiles today), `share/mk` in the tree,
-  `patches/` applied to a copy, the `Makefile.inc` each relocated Makefile needs (a Makefile
+  decision of 2026-11-04), and so does every tree that is not a program (`etc/`, `data/`,
+  `distrib/`: share/mk, /usr/include with the kernel's headers). To build: the host make
+  (`just host-make`, it builds and evaluates the tree's Makefiles today), `patches/` applied
+  to a copy, the `Makefile.inc` each relocated Makefile needs (a Makefile
   that reaches a sibling by `${.CURDIR}/..`), and the cross build for the Kernel's ABI. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
 - **Decisions the user has still to take** about the inherited class: whether the Kernel
   keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;

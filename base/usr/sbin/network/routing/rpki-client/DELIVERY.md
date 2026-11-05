@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/rpki-client.8 |
+| Manual | src/rpki-client.8 |
 | Default configuration | none / etc/ |

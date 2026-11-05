@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/libexpat.3 |
+| Manual | src/libexpat.3 |
 | Default configuration | none / etc/ |

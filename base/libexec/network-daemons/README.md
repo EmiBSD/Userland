@@ -12,6 +12,6 @@ Programs of this group:
 - [`rpc.rstatd`](rpc.rstatd/)
 - [`rpc.rusersd`](rpc.rusersd/)
 - [`rpc.rwalld`](rpc.rwalld/)
-- [`snmpd`](snmpd/) (imported)
+- [`snmpd`](snmpd/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

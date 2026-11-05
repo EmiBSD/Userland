@@ -32,6 +32,13 @@ Darwin) host="--target=$(uname -m)-apple-macos -isysroot $(xcrun --show-sdk-path
 *) echo "bootstrap-make: no host profile for $(uname -s)" >&2; exit 1 ;;
 esac
 
+# What the base system's <sys/param.h> tells make about the machine it runs on, which the
+# host's does not: share/mk chooses the compiler and the flags from it.
+case "$(uname -m)" in
+arm64) host="$host -DMACHINE_ARCH=\"aarch64\" -DMACHINE_CPU=\"aarch64\"" ;;
+x86_64) host="$host -DMACHINE_ARCH=\"amd64\" -DMACHINE_CPU=\"amd64\"" ;;
+esac
+
 # The values make's own Makefile gives its build, read from it so a pin bump carries them.
 value() { sed -n "s/^$1=[[:space:]]*//p" "$src/Makefile"; }
 cdefs=$(sed -n 's/^CDEFS+=//p' "$src/Makefile" | tr '\n' ' ')

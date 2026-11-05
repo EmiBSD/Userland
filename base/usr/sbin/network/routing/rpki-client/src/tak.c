@@ -1,0 +1,291 @@
+/*	$OpenBSD: tak.c,v 1.34 2026/09/03 17:19:30 tb Exp $ */
+/*
+ * Copyright (c) 2022 Job Snijders <job@fastly.com>
+ * Copyright (c) 2022 Theo Buehler <tb@openbsd.org>
+ * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+#include <assert.h>
+#include <err.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <vis.h>
+
+#include <openssl/asn1.h>
+#include <openssl/asn1t.h>
+#include <openssl/safestack.h>
+#include <openssl/stack.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+
+#include "extern.h"
+#include "rpki-asn1.h"
+
+/*
+ * TAK eContent definition in RFC 9691, Appendix A.
+ */
+
+ASN1_ITEM_EXP TAKey_it;
+ASN1_ITEM_EXP TAK_it;
+
+ASN1_SEQUENCE(TAKey) = {
+	ASN1_SEQUENCE_OF(TAKey, comments, ASN1_UTF8STRING),
+	ASN1_SEQUENCE_OF(TAKey, certificateURIs, ASN1_IA5STRING),
+	ASN1_SIMPLE(TAKey, subjectPublicKeyInfo, X509_PUBKEY),
+} ASN1_SEQUENCE_END(TAKey);
+
+ASN1_SEQUENCE(TAK) = {
+	ASN1_EXP_OPT(TAK, version, ASN1_INTEGER, 0),
+	ASN1_SIMPLE(TAK, current, TAKey),
+	ASN1_EXP_OPT(TAK, predecessor, TAKey, 0),
+	ASN1_EXP_OPT(TAK, successor, TAKey, 1),
+} ASN1_SEQUENCE_END(TAK);
+
+IMPLEMENT_ASN1_FUNCTIONS(TAK);
+
+
+/*
+ * On success return pointer to allocated & valid takey structure,
+ * on failure return NULL.
+ */
+static struct takey *
+parse_takey(const char *fn, const TAKey *takey)
+{
+	const ASN1_UTF8STRING	*comment;
+	const ASN1_IA5STRING	*certURI;
+	X509_PUBKEY		*pubkey;
+	struct takey		*res = NULL;
+	const unsigned char	*data;
+	unsigned char		*der = NULL;
+	size_t			 i;
+	int			 der_len, length;
+
+	if ((res = calloc(1, sizeof(struct takey))) == NULL)
+		err(1, NULL);
+
+	res->num_comments = sk_ASN1_UTF8STRING_num(takey->comments);
+	if (res->num_comments > 0) {
+		res->comments = calloc(res->num_comments, sizeof(char *));
+		if (res->comments == NULL)
+			err(1, NULL);
+
+		for (i = 0; i < res->num_comments; i++) {
+			comment = sk_ASN1_UTF8STRING_value(takey->comments, i);
+			data = ASN1_STRING_get0_data(comment);
+			length = ASN1_STRING_length(comment);
+			res->comments[i] = calloc(length + 1, 4);
+			if (res->comments[i] == NULL)
+				err(1, NULL);
+			(void)strvisx(res->comments[i], data, length, VIS_SAFE);
+		}
+	}
+
+	res->num_uris = sk_ASN1_IA5STRING_num(takey->certificateURIs);
+	if (res->num_uris == 0) {
+		warnx("%s: Signed TAL requires at least 1 CertificateURI", fn);
+		goto err;
+	}
+	if ((res->uris = calloc(res->num_uris, sizeof(char *))) == NULL)
+		err(1, NULL);
+
+	for (i = 0; i < res->num_uris; i++) {
+		certURI = sk_ASN1_IA5STRING_value(takey->certificateURIs, i);
+		data = ASN1_STRING_get0_data(certURI);
+		length = ASN1_STRING_length(certURI);
+
+		if (!valid_uri(data, length, HTTPS_PROTO) &&
+		    !valid_uri(data, length, RSYNC_PROTO)) {
+			warnx("%s: invalid TA URI", fn);
+			goto err;
+		}
+
+		res->uris[i] = strndup(data, length);
+		if (res->uris[i] == NULL)
+			err(1, NULL);
+	}
+
+	pubkey = takey->subjectPublicKeyInfo;
+	if ((res->ski = x509_pubkey_get_ski(pubkey, fn)) == NULL)
+		goto err;
+
+	if ((der_len = i2d_X509_PUBKEY(pubkey, &der)) <= 0) {
+		warnx("%s: i2d_X509_PUBKEY failed", fn);
+		goto err;
+	}
+	res->pubkey = der;
+	res->pubkeysz = der_len;
+
+	return res;
+
+ err:
+	takey_free(res);
+	return NULL;
+}
+
+/*
+ * Parses the eContent segment of an TAK file
+ * Returns zero on failure, non-zero on success.
+ */
+static int
+tak_parse_econtent(const char *fn, void *obj, const unsigned char *d,
+    size_t dsz)
+{
+	struct tak		*tak = obj;
+	const unsigned char	*oder;
+	TAK			*tak_asn1;
+	int			 rc = 0;
+
+	oder = d;
+	if ((tak_asn1 = d2i_TAK(NULL, &d, dsz)) == NULL) {
+		warnx("%s: failed to parse Trust Anchor Key", fn);
+		goto out;
+	}
+	if (d != oder + dsz) {
+		warnx("%s: %td bytes trailing garbage in eContent", fn,
+		    oder + dsz - d);
+		goto out;
+	}
+
+	if (!valid_econtent_version(fn, tak_asn1->version, 0))
+		goto out;
+
+	tak->current = parse_takey(fn, tak_asn1->current);
+	if (tak->current == NULL)
+		goto out;
+
+	if (tak_asn1->predecessor != NULL) {
+		tak->predecessor = parse_takey(fn, tak_asn1->predecessor);
+		if (tak->predecessor == NULL)
+			goto out;
+	}
+
+	if (tak_asn1->successor != NULL) {
+		tak->successor = parse_takey(fn, tak_asn1->successor);
+		if (tak->successor == NULL)
+			goto out;
+	}
+
+	rc = 1;
+ out:
+	TAK_free(tak_asn1);
+	return rc;
+}
+
+static int
+tak_cert_info(const char *fn, void *obj, const struct cert *cert)
+{
+	if (!x509_inherits(cert->x509)) {
+		warnx("%s: RFC 3779 extension not set to inherit", fn);
+		return 0;
+	}
+
+	return 1;
+}
+
+static int
+tak_validate(const char *fn, void *obj, struct cert *cert)
+{
+	struct tak *tak = obj;
+
+	if (strcmp(cert->aki, tak->current->ski) != 0) {
+		warnx("%s: current TAKey's SKI does not match EE AKI", fn);
+		return 0;
+	}
+
+	return 1;
+}
+
+static const ASN1_OBJECT *
+tak_obj_oid(void)
+{
+	return tak_oid;
+}
+
+static void *
+tak_obj_new(size_t der_len, time_t signtime)
+{
+	struct tak *tak;
+
+	if ((tak = calloc(1, sizeof(*tak))) == NULL)
+		err(1, NULL);
+	tak->signtime = signtime;
+
+	return tak;
+}
+
+static void
+tak_obj_free(void *obj)
+{
+	tak_free(obj);
+}
+
+static const struct signed_obj tak_signed_obj = {
+	.rtype = RTYPE_TAK,
+
+	.new = tak_obj_new,
+	.free = tak_obj_free,
+	.cert_info = tak_cert_info,
+	.parse_econtent = tak_parse_econtent,
+	.validate = tak_validate,
+
+	.oid = tak_obj_oid,
+};
+
+const struct signed_obj *
+tak_obj(void)
+{
+	return &tak_signed_obj;
+}
+
+/*
+ * Free TAKey pointer.
+ */
+void
+takey_free(struct takey *t)
+{
+	size_t	i;
+
+	if (t == NULL)
+		return;
+
+	for (i = 0; i < t->num_comments; i++)
+		free(t->comments[i]);
+
+	for (i = 0; i < t->num_uris; i++)
+		free(t->uris[i]);
+
+	free(t->comments);
+	free(t->uris);
+	free(t->ski);
+	free(t->pubkey);
+	free(t);
+}
+
+/*
+ * Free an TAK pointer.
+ * Safe to call with NULL.
+ */
+void
+tak_free(struct tak *t)
+{
+	if (t == NULL)
+		return;
+
+	takey_free(t->current);
+	takey_free(t->predecessor);
+	takey_free(t->successor);
+	free(t);
+}

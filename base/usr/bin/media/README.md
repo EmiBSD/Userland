@@ -4,12 +4,12 @@ Audio, MIDI, radio and CD.
 
 Programs of this group:
 
-- [`aucat`](aucat/) (imported)
+- [`aucat`](aucat/)
 - [`audioctl`](audioctl/)
 - [`mixerctl`](mixerctl/)
 - [`midicat`](midicat/)
 - [`sndioctl`](sndioctl/)
-- [`sndiod`](sndiod/) (imported)
+- [`sndiod`](sndiod/)
 - [`radioctl`](radioctl/)
 - [`cdio`](cdio/)
 

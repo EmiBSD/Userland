@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ikectl.8 |
+| Manual | src/ikectl.8 |
 | Default configuration | none / etc/ |

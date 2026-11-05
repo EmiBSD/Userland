@@ -216,7 +216,7 @@ LAYOUT = [
             "etc/MAKEDEV.mi", "etc/MAKEDEV.common", "etc/MAKEDEV.sub", "etc/MAKEDEV.man", "etc/MAKEDEV.mansub",
             "etc/mtree", "etc/skel", "etc/root", "etc/motd", "etc/minfree", "etc/etc.<arch>"]),
     ]),
-    ("data", "Data for everyone that no program owns, imported from its upstream like a program is (an UPSTREAM.toml per entry, to be written): the time zone database, locales, dictionaries, terminal types. A program's manual lives beside the program; `share/` as a tree is generated at install time, not kept.", [
+    ("data", "Data for everyone that no program owns, inherited at the pin like the programs: the time zone database, locales, dictionaries, terminal types. A program's manual lives beside the program; `share/` as a tree is generated at install time, not kept.", [
         ("zoneinfo", "The IANA time zone database (tzdata; zic and zdump are usr/sbin/services).", ["share/zoneinfo"]),
         ("locale", "Locale definitions and character maps.", ["share/locale"]),
         ("dict", "The word lists spell(1) and look(1) read.", ["share/dict"]),
@@ -227,8 +227,11 @@ LAYOUT = [
         ("sets", "The install sets and their lists; the release version is YEAR.MONTH (docs/PROGRAM.md, Versions).", ["distrib/sets", "distrib/notes", "distrib/syspatch"]),
         ("installer", "The installer, its ramdisk and the per-architecture media.", [
             "distrib/miniroot", "distrib/special", "distrib/<arch>"]),
-        ("include", "The recipe that assembles /usr/include from what each library of lib/ exports; no header is kept here.", []),
-        ("share", "The recipe that assembles /usr/share: every program's man/ rendered, data/, share/mk; no file is kept here.", ["share/mk", "share/man"]),
+        ("include", "/usr/include as include/Makefile assembles it: the C library's public headers (include/) and the kernel's, the ABI the kernel implements (sys/, headers only, without dev/microcode and dev/pci/drm, as that Makefile leaves them out). The libraries' own exported headers stay with each library.", [
+            "include", "sys/crypto", "sys/ddb", "sys/dev", "sys/isofs", "sys/miscfs", "sys/msdosfs", "sys/net",
+            "sys/netinet", "sys/netinet6", "sys/netmpls", "sys/net80211", "sys/nfs", "sys/ntfs", "sys/scsi",
+            "sys/sys", "sys/ufs", "sys/uvm", "sys/arch/<arch>/include"]),
+        ("share", "/usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages.", ["share/mk", "share/man"]),
     ]),
     ("regress", "The integration battery: what no single program's tests can see. Boots EmiBSD in QEMU and runs scenarios across programs (login over the console, rc bringing up the network, an install from the ramdisk, ssh in, pf rules, a mail delivered), each also run on a reference system and compared, as the kernel's differential battery does.", [
         ("scenarios", "One directory per scenario: the steps, the expected lines, the comparison with a reference system.", []),
@@ -288,7 +291,10 @@ from DevTools; OS assembles the sets with the kernel into a release.
   `UPSTREAM.toml`, never rewritten; our patches are a numbered series, ideally empty.
   *Written*: from scratch, under a definition, in Rust, one program at a time where a program
   is worth it; nothing is a port or a translation of another system's program. `just status`
-  counts the three.
+  counts the three. No program is imported today: the entries once imported (ssh, LibreSSL,
+  ncurses, unbound, ...) come from the same mirror at the same pin and are inherited since
+  2026-11-04, their CPE kept in `UPSTREAM.toml` for their CVE history; the class stays for an
+  upstream outside the base system's tree.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
   showed the written class and its grammar; their code and documents live on the
   `experimental` branch. `ls` and `cp` are inherited here like every other program; the
@@ -358,10 +364,10 @@ one place in it, and each place is filled by its class.
 
 - **The inherited class is in the tree, not built.** Every program of the base system has
   its directory at the pin in `src/`, copied by `tools/layout.py` (committed, the user's
-  decision of 2026-11-04). The trees that are not programs (`etc/`, `share/`, `distrib/`)
-  are not copied yet, and `share/mk` is among them. To build: the host make (`just
-  host-make`, it builds and evaluates the tree's Makefiles today), `share/mk` in the tree,
-  `patches/` applied to a copy, the `Makefile.inc` each relocated Makefile needs (a Makefile
+  decision of 2026-11-04), and so does every tree that is not a program (`etc/`, `data/`,
+  `distrib/`: share/mk, /usr/include with the kernel's headers). To build: the host make
+  (`just host-make`, it builds and evaluates the tree's Makefiles today), `patches/` applied
+  to a copy, the `Makefile.inc` each relocated Makefile needs (a Makefile
   that reaches a sibling by `${{.CURDIR}}/..`), and the cross build for the Kernel's ABI. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
 - **Decisions the user has still to take** about the inherited class: whether the Kernel
   keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
@@ -1282,6 +1288,77 @@ def inherited_notes(name: str) -> str:
     return ("\n" + "\n".join(out) + "\n") if out else "\n"
 
 
+ARCHS = ("arm64", "amd64")   # the Kernel's two; `<arch>` in an entry is each of them
+
+DEFINITION_TREE = """# {name} (inherited)
+
+STATUS: see `STATUS`. Files of the base system that belong to no program, at the pin of
+`UPSTREAM.toml`, in this layout (the user's decision of 2026-11-04): `src/` holds OpenBSD's
+{origin}, each at its own path in that tree, byte for byte and every notice kept whole,
+rewritten from the pin by `tools/layout.py` and never edited by hand. What we change is a
+patch under `patches/`.
+
+## What it is for here
+
+## Patches
+
+The series under `patches/`, each with its reason; none today.
+"""
+
+
+def keep_in_tree(name: str) -> bool:
+    """The kernel's headers that /usr/include gets: only `*.h` under sys/, and not the
+    firmware or the DRM ones (include/Makefile, `copies`)."""
+    if not name.startswith("sys/"):
+        return True
+    return name.endswith(".h") and not name.startswith(("sys/dev/microcode/", "sys/dev/pci/drm/"))
+
+
+def materialise_tree(dst: Path, origins: list, the_pin: str) -> int:
+    """`dst` becomes the given entries of the reference tree at the pin, each at its own path
+    (dst/etc/rc.conf, dst/share/mk/...), byte for byte, removed and written whole."""
+    tar = subprocess.run(["git", "-C", str(SRC), "archive", "--format=tar", the_pin, "--", *origins],
+                         capture_output=True, check=True).stdout
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.mkdir(parents=True)
+    n = 0
+    with tarfile.open(fileobj=io.BytesIO(tar)) as tf:
+        for m in tf.getmembers():
+            if m.isdir() or not keep_in_tree(m.name):
+                continue
+            target = dst / m.name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if m.issym():
+                target.symlink_to(m.linkname)
+            elif m.isfile():
+                target.write_bytes(tf.extractfile(m).read())
+                target.chmod(0o755 if m.mode & 0o111 else 0o644)
+            else:
+                continue
+            n += 1
+    return n
+
+
+def tree_skeleton(top: str, leaf: str, entries: list, the_pin: str) -> int:
+    d = BASE / top / leaf
+    force = regenerable(d)
+    origins = [e.replace("<arch>", a) for e in entries for a in (ARCHS if "<arch>" in e else ("",))]
+    rel = os.path.relpath(OUT / "tools" / "program.just", d)
+    name = f"{top}/{leaf}"
+    n = 0
+    n += put(d / "STATUS", "inherited\n", force)
+    n += put(d / "justfile", f"import '{rel}'\n", force)
+    n += put(d / "patches" / ".gitkeep", "", False)
+    n += put(d / "DEFINITION.md", DEFINITION_TREE.format(name=name, origin=", ".join(f"`{o}`" for o in origins)), force)
+    n += put(d / "UPSTREAM.toml", upstream_toml(name, dict(name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN,
+                                                           path=origins, commit=the_pin, version="", license=[], cpe=""),
+                                                "inherited"), force)
+    if force:
+        n += materialise_tree(d / "src", origins, the_pin)
+    return n
+
+
 def regenerable(d: Path) -> bool:
     s = d / "STATUS"
     return not s.exists() or s.read_text().strip() in ("planned", "inherited", "imported")
@@ -1376,7 +1453,9 @@ def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     section = man_section(top, src_dir, name)
     origin = f"{src_dir}/{name}"
     rel = os.path.relpath(OUT / "tools" / "program.just", d)
-    imported = name in IMPORTED
+    # Every program of the base system's tree is inherited (the user's decision of 2026-11-04):
+    # IMPORTED keeps only the CPE each one is tracked under for its CVE history.
+    imported = False
     n = 0
     n += put(d / "STATUS", ("imported\n" if imported else "inherited\n"), force)
     n += put(d / "justfile", f"import '{rel}'\n", force)
@@ -1399,7 +1478,8 @@ def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
         n += put(d / "UPSTREAM.toml", upstream_toml(name, pin_spec, "inherited"), force)
         if force:
             n += materialise(d / "src", origin, the_pin)
-        stale = (d / "DESIGN.md", d / "schemas", d / "bench", d / "man", d / "tests" / "golden", d / "tests" / "stress")
+        stale = (d / "DESIGN.md", d / "schemas", d / "bench", d / "man", d / "build",
+                 d / "tests" / "golden", d / "tests" / "stress")
     if force:
         for s in stale:
             if s.is_file() or s.is_symlink():
@@ -1481,16 +1561,18 @@ def main() -> int:
                 origin = p if "/" in p or src is None else f"{src}/{p}"
                 name = origin.rsplit("/", 1)[-1]
                 if src is not None:
-                    tag = " (imported)" if name in IMPORTED else ""
+                    tag = ""
                     lines.append(f"- [`{name}`]({name}/){tag}")
                     created += skeleton(top, leaf, name, src, the_pin)
                     programs += 1
-                    imported += name in IMPORTED
-                    inherited += name not in IMPORTED
+                    inherited += 1
                 else:
                     lines.append(f"- `{name}` ({origin})")
             if src is not None:
                 lines += ["", "Each entry is a program directory laid out as `docs/PROGRAM.md` says."]
+            elif progs and where is BASE:
+                created += tree_skeleton(top, leaf, progs, the_pin)
+                lines += ["", "Inherited: `src/` holds these at their paths in the base system's tree, at the pin of `UPSTREAM.toml`."]
             else:
                 lines += ["", "Nothing written yet."]
             (d / "README.md").write_text("\n".join(lines) + "\n")

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/tput.1 |
+| Manual | src/tput.1 |
 | Default configuration | none / etc/ |

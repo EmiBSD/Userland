@@ -4,11 +4,11 @@ RADIUS, authpf, wireless authentication and certificate renewal.
 
 Programs of this group:
 
-- [`radiusd`](radiusd/) (imported)
+- [`radiusd`](radiusd/)
 - [`radiusctl`](radiusctl/)
 - [`authpf`](authpf/)
 - [`hostapd`](hostapd/)
-- [`acme-client`](acme-client/) (imported)
-- [`ocspcheck`](ocspcheck/) (imported)
+- [`acme-client`](acme-client/)
+- [`ocspcheck`](ocspcheck/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

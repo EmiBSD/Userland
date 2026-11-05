@@ -1,4 +1,4 @@
-# The pin of an imported program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.
+# The pin of an inherited program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.
 [upstream]
 name    = "ssh"
 kind    = "git"

@@ -1,39 +1,27 @@
-# zdump (imported)
+# zdump (inherited)
 
-STATUS: see `STATUS`. Compiled from its upstream at the pin of `UPSTREAM.toml`, never
-rewritten (the user's decision of 2026-10-23). OpenBSD's `usr.sbin/zdump`; manual zdump(8).
+STATUS: see `STATUS`. The base system's program at the pin of `UPSTREAM.toml`, in this
+layout (the user's decision of 2026-11-04): `src/` is OpenBSD's `usr.sbin/zdump` byte for byte,
+every notice in it kept whole, rewritten from the pin by `tools/layout.py` and never edited
+by hand. What we change is a patch under `patches/`. Manual zdump(8), in `src/`.
 
-## What it gives us
-
-## What we build of it
-
-The targets, libraries and tools taken from the source; what is left out and why.
-
-## Constraints
-
-Which libc, libtls and other libraries of this repository it must link; static or dynamic;
-privileges.
+## What it is for here
 
 ## Compatibility
 
 Who in the base system depends on it and how (flags, output, exit codes, configuration
 paths). Our patches, if any, never change what callers see.
 
-## Configuration we ship
+## Patches
 
-The defaults installed under /etc, and how they differ from upstream's.
-
-## Performance budget
-
-As OpenBSD builds it, on the same machine and input; a build flag that changes it is a
-decision in DESIGN.
+The series under `patches/`, each with its reason; none today.
 
 ## Security history
 
-Tracked against the upstream (`UPSTREAM.toml` `[security] cpe`): open advisories at the pin,
-what the pin bump that closes them is, and `tests/cve/` for what we patched ourselves.
+The advisories and errata of the base system that touch `usr.sbin/zdump` at the pin, the pin bump
+that closes them, and `tests/cve/` for what we patched ourselves.
 
-| CVE | Upstream fix | Here |
+| Advisory | Fix | Here |
 |---|---|---|
 
 ## Open questions

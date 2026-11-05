@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/dhcpd.8 |
+| Manual | src/dhcpd.8 |
 | Default configuration | none / etc/ |

@@ -4,8 +4,8 @@ Calculators and calendars.
 
 Programs of this group:
 
-- [`bc`](bc/) (imported)
-- [`dc`](dc/) (imported)
+- [`bc`](bc/)
+- [`dc`](dc/)
 - [`units`](units/)
 - [`cal`](cal/)
 - [`calendar`](calendar/)

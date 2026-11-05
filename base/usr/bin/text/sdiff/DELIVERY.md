@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/sdiff.1 |
+| Manual | src/sdiff.1 |
 | Default configuration | none / etc/ |

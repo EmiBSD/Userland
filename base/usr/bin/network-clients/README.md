@@ -4,12 +4,12 @@ Network clients a user runs.
 
 Programs of this group:
 
-- [`ssh`](ssh/) (imported)
+- [`ssh`](ssh/)
 - [`nc`](nc/)
 - [`ftp`](ftp/)
 - [`tftp`](tftp/)
-- [`telnet`](telnet/) (imported)
-- [`dig`](dig/) (imported)
+- [`telnet`](telnet/)
+- [`dig`](dig/)
 - [`whois`](whois/)
 - [`netstat`](netstat/)
 - [`tcpbench`](tcpbench/)

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/isakmpd.8 |
+| Manual | src/isakmpd.8 |
 | Default configuration | none / etc/ |

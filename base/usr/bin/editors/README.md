@@ -4,8 +4,8 @@ Editors and the pager.
 
 Programs of this group:
 
-- [`vi`](vi/) (imported)
+- [`vi`](vi/)
 - [`mg`](mg/)
-- [`less`](less/) (imported)
+- [`less`](less/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

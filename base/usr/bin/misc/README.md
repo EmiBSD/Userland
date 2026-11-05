@@ -5,7 +5,7 @@ What fits nowhere else.
 Programs of this group:
 
 - [`banner`](banner/)
-- [`tmux`](tmux/) (imported)
+- [`tmux`](tmux/)
 - [`ts`](ts/)
 - [`sendbug`](sendbug/)
 

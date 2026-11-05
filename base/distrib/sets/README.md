@@ -8,4 +8,4 @@ Programs of this group:
 - `notes` (distrib/notes)
 - `syspatch` (distrib/syspatch)
 
-Nothing written yet.
+Inherited: `src/` holds these at their paths in the base system's tree, at the pin of `UPSTREAM.toml`.

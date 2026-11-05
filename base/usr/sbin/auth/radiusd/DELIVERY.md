@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/radiusd.8 |
+| Manual | src/radiusd.8 |
 | Default configuration | none / etc/ |

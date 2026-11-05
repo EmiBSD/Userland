@@ -26,6 +26,6 @@ Programs of this group:
 - [`mrinfo`](mrinfo/)
 - [`mtrace`](mtrace/)
 - [`map-mbone`](map-mbone/)
-- [`rpki-client`](rpki-client/) (imported)
+- [`rpki-client`](rpki-client/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

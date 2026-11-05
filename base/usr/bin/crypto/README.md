@@ -4,7 +4,7 @@ Certificates, signatures and keys from the command line.
 
 Programs of this group:
 
-- [`openssl`](openssl/) (imported)
+- [`openssl`](openssl/)
 - [`signify`](signify/)
 - [`htpasswd`](htpasswd/)
 - [`keynote`](keynote/)

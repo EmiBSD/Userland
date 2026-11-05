@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/tic.1 |
+| Manual | src/tic.1 |
 | Default configuration | none / etc/ |

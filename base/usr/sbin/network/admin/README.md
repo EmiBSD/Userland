@@ -8,7 +8,7 @@ Programs of this group:
 - [`ndp`](ndp/)
 - [`rarpd`](rarpd/)
 - [`traceroute`](traceroute/)
-- [`tcpdump`](tcpdump/) (imported)
+- [`tcpdump`](tcpdump/)
 - [`tcpdrop`](tcpdrop/)
 - [`trpt`](trpt/)
 - [`lldp`](lldp/)

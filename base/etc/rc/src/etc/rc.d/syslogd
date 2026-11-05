@@ -1,0 +1,15 @@
+#!/bin/ksh
+#
+# $OpenBSD: syslogd,v 1.6 2026/06/11 15:41:33 bluhm Exp $
+
+daemon="/usr/sbin/syslogd"
+
+. /etc/rc.d/rc.subr
+
+pexp="syslogd-parent: \[priv\]"
+
+rc_pre() {
+	rm -f /dev/log
+}
+
+rc_cmd $1

@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/yacc.1 |
+| Manual | src/yacc.1 |
 | Default configuration | none / etc/ |

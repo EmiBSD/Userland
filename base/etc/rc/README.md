@@ -15,4 +15,4 @@ Programs of this group:
 - `gettytab` (etc/gettytab)
 - `ttys.pty` (etc/ttys.pty)
 
-Nothing written yet.
+Inherited: `src/` holds these at their paths in the base system's tree, at the pin of `UPSTREAM.toml`.

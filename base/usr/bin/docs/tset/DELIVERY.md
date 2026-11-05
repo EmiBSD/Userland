@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/tset.1 |
+| Manual | src/tset.1 |
 | Default configuration | none / etc/ |

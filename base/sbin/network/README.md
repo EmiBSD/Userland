@@ -8,7 +8,7 @@ Programs of this group:
 - [`route`](route/)
 - [`ping`](ping/)
 - [`pfctl`](pfctl/)
-- [`pflogd`](pflogd/) (imported)
+- [`pflogd`](pflogd/)
 - [`dhcpleased`](dhcpleased/)
 - [`dhcp6leased`](dhcp6leased/)
 - [`slaacd`](slaacd/)

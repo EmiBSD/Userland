@@ -4,10 +4,10 @@ Manual pages and terminal descriptions.
 
 Programs of this group:
 
-- [`mandoc`](mandoc/) (imported)
-- [`tic`](tic/) (imported)
-- [`infocmp`](infocmp/) (imported)
-- [`tput`](tput/) (imported)
-- [`tset`](tset/) (imported)
+- [`mandoc`](mandoc/)
+- [`tic`](tic/)
+- [`infocmp`](infocmp/)
+- [`tput`](tput/)
+- [`tset`](tset/)
 
 Each entry is a program directory laid out as `docs/PROGRAM.md` says.

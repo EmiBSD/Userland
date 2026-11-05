@@ -7,5 +7,5 @@
 | Linking | static / dynamic |
 | Owner and mode | |
 | MAKEDEV | none / the node |
-| Manual | man/ssh.1 |
+| Manual | src/ssh.1 |
 | Default configuration | none / etc/ |

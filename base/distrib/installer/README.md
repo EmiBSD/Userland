@@ -8,4 +8,4 @@ Programs of this group:
 - `special` (distrib/special)
 - `<arch>` (distrib/<arch>)
 
-Nothing written yet.
+Inherited: `src/` holds these at their paths in the base system's tree, at the pin of `UPSTREAM.toml`.

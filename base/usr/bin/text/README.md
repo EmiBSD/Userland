@@ -4,12 +4,12 @@ Filters and transformers of text streams.
 
 Programs of this group:
 
-- [`awk`](awk/) (imported)
+- [`awk`](awk/)
 - [`sed`](sed/)
 - [`grep`](grep/)
-- [`diff`](diff/) (imported)
-- [`diff3`](diff3/) (imported)
-- [`sdiff`](sdiff/) (imported)
+- [`diff`](diff/)
+- [`diff3`](diff3/)
+- [`sdiff`](sdiff/)
 - [`cmp`](cmp/)
 - [`comm`](comm/)
 - [`sort`](sort/)

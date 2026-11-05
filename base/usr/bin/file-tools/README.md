@@ -6,7 +6,7 @@ Programs of this group:
 
 - [`find`](find/)
 - [`xargs`](xargs/)
-- [`file`](file/) (imported)
+- [`file`](file/)
 - [`stat`](stat/)
 - [`du`](du/)
 - [`touch`](touch/)
