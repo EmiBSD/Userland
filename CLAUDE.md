@@ -31,7 +31,9 @@ substance, in English. The user is answered in Spanish.
   **imported** (a third-party upstream, `UPSTREAM.toml` pin, patches, never rewritten) and
   **written** (from scratch, Rust, `#![forbid(unsafe_code)]`). An inherited program's `src/`
   is its directory at the pin byte for byte, written whole by `just layout` and never edited
-  by hand; a change is a patch. It is committed, not yet built (README, "Open"). `unsafe` only in `base/lib/libc`, `base/libexec/rtld`
+  by hand; a change is a patch. It is committed, not yet built (README, "Open"). In the
+  userland `__OpenBSD__` becomes `__EmiBSD__`: the inherited C is compiled with
+  `__EmiBSD__` only; `tools/world.py` renames every `__OpenBSD__` in its copy of the tree. `unsafe` only in `base/lib/libc`, `base/libexec/rtld`
   and `base/lib/crates/sys`, each site with a `// SAFETY:` proof.
 - **One grammar**: a program is a query over records (or an action whose steps are records)
   with a schema; one `Command` declares its options with their types and `cli` derives the

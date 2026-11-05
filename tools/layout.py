@@ -311,7 +311,9 @@ from DevTools; OS assembles the sets with the kernel into a release.
   counts the three. No program is imported today: the entries once imported (ssh, LibreSSL,
   ncurses, unbound, ...) come from the same mirror at the same pin and are inherited since
   2026-11-04, their CPE kept in `UPSTREAM.toml` for their CVE history; the class stays for an
-  upstream outside the base system's tree.
+  upstream outside the base system's tree. In the userland `__OpenBSD__` becomes
+  `__EmiBSD__` (2026-11-04): the inherited C sees only the macro the compiler predefines,
+  and the build renames every `__OpenBSD__` in its copy of the tree to `__EmiBSD__`.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
   showed the written class and its grammar; their code and documents live on the
   `experimental` branch. `ls` and `cp` are inherited here like every other program; the
@@ -451,6 +453,14 @@ what is read on GitHub. `just layout` copies it from Kernel's read-only clone of
 at the pin, so a pin bump is a re-run, and the patches that no longer apply. A program leaves
 this class only when its written replacement ships; until then the inherited one is what
 runs.
+
+In the userland `__OpenBSD__` becomes `__EmiBSD__` (the user's decision of 2026-11-04): the
+inherited C is compiled with the one macro DevTools' compiler predefines for
+`*-emibsd-emibsd` and nothing of any other system, and `tools/world.py` renames every
+`__OpenBSD__` the inherited C tests or names to `__EmiBSD__` in the build's copy of the tree
+(`src/` stays the pin). What the
+base system's own lld does by default for its target (`--undefined-version`,
+`--ignore-function-address-equality`) `tools/world.py` gives to every link.
 
 ## Written (from scratch, in Rust)
 
@@ -1160,7 +1170,7 @@ paths). Our patches, if any, never change what callers see.
 
 ## Patches
 
-The series under `patches/`, each with its reason; none today.
+The series under `patches/`, each with its reason in its header:{patches}
 
 ## Security history
 
@@ -1255,7 +1265,7 @@ def upstream_toml(name: str, spec: dict, cls: str = "imported") -> str:
               f'cpe     = "{spec.get("cpe", "")}"            # NVD product, for tools/cve.py',
               "",
               "[patches]",
-              "series  = []                              # patches/NNNN-*.patch, in order; each with its reason"]
+              f"series  = {arr(spec.get('series', []))}   # patches/NNNN-*.patch, in order; each with its reason"]
     for sm in spec.get("submodules", []):
         lines += ["",
                   "[[submodules]]                            # fetched from the mirror at this commit, in place of the upstream's URL",
@@ -1359,7 +1369,7 @@ patch under `patches/`.
 
 ## Patches
 
-The series under `patches/`, each with its reason; none today.
+The series under `patches/`, each with its reason in its header:{patches}
 """
 
 
@@ -1407,13 +1417,28 @@ def tree_skeleton(top: str, leaf: str, entries: list, the_pin: str) -> int:
     n += put(d / "STATUS", "inherited\n", force)
     n += put(d / "justfile", f"import '{rel}'\n", force)
     n += put(d / "patches" / ".gitkeep", "", False)
-    n += put(d / "DEFINITION.md", DEFINITION_TREE.format(name=name, origin=", ".join(f"`{o}`" for o in origins)), force)
+    n += put(d / "DEFINITION.md", DEFINITION_TREE.format(name=name, origin=", ".join(f"`{o}`" for o in origins),
+                                                       patches=patch_list(d)), force)
     n += put(d / "UPSTREAM.toml", upstream_toml(name, dict(name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN,
-                                                           path=origins, commit=the_pin, version="", license=[], cpe=""),
+                                                           path=origins, commit=the_pin, version="", license=[], cpe="",
+                                                           series=series(d)),
                                                 "inherited"), force)
     if force:
         n += materialise_tree(d / "src", origins, the_pin)
     return n
+
+
+def series(d: Path) -> list:
+    """The patches of an entry, in the order they apply: patches/NNNN-*.patch."""
+    return sorted(p.name for p in (d / "patches").glob("*.patch")) if (d / "patches").is_dir() else []
+
+
+def patch_list(d: Path) -> str:
+    names = series(d)
+    if not names:
+        return " none today."
+    return "\n\n" + "\n".join(f"- `{n}`: {(d / 'patches' / n).read_text(encoding='latin-1').splitlines()[0]}"
+                             for n in names)
 
 
 def regenerable(d: Path) -> bool:
@@ -1519,7 +1544,7 @@ def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     n += put(d / "patches" / ".gitkeep", "", False)
     n += put(d / "tests" / "cve" / ".gitkeep", "", False)
     pin_spec = dict(name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN, path=[origin],
-                    commit=the_pin, version="", license=[], cpe=IMPORTED.get(name, ""))
+                    commit=the_pin, version="", license=[], cpe=IMPORTED.get(name, ""), series=series(d))
     if imported:
         n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section=section), force)
         n += put(d / "DEFINITION.md", DEFINITION_IMPORTED.format(name=name, origin=origin, section=section, notes=notes_for(name)), force)
@@ -1531,7 +1556,8 @@ def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     else:
         delivery = DELIVERY.format(name=name, section=section).replace("| Manual | man/", "| Manual | src/")
         n += put(d / "DELIVERY.md", delivery, force)
-        n += put(d / "DEFINITION.md", DEFINITION_INHERITED.format(name=name, origin=origin, section=section, notes=inherited_notes(name)), force)
+        n += put(d / "DEFINITION.md", DEFINITION_INHERITED.format(name=name, origin=origin, section=section, notes=inherited_notes(name),
+                                                               patches=patch_list(d)), force)
         n += put(d / "UPSTREAM.toml", upstream_toml(name, pin_spec, "inherited"), force)
         if force:
             n += materialise(d / "src", origin, the_pin)

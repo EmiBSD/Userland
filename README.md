@@ -53,7 +53,9 @@ from DevTools; OS assembles the sets with the kernel into a release.
   counts the three. No program is imported today: the entries once imported (ssh, LibreSSL,
   ncurses, unbound, ...) come from the same mirror at the same pin and are inherited since
   2026-11-04, their CPE kept in `UPSTREAM.toml` for their CVE history; the class stays for an
-  upstream outside the base system's tree.
+  upstream outside the base system's tree. In the userland `__OpenBSD__` becomes
+  `__EmiBSD__` (2026-11-04): the inherited C sees only the macro the compiler predefines,
+  and the build renames every `__OpenBSD__` in its copy of the tree to `__EmiBSD__`.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
   showed the written class and its grammar; their code and documents live on the
   `experimental` branch. `ls` and `cp` are inherited here like every other program; the

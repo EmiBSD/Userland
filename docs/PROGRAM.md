@@ -36,6 +36,14 @@ at the pin, so a pin bump is a re-run, and the patches that no longer apply. A p
 this class only when its written replacement ships; until then the inherited one is what
 runs.
 
+In the userland `__OpenBSD__` becomes `__EmiBSD__` (the user's decision of 2026-11-04): the
+inherited C is compiled with the one macro DevTools' compiler predefines for
+`*-emibsd-emibsd` and nothing of any other system, and `tools/world.py` renames every
+`__OpenBSD__` the inherited C tests or names to `__EmiBSD__` in the build's copy of the tree
+(`src/` stays the pin). What the
+base system's own lld does by default for its target (`--undefined-version`,
+`--ignore-function-address-equality`) `tools/world.py` gives to every link.
+
 ## Written (from scratch, in Rust)
 
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a

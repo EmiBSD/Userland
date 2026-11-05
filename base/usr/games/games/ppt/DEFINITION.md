@@ -14,7 +14,7 @@ paths). Our patches, if any, never change what callers see.
 
 ## Patches
 
-The series under `patches/`, each with its reason; none today.
+The series under `patches/`, each with its reason in its header: none today.
 
 ## Security history
 

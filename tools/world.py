@@ -77,9 +77,22 @@ def step_tree(arch: str, out: Path) -> None:
             shutil.copytree(d / "src", view / paths[0], symlinks=True, dirs_exist_ok=True)
         for patch in sorted((d / "patches").glob("*.patch")):
             where = view if tree else view / paths[0]
-            subprocess.run(["patch", "-s", "-p1", "-d", str(where), "-i", str(patch)], check=True)
+            # Exactly (no fuzz: a patch that no longer fits the pin must fail), in batch
+            # mode, leaving no backup files in the tree.
+            subprocess.run(["patch", "-s", "-p1", "-F", "0", "-V", "none", "-t", "-N", "-d", str(where),
+                            "-i", str(patch)], check=True)
         n += 1
-    print(f"tree: {n} inherited entries in {view}")
+    # In the userland __OpenBSD__ becomes __EmiBSD__ (the user's decision of 2026-11-04): the
+    # compiler predefines __EmiBSD__ alone, so every place the inherited C tests or names
+    # the macro is made to name __EmiBSD__, here in the copy; src/ stays the pin.
+    renamed = 0
+    for f in view.rglob("*"):
+        if f.is_file() and not f.is_symlink():
+            data = f.read_bytes()
+            if b"__OpenBSD__" in data:
+                f.write_bytes(data.replace(b"__OpenBSD__", b"__EmiBSD__"))
+                renamed += 1
+    print(f"tree: {n} inherited entries in {view}; __OpenBSD__ renamed in {renamed} files")
 
 
 HOST = ROOT / "target" / "host"

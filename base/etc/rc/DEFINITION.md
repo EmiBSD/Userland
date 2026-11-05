@@ -10,4 +10,4 @@ patch under `patches/`.
 
 ## Patches
 
-The series under `patches/`, each with its reason; none today.
+The series under `patches/`, each with its reason in its header: none today.
