@@ -792,6 +792,12 @@ GITIGNORE = """# Fetched upstream sources (tools/upstream.py), read-only, never 
 upstream/
 # Build output.
 target/
+# What the base system's own tree ignores: a `make obj` directory or link beside a Makefile,
+# an editor's tags. Nothing at the pin matches them; its third pattern, CVS, is left out:
+# on a case-insensitive file system it hides the cvs program. Broader patterns (*.a, *.so)
+# would hide files of the pin (bin/csh/USD.doc/csh.a, vi's ref.so).
+**/obj
+**/tags
 # macOS Finder metadata.
 .DS_Store
 """
