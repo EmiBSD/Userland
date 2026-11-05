@@ -119,6 +119,8 @@ def check_commit(msg_file: str) -> int:
             new, old_text = version_in(new_text, str(path)), committed(path)
             if not old_text:
                 continue   # a program new to the tree: its pin is where its version starts
+            if committed(prog / "STATUS").split("-")[0].strip() != status.split("-")[0]:
+                continue   # a program that changed class: its version starts again in the new one
             old = version_in(old_text, str(path)) if old_text else ""
             if new == old:
                 print(f"version: {prog}: UPSTREAM.toml version unchanged ({new or 'empty'}); raise the patch level (+emibsd.N) or the base")
