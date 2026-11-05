@@ -87,6 +87,9 @@ emibsd_host_reallocarray(void *p, size_t n, size_t size)
 }
 #define reallocarray emibsd_host_reallocarray
 
+/* recallocarray(3), libc's own, compiled for the host into libbasehost.a (world.py). */
+void *recallocarray(void *, size_t, size_t, size_t);
+
 /* A host tool runs unconfined: the host has no pledge(2). */
 static inline int
 emibsd_host_pledge(const char *promises, const char *execpromises)
@@ -108,6 +111,71 @@ emibsd_host_unveil(const char *path, const char *permissions)
 #define unveil emibsd_host_unveil
 #define srandom_deterministic(seed) srandom(seed)
 
+/* libc's own sources compiled for the host (its hash functions): no symbol aliasing there. */
+#define DEF_WEAK(x)
+#define DEF_STRONG(x)
+#define PROTO_NORMAL(x)
+/* A second name for a function (SHA224Update for SHA256Update): an assembler alias, the
+ * host's object format having no alias attribute. */
+#define MAKE_CLONE(dst, src) __asm__(".globl _" #dst "\n_" #dst " = _" #src)
+
+/* explicit_bzero(3), over the host's memset_s, which the compiler may not remove either. */
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
+static inline void
+emibsd_host_explicit_bzero(void *p, size_t n)
+{
+	(void)memset_s(p, n, 0, n);
+}
+#define explicit_bzero emibsd_host_explicit_bzero
+
+/*
+ * pathconfat(2), which the host lacks, nor has it a timestamp resolution to ask for: the
+ * answer is "unknown" (pax's -u then compares the times as they are).
+ */
+#ifndef _PC_TIMESTAMP_RESOLUTION
+#define _PC_TIMESTAMP_RESOLUTION (-1)
+#endif
+static inline long
+emibsd_host_pathconfat(int fd, const char *path, int name, int flag)
+{
+	(void)fd;
+	(void)path;
+	(void)name;
+	(void)flag;
+	errno = EINVAL;
+	return -1;
+}
+#define pathconfat emibsd_host_pathconfat
+
+/*
+ * strnvis(3) takes its size after the source in the base system, after the destination on
+ * the host (mtree): the base system's order, over the host's function.
+ */
+#include <vis.h>
+static inline int
+emibsd_host_strnvis(char *dst, const char *src, size_t dstsize, int flag)
+{
+	return strnvis(dst, dstsize, src, flag);
+}
+#define strnvis(dst, src, dstsize, flag) emibsd_host_strnvis(dst, src, dstsize, flag)
+
+/* strtofflags(3) stores 32-bit flags in the base system, longs on the host (mtree). */
+#include <unistd.h>
+static inline int
+emibsd_host_strtofflags(char **s, u_int32_t *set, u_int32_t *clear)
+{
+	unsigned long s1 = 0, c1 = 0;
+	int r = strtofflags(s, set ? &s1 : NULL, clear ? &c1 : NULL);
+
+	if (set)
+		*set = (u_int32_t)s1;
+	if (clear)
+		*clear = (u_int32_t)c1;
+	return r;
+}
+#define strtofflags(s, set, clear) emibsd_host_strtofflags(s, set, clear)
+
 /*
  * The base system's login name length, which the host's <limits.h> lacks: a host helper
  * that writes the target's structures (phantasia's setup) must size them as the target does.
@@ -115,6 +183,10 @@ emibsd_host_unveil(const char *path, const char *permissions)
 #include <limits.h>
 #ifndef LOGIN_NAME_MAX
 #define LOGIN_NAME_MAX 32
+#endif
+/* And its host name length, which sizes buffers only. */
+#ifndef HOST_NAME_MAX
+#define HOST_NAME_MAX 255
 #endif
 
 #endif /* EMIBSD_HOST_COMPAT_H */

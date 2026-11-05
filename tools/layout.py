@@ -406,9 +406,13 @@ one place in it, and each place is filled by its class.
   cannot). `just world arm64 sets` makes base, comp, game and man as distrib/sets/maketars
   does, from DESTDIR by the lists, with the owners and modes of the metalog, and writes
   what the lists name and was not installed (`target/arm64/sets/*.missing`). `just world
-  arm64 image` makes the single-user ramdisk that boots on the Kernel. Still to come: the
-  terminfo database (tic for the host), the etc set (makeetcset), the compiler's part of
-  comp (DevTools), Perl (the user's decision), amd64. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
+  arm64 image` makes the single-user ramdisk that boots on the Kernel. The build's host tools
+  are the tree's own, built for the host by the same make (tic, strfile, mkdict, makewhatis;
+  pax, mtree, sha256 and pwd_mkdb with `tools/host/owners.h`, which gives them the tree's
+  owners from the metalog), so terminfo, the games' data, mandoc.db, /etc with pwd.db, and
+  var/sysmerge/etc.tgz with its etcsum are made as the base system makes them. Still to
+  come: the locate database (makelocatedb names the target's own tools), the firmware of
+  etc/firmware, the compiler's part of comp (DevTools), Perl (the user's decision), amd64. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
 - **Decisions the user has still to take** about the inherited class: whether the Kernel
   keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
   the milestone letter and the first milestone (proposed: the 110 programs the Kernel builds

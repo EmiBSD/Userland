@@ -38,7 +38,8 @@ shift $((OPTIND - 1))
 [ $# -gt 0 ] || { echo "install: nothing to install" >&2; exit 64; }
 
 record() {
-	[ -n "${WORLD_METALOG:-}" ] && printf '%s uname=%s gname=%s%s\n' "$1" "$owner" "$group" "${mode:+ mode=$mode}" >> "$WORLD_METALOG"
+	case $1 in /*) p=$1 ;; *) p=$PWD/$1 ;; esac   # the record is read from elsewhere
+	[ -n "${WORLD_METALOG:-}" ] && printf '%s uname=%s gname=%s%s\n' "$p" "$owner" "$group" "${mode:+ mode=$mode}" >> "$WORLD_METALOG"
 	return 0
 }
 

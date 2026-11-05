@@ -10,4 +10,6 @@ patch under `patches/`.
 
 ## Patches
 
-The series under `patches/`, each with its reason in its header: none today.
+The series under `patches/`, each with its reason in its header:
+
+- `0001-makewhatis-by-variable.patch`: makedb runs makewhatis named by MAKEWHATIS, /usr/sbin/makewhatis when unset, so a cross build gives it one that runs on the host.

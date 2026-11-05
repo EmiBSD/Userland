@@ -1,0 +1,25 @@
+makedb runs makewhatis named by MAKEWHATIS, /usr/sbin/makewhatis when unset, so a cross build gives it one that runs on the host.
+
+A native build runs the same program as before; a cross build cannot run the target's,
+and the host's /usr/sbin (if it has one) is not the base system's.
+
+--- a/share/man/Makefile
++++ b/share/man/Makefile
+@@ -1,6 +1,8 @@
+ #	$OpenBSD: Makefile,v 1.13 2017/04/15 13:12:08 schwarze Exp $
+ #	from: @(#)Makefile	5.9 (Berkeley) 7/1/91
+ 
++MAKEWHATIS?=	/usr/sbin/makewhatis
++
+ SUBDIR=	man1 man3 man4 man5 man6 man7 man8 man9
+ 
+ afterinstall:
+@@ -8,7 +10,7 @@
+ 	    man0/COPYRIGHT ${DESTDIR}/usr/share/man/COPYRIGHT
+ 
+ makedb:
+-	/usr/sbin/makewhatis ${DESTDIR}/usr/share/man
++	${MAKEWHATIS} ${DESTDIR}/usr/share/man
+ 	chown root:wheel ${DESTDIR}/usr/share/man/mandoc.db
+ 	chmod 644 ${DESTDIR}/usr/share/man/mandoc.db
+ 

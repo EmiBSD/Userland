@@ -16,19 +16,22 @@
 
 usage: world.py <arch> [step...]
 
-The steps, in order (the first six when none is named):
+The steps, in order (the first seven when none is named):
 
   tree      target/<arch>/src: every inherited directory's src/ copied back to its path in
             the base system's tree, so each Makefile finds its neighbours where it expects
             them (${.CURDIR}/.., BSDSRCDIR); patches/ applied to the copy, src/ only read;
             __OpenBSD__ renamed __EmiBSD__ in the copy
   host      the base system's own tools the build runs on the development host (rpcgen,
-            yacc, lex, mklocale, makefs), built by the same make, into target/host/bin
+            yacc, lex, mklocale, strfile, mkdict, mkindex, makefs, pax, mtree, sha256,
+            pwd_mkdb, tic), built by the same make, into target/host/bin
   obj       `make obj` over lib/ and the trees of the base
   includes  target/<arch>/sysroot/usr/include, by include/Makefile's own targets
   lib       lib/ as Makefile.cross builds it: csu and libc first, then the rest
   base      every directory the trees' SUBDIR reach, each built and installed on its own;
             the failures are listed in target/<arch>/failed
+  etc       etc/Makefile's distribution-etc-root-var: /etc, /root, /var, pwd.db, etc.tgz;
+            the manual's mandoc.db
   retry     the directories that failed, again
   image     target/<arch>/ramdisk.ffs: the mtree skeleton, the programs, ld.so and the
             shared libraries, /etc from the tree, /dev by MAKEDEV's `ramdisk` target, made
@@ -42,6 +45,7 @@ is written outside target/.
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tomllib
@@ -125,12 +129,18 @@ def make_env(arch: str, out: Path) -> dict:
     env["PATH"] = f"{HOST / 'bin'}:{env['PATH']}"
     env["STRIP"] = f"{LLVM}/llvm-strip"
     env["WORLD_METALOG"] = str(out / "metalog")
+    # For the tools built with owners.h: the tree whose owners the metalog holds, and the
+    # tree's own users and groups, which give the recorded names their numbers.
+    env["WORLD_DESTDIR"] = str(out / "sysroot")
+    env["WORLD_PASSWD"] = str(out / "src/etc/master.passwd")
+    env["WORLD_GROUP"] = str(out / "src/etc/group")
     return env
 
 
 # The stand-ins for a build run by a user (tools/host): they record in the metalog what
 # they cannot do (owners, groups, device nodes) instead of failing.
-WRAPPERS = {"install": "install.sh", "chown": "chown.sh", "chgrp": "chgrp.sh", "mknod": "mknod.sh"}
+WRAPPERS = {"install": "install.sh", "chown": "chown.sh", "chgrp": "chgrp.sh", "chmod": "chmod.sh",
+            "mknod": "mknod.sh"}
 
 
 def step_host(arch: str, out: Path) -> None:
@@ -159,6 +169,7 @@ def step_host(arch: str, out: Path) -> None:
         print(f"host: {HOST / 'bin' / prog}")
     host_makefs(out)
     host_base(out)
+    host_base_tools(out)
     host_tic(out)
 
 
@@ -182,17 +193,101 @@ def host_tic(out: Path) -> None:
     print(f"host: {HOST / 'bin/tic'}")
 
 
+# The base system's headers the host tools take beside the host's own (after them, so a
+# header both have is the host's), and the libc and libutil sources compiled for the host
+# into libbasehost.a: ohash (make's generate), the hash functions (sha256, mtree), pw_scan
+# (pwd_mkdb), recallocarray (mandoc).
+BASE_HOST_HEADERS = ("lib/libutil/ohash.h", "include/md5.h", "include/rmd160.h", "include/sha1.h",
+                     "include/sha2.h")
+BASE_HOST_SOURCES = ("lib/libutil/ohash.c", "lib/libutil/passwd.c", "lib/libc/stdlib/recallocarray.c", "lib/libc/hash/md5.c",
+                     "lib/libc/hash/rmd160.c", "lib/libc/hash/sha1.c", "lib/libc/hash/sha256.c",
+                     "lib/libc/hash/sha512.c")
+# libc's hash helpers (MD5File, SHA256End, ...), each made from helper.c as its Makefile.inc
+# makes it: the hash's name and header, and the one context type of the SHA-2 family.
+HASH_HELPERS = (("MD5", "md5.h"), ("RMD160", "rmd160.h"), ("SHA1", "sha1.h"), ("SHA224", "sha2.h"),
+                ("SHA256", "sha2.h"), ("SHA384", "sha2.h"), ("SHA512", "sha2.h"), ("SHA512_256", "sha2.h"))
+
+
 def host_base(out: Path) -> None:
-    """What the base system's host helpers (make's generate, compiled with HOSTCC during the
-    target build) take from libutil and the host lacks: ohash, header and object."""
-    inc, lib = HOST / "include-base", HOST / "lib"
-    inc.mkdir(parents=True, exist_ok=True)
-    lib.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(out / "src/lib/libutil/ohash.h", inc / "ohash.h")
-    o = HOST / "obj/ohash.o"
-    subprocess.run(f"{host_cc()} -I{inc} -c {out / 'src/lib/libutil/ohash.c'} -o {o}", shell=True, check=True)
-    subprocess.run([f"{LLVM}/llvm-ar", "rcs", str(lib / "libbasehost.a"), str(o)], check=True)
-    print(f"host: {lib / 'libbasehost.a'}")
+    """What the base system's tools built for the host take from its libc and libutil and the
+    host lacks: their headers into include-base, their objects into libbasehost.a, with
+    tools/host's hash-host.c (the hash block functions an architecture's file gives) and
+    owners.c (owners.h's functions)."""
+    src = out / "src"
+    inc, lib, obj = HOST / "include-base", HOST / "lib", HOST / "obj/base"
+    for d in (inc, lib, obj / "hidden"):
+        d.mkdir(parents=True, exist_ok=True)
+    for h in BASE_HOST_HEADERS:
+        shutil.copy2(src / h, inc / Path(h).name)
+    # libc's own declarations of its hash internals, alone: the rest of lib/libc/hidden
+    # wraps every system header.
+    for h in ("sha1.h", "sha2.h"):
+        shutil.copy2(src / "lib/libc/hidden" / h, obj / "hidden" / h)
+    pwd_base(src / "include/pwd.h", inc / "pwd-base.h")
+    sources = [ROOT / "tools/host/hash-host.c", ROOT / "tools/host/owners.c"] + [src / s for s in BASE_HOST_SOURCES]
+    helper = (src / "lib/libc/hash/helper.c").read_text()
+    for name, header in HASH_HELPERS:
+        text = helper.replace("hashinc", header).replace("HASH", name)
+        if header == "sha2.h":
+            text = re.sub(r"SHA512_256_CTX" if name == "SHA512_256" else r"SHA[0-9][0-9][0-9]_CTX", "SHA2_CTX", text)
+        c = obj / f"{name.lower()}hl.c"
+        c.write_text(text)
+        sources.append(c)
+    objs = []
+    for c in sources:
+        o = obj / (c.stem + ".o")
+        extra = f"-include {inc / 'pwd-base.h'}" if c.name == "passwd.c" else ""
+        subprocess.run(f"{host_cc()} -I{ROOT / 'tools/host/include'} -I{obj / 'hidden'} -idirafter {inc} "
+                       f"{extra} -c {c} -o {o}", shell=True, check=True)
+        objs.append(str(o))
+    archive = lib / "libbasehost.a"
+    archive.unlink(missing_ok=True)
+    subprocess.run([f"{LLVM}/llvm-ar", "rcs", str(archive), *objs], check=True)
+    print(f"host: {archive}")
+
+
+def pwd_base(header: Path, dst: Path) -> None:
+    """The base system's pwd.h constants (_PW_*, _PASSWORD_*) the host's pwd.h lacks, and
+    libutil's pw_scan, for pwd_mkdb: the host's struct passwd has the base system's fields in
+    the base system's order, so only these are missing."""
+    lines = ["/* The base system's pwd.h constants the host's lacks: written by tools/world.py. */",
+             "#include <pwd.h>"]
+    for m in re.finditer(r"^#define\s+(_PW_\w+|_PASSWORD_\w+)\s+(.*?)\s*(/\*.*)?$", header.read_text(), re.M):
+        lines += [f"#ifndef {m.group(1)}", f"#define {m.group(1)} {m.group(2)}", "#endif"]
+    lines.append("int pw_scan(char *, struct passwd *, int *);")
+    dst.write_text("\n".join(lines) + "\n")
+
+
+# The base system's tools built for the host on libbasehost.a: what each is called in
+# target/host/bin, what it compiles with beyond compat.h, and what else it links. Those
+# etc/Makefile's distribution runs take tools/host/owners.h, so they see DESTDIR's owners
+# as the metalog records them and the tree's users and groups.
+OWNERS = f"-include {ROOT / 'tools/host/owners.h'}"
+BASE_TOOLS = {"bin/pax": (("pax",), OWNERS, ""),
+              "usr.sbin/mtree": (("mtree",), OWNERS, ""),
+              "bin/md5": (("sha256",), OWNERS, "-lresolv"),     # b64_ntop is libresolv's on the host
+              "usr.sbin/pwd_mkdb": (("pwd_mkdb",), f"{OWNERS} -include {HOST / 'include-base/pwd-base.h'}", ""),
+              # makewhatis, for share/man's mandoc.db; MACHINE, which the base system's
+              # machine/param.h gives, only steers man's search
+              "usr.bin/mandoc": (("makewhatis",), "-DMACHINE='\"unknown\"'", "-lz")}
+
+
+def host_base_tools(out: Path) -> None:
+    inc = HOST / "include-base"
+    for tool, (names, cflags, libs) in BASE_TOOLS.items():
+        obj = HOST / "obj" / tool
+        obj.mkdir(parents=True, exist_ok=True)
+        env = dict(os.environ, MAKEOBJDIR=str(obj), PATH=f"{HOST / 'bin'}:{os.environ['PATH']}")
+        cc = f"{host_cc()} -I{ROOT / 'tools/host/include'} -idirafter {inc} {cflags}"
+        subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), f"CC={cc}", "NOMAN=1",
+                        "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", "LDSTATIC=", "WARNINGS=no", "DPADD=",
+                        f"LDADD={HOST / 'lib/libbasehost.a'} {libs}"],
+                       cwd=out / "src" / tool, env=env, check=True)
+        prog = subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"), "-V", "PROG"],
+                              cwd=out / "src" / tool, env=env, capture_output=True, text=True).stdout.strip()
+        for name in names:
+            shutil.copy2(obj / prog, HOST / "bin" / name)
+            print(f"host: {HOST / 'bin' / name}")
 
 
 def target_hostcc() -> str:
@@ -395,6 +490,13 @@ def step_image(arch: str, out: Path) -> None:
         shutil.copy2(out / "src" / src, dst)
         dst.chmod(mode)
         modes[f"etc/{dst.name}"] = mode
+    # The password databases etc/Makefile's distribution made with pwd_mkdb, when the etc
+    # step has run: names for the ids, as getpwuid(3) reads them.
+    for name, mode in (("passwd", 0o644), ("pwd.db", 0o644), ("spwd.db", 0o640)):
+        if (out / "sysroot/etc" / name).exists():
+            shutil.copy2(out / "sysroot/etc" / name, staging / "etc" / name)
+            (staging / "etc" / name).chmod(mode)
+            modes[f"etc/{name}"] = mode
     (staging / "etc/fstab").write_text("/dev/rd0a / ffs rw 1 1\n")
     # /dev by the base system's MAKEDEV, its nodes recorded by the mknod stand-in.
     devlog = out / "image-metalog"
@@ -438,9 +540,13 @@ def step_image(arch: str, out: Path) -> None:
     (out / "attrs").write_text("\n".join(lines) + "\n")
     # rd(4) wants a disklabel: an `rdroot` entry the size of the tree, in the base system's
     # disktab form (etc/etc.arm64/disktab's), with room for the file system's own blocks.
-    used = sum(p.lstat().st_size for p in staging.rglob("*") if p.is_file() and not p.is_symlink())
+    # Each inode once (sbin's hard links are one file), and a quarter more for the file
+    # system's own blocks: the boot medium holds the kernel and this image together.
+    inodes = {(s.st_dev, s.st_ino): s.st_size for s in (p.lstat() for p in staging.rglob("*"))
+              if stat.S_ISREG(s.st_mode)}
+    used = sum(inodes.values())
     cylinder = 2 * 768
-    sectors = ((used * 2 // 512 + 16384) // cylinder + 1) * cylinder
+    sectors = ((used * 5 // 4 // 512 + 32768) // cylinder + 1) * cylinder
     (out / "disktab").write_text(
         f"rdroot|ramdiskroot|RAM-disk root FS image:\\\n"
         f"\t:dt=rdroot:se#512:nc#{sectors // cylinder}:nt#2:ns#768:\\\n"
@@ -518,7 +624,8 @@ CONFIGURE_ANSWERS = {"ac_cv_func_memcmp_working": "yes", "ac_cv_func_malloc_0_no
 # directory of tic's sources, not the program).
 HOST_TOOL_VARS = {"share/termtypes": (("TIC", "tic"),),
                   "games/fortune/datfiles": (("STRFILE", "strfile"),),
-                  "games/boggle": (("MKDICT", "mkdict"), ("MKINDEX", "mkindex"))}
+                  "games/boggle": (("MKDICT", "mkdict"), ("MKINDEX", "mkindex")),
+                  "share/man": (("MAKEWHATIS", "makewhatis"),)}
 
 
 def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
@@ -668,6 +775,23 @@ def step_base(arch: str, out: Path) -> None:
     print(f"base: {len(failed)} failed, listed in {out / 'failed'}")
 
 
+def step_etc(arch: str, out: Path) -> None:
+    """/etc, /root, /var and their kin as etc/Makefile's distribution-etc-root-var lays them
+    out, after the programs (as `make distribution` runs it before `make install`, whose
+    work `base` has done): pwd_mkdb, mtree, sha256 and pax are the host builds owners.h
+    gives the tree's owners, so etc.tgz and etcsum carry them, not the building user's."""
+    # install-mtree is the top Makefile's beforeinstall, which building each directory on its
+    # own skips; etc.tgz and etcsum are made of what distribution-etc-root-var installs.
+    if make_walk(arch, out, "etc", "install-mtree", "distribution-etc-root-var"):
+        raise SystemExit("etc: distribution-etc-root-var failed")
+    print(f"etc: {out / 'sysroot/var/sysmerge/etc.tgz'}")
+    # The top Makefile's afterinstall, the manual's database; the locate database beside it
+    # (distrib/sets's makedb) is not made yet: makelocatedb names the target's own tools.
+    if make_walk(arch, out, "share/man", "makedb"):
+        raise SystemExit("etc: share/man's makedb failed")
+    print(f"etc: {out / 'sysroot/usr/share/man/mandoc.db'}")
+
+
 # The install sets maketars makes from DESTDIR, by distrib/sets/lists/<set>/{mi,md.<arch>}.
 SETS = ("base", "comp", "game", "man")
 OSREV = os.environ.get("WORLD_OSREV", "80")   # the kernel says EmiBSD 8.0
@@ -727,6 +851,8 @@ def step_sets(arch: str, out: Path) -> None:
                       f"{archive.stat().st_size // 1024} KiB")
         (sets / f"{name}.missing").write_text("".join(m + "\n" for m in missing))
     installed = {str(p.relative_to(sysroot)) for p in sysroot.rglob("*")}
+    # The etc list is no set: its files travel in base's var/sysmerge/etc.tgz.
+    listed.update(e[2:] for e in set_list(out, "etc", arch))
     extra = sorted(installed - listed - {p for p in installed if p.startswith(("usr/include", "var/db"))})
     (sets / "extra").write_text("".join(f"./{e}\n" for e in extra))
     (sets / "checkflist").write_text("\n".join(report) + f"\ninstalled but in no list: {len(extra)} (sets/extra)\n")
@@ -749,11 +875,11 @@ def ids_of(etc: Path) -> tuple:
 
 STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "obj": step_obj,
          "lib": step_lib, "base": step_base, "retry": step_retry, "image": step_image,
-         "sets": step_sets}
+         "sets": step_sets, "etc": step_etc}
 # `just world arm64` with no step: the base system built and installed into the sysroot.
 # `make obj` first, as in the base system: include/Makefile has librpcsvc generate its
 # headers, which then must be in that library's obj, where its sources are compiled.
-DEFAULT = ("tree", "host", "obj", "includes", "lib", "base")
+DEFAULT = ("tree", "host", "obj", "includes", "lib", "base", "etc")
 
 
 def case_sensitive(out: Path) -> None:
