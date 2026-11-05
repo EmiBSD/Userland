@@ -87,7 +87,11 @@ def step_tree(arch: str, out: Path) -> None:
     if view.exists():
         shutil.rmtree(view)
     view.mkdir(parents=True)
-    (out / "metalog").unlink(missing_ok=True)   # a new tree, a new record of what is installed
+    # The metalog records what the sysroot holds: new with a new sysroot, kept with one that
+    # stays, where a Makefile that installs only what changed (`cmp -s || install`, the
+    # libraries' headers) records nothing for what it leaves in place.
+    if not (out / "sysroot").exists():
+        (out / "metalog").unlink(missing_ok=True)
     n = 0
     for d, paths in inherited():
         tree = d.relative_to(BASE).parts[0] in TREES
