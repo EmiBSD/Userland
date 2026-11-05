@@ -33,9 +33,9 @@ OPENBSD_MIRROR = "https://github.com/EmiBSD/OpenBSD-src"
 OPENBSD_ORIGIN = "https://github.com/openbsd/src"
 
 # Where a top-level directory's bare names come from in the reference tree.
-SOURCE_DIR = {"bin": "bin", "sbin": "sbin", "usr/bin": "usr.bin", "usr/sbin": "usr.sbin",
+SOURCE_DIR = {"bin": "bin", "sbin": "sbin", "usr/bin": "usr.bin", "usr/sbin": "usr.sbin", "usr/games": "games",
               "libexec": "libexec", "lib": "lib"}
-DEFAULT_SECTION = {"bin": "1", "usr/bin": "1", "sbin": "8", "usr/sbin": "8", "libexec": "8", "lib": "3"}
+DEFAULT_SECTION = {"bin": "1", "usr/bin": "1", "usr/games": "6", "sbin": "8", "usr/sbin": "8", "libexec": "8", "lib": "3"}
 
 # The imported programs (the user's decision of 2026-10-23): cryptography, security protocols
 # with a living upstream, and the legacy giants. name -> NVD CPE (product) when known.
@@ -184,6 +184,14 @@ LAYOUT = [
             "config", "crunchgen", "btrace", "acpidump", "mksuncd", "mkuboot"]),
         ("wscons", "Console screens, fonts and the console mouse.", ["wsconscfg", "wsfontload", "wsmoused"]),
     ]),
+    ("usr/games", "The games of the base system, installed in /usr/games: the game set (41).", [
+        ("games", "Every game, as the base system keeps them, one tree.", [
+            "adventure", "arithmetic", "atc", "backgammon", "banner", "battlestar", "bcd",
+            "boggle", "bs", "caesar", "canfield", "cribbage", "factor", "fish", "fortune",
+            "gomoku", "grdc", "hack", "hangman", "hunt", "mille", "monop", "morse", "number",
+            "phantasia", "pig", "pom", "ppt", "primes", "quiz", "rain", "random", "robots", "sail",
+            "snake", "tetris", "trek", "wargames", "worm", "worms", "wump"]),
+    ]),
     ("libexec", "Programs run by other programs, never by a user (28).", [
         ("login", "The authentication back ends login(1) calls.", [
             "login_passwd", "login_chpass", "login_lchpass", "login_ldap", "login_radius", "login_reject",
@@ -239,7 +247,8 @@ LAYOUT = [
         ("build", "The base system's build glue, which belongs to no program: the top Makefile and Makefile.cross, and the Makefile and Makefile.inc of each tree (bin/Makefile.inc makes every /bin program static).", [
             "Makefile", "Makefile.cross", "bin/Makefile", "bin/Makefile.inc", "sbin/Makefile", "sbin/Makefile.inc",
             "usr.bin/Makefile", "usr.bin/Makefile.inc", "usr.sbin/Makefile", "usr.sbin/Makefile.inc",
-            "libexec/Makefile", "libexec/Makefile.inc", "lib/Makefile", "distrib/Makefile"]),
+            "libexec/Makefile", "libexec/Makefile.inc", "lib/Makefile", "distrib/Makefile",
+            "games/Makefile", "games/Makefile.inc"]),
     ]),
     ("regress", "The integration battery: what no single program's tests can see. Boots EmiBSD in QEMU and runs scenarios across programs (login over the console, rc bringing up the network, an install from the ramdisk, ssh in, pf rules, a mail delivered), each also run on a reference system and compared, as the kernel's differential battery does.", [
         ("scenarios", "One directory per scenario: the steps, the expected lines, the comparison with a reference system.", []),
@@ -1259,8 +1268,28 @@ def upstream_toml(name: str, spec: dict, cls: str = "imported") -> str:
     return "\n".join(lines) + "\n"
 
 
+_PIN_PATHS: set = set()
+
+
+def pin_paths() -> set:
+    """Every file path of the reference tree at the pin, read from git, not from the clone's
+    working tree, which is sparse (games/ is not checked out there)."""
+    if not _PIN_PATHS:
+        out = subprocess.run(["git", "-C", str(SRC), "ls-tree", "-r", "--name-only", pin()],
+                             capture_output=True, text=True, check=True).stdout
+        _PIN_PATHS.update(out.splitlines())
+    return _PIN_PATHS
+
+
+def at_pin(path: str) -> bool:
+    """A file or a directory of the reference tree at the pin."""
+    paths = pin_paths()
+    return path in paths or any(p.startswith(path + "/") for p in paths)
+
+
 def listing(d: str) -> set:
-    return {n for n in os.listdir(SRC / d)
+    names = {p[len(d) + 1:].split("/", 1)[0] for p in pin_paths() if p.startswith(d + "/")}
+    return {n for n in names
             if not n.lower().startswith("makefile") and n != "CVS"
             and not n.endswith(".inc") and not n.endswith(".mk")}
 
@@ -1275,16 +1304,14 @@ def pin() -> str:
 def man_section(top: str, src_dir: str, name: str) -> str:
     """The manual section of this program in the reference tree: <name>.<n> in its directory (one
     level of subdirectories too), else the tree's default."""
-    base = SRC / src_dir / name
+    base = f"{src_dir}/{name}/"
     candidates = []
-    for root, _, files in os.walk(base):
-        depth = Path(root).relative_to(base).parts
-        if len(depth) > 1:
+    for path in pin_paths():
+        if not path.startswith(base) or path[len(base):].count("/") > 1:
             continue
-        for f in files:
-            stem, _, ext = f.rpartition(".")
-            if stem == name and ext.isdigit():
-                candidates.append(ext)
+        stem, _, ext = path.rsplit("/", 1)[-1].rpartition(".")
+        if stem == name and ext.isdigit():
+            candidates.append(ext)
     # The program's own page, not its file format (5) or device (4) page: disklabel has
     # disklabel.5 and .8, arp has arp.4 and .8.
     default = DEFAULT_SECTION[top]
@@ -1539,11 +1566,11 @@ def main() -> int:
                         unknown.append(p)
                     continue
                 if "/" in p:
-                    if not (SRC / p.replace("<arch>", "amd64")).exists():
+                    if not at_pin(p.replace("<arch>", "amd64")):
                         unknown.append(p)
                     continue
                 if src is None:
-                    if not (SRC / p).exists():   # a whole tree (include) or a top file (Makefile)
+                    if not at_pin(p):   # a whole tree (include) or a top file (Makefile)
                         unknown.append(p)
                 elif p not in sources[src]:
                     hits = [d for d, s in sources.items() if p in s]

@@ -2,7 +2,7 @@
 
 STATUS: see `STATUS`. Files of the base system that belong to no program, at the pin of
 `UPSTREAM.toml`, in this layout (the user's decision of 2026-11-04): `src/` holds OpenBSD's
-`Makefile`, `Makefile.cross`, `bin/Makefile`, `bin/Makefile.inc`, `sbin/Makefile`, `sbin/Makefile.inc`, `usr.bin/Makefile`, `usr.bin/Makefile.inc`, `usr.sbin/Makefile`, `usr.sbin/Makefile.inc`, `libexec/Makefile`, `libexec/Makefile.inc`, `lib/Makefile`, `distrib/Makefile`, each at its own path in that tree, byte for byte and every notice kept whole,
+`Makefile`, `Makefile.cross`, `bin/Makefile`, `bin/Makefile.inc`, `sbin/Makefile`, `sbin/Makefile.inc`, `usr.bin/Makefile`, `usr.bin/Makefile.inc`, `usr.sbin/Makefile`, `usr.sbin/Makefile.inc`, `libexec/Makefile`, `libexec/Makefile.inc`, `lib/Makefile`, `distrib/Makefile`, `games/Makefile`, `games/Makefile.inc`, each at its own path in that tree, byte for byte and every notice kept whole,
 rewritten from the pin by `tools/layout.py` and never edited by hand. What we change is a
 patch under `patches/`.
 

@@ -18,5 +18,7 @@ Programs of this group:
 - `Makefile.inc` (libexec/Makefile.inc)
 - `Makefile` (lib/Makefile)
 - `Makefile` (distrib/Makefile)
+- `Makefile` (games/Makefile)
+- `Makefile.inc` (games/Makefile.inc)
 
 Inherited: `src/` holds these at their paths in the base system's tree, at the pin of `UPSTREAM.toml`.

@@ -171,6 +171,8 @@ base/usr/sbin/
 ├── packages             Packages, firmware, patches and upgrades.
 ├── kernel-dev           Configuring, tracing and packaging kernels (the running kernel's state is sbin/kernel).
 └── wscons               Console screens, fonts and the console mouse.
+base/usr/games/
+└── games                Every game, as the base system keeps them, one tree.
 base/libexec/
 ├── login                The authentication back ends login(1) calls.
 ├── rtld                 The run-time linker.
