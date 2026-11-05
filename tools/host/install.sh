@@ -15,7 +15,7 @@
 
 # install.sh: install(1) for a build run by a user, not by root. Every file and directory
 # is installed as the user; the owner, group and mode the Makefile asked for go to the
-# manifest $WORLD_METALOG instead ("<path> <owner> <group> <mode>"), which sets them in the
+# manifest $WORLD_METALOG instead ("<path> uname=<owner> gname=<group> mode=<mode>"), which sets them in the
 # image. -s strips with $STRIP (an ELF strip), never the host's. Takes the options of the
 # base system's install(1).
 
@@ -37,7 +37,7 @@ shift $((OPTIND - 1))
 [ $# -gt 0 ] || { echo "install: nothing to install" >&2; exit 64; }
 
 record() {
-	[ -n "${WORLD_METALOG:-}" ] && printf '%s %s %s %s\n' "$1" "$owner" "$group" "${mode:--}" >> "$WORLD_METALOG"
+	[ -n "${WORLD_METALOG:-}" ] && printf '%s uname=%s gname=%s%s\n' "$1" "$owner" "$group" "${mode:+ mode=$mode}" >> "$WORLD_METALOG"
 	return 0
 }
 

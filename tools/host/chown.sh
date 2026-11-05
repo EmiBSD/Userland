@@ -13,7 +13,17 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# chown.sh: chown(8) for a build run by a user, not by root: changes nothing. The owners a
-# Makefile sets are those install.sh records in $WORLD_METALOG and the mtree specification
-# gives the directories; the image is made with them.
+# chown.sh: chown(8) for a build run by a user, not by root: changes nothing and records
+# the owner and group asked for in $WORLD_METALOG ("<path> uname=<owner> [gname=<group>]"),
+# which the image is made with.
+set -eu
+while getopts hHLPR opt; do :; done
+shift $((OPTIND - 1))
+spec=$1; shift
+owner=${spec%%[:.]*}; group=
+case $spec in *[:.]*) group=${spec#*[:.]} ;; esac
+for f in "$@"; do
+	case $f in /*) p=$f ;; *) p=$PWD/$f ;; esac
+	[ -n "${WORLD_METALOG:-}" ] && printf '%s%s%s\n' "$p" "${owner:+ uname=$owner}" "${group:+ gname=$group}" >> "$WORLD_METALOG"
+done
 exit 0

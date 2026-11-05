@@ -40,12 +40,26 @@
 #include <signal.h>
 #undef sigset
 
+/*
+ * The base system's <sys/cdefs.h> spells structure attributes with these; without them a
+ * trailing `__packed` declares a variable and the structure keeps its padding, which
+ * changes an on-disk layout (makefs's disklabel and file system).
+ */
+#ifndef __packed
+#define __packed __attribute__((__packed__))
+#endif
+#ifndef __aligned
+#define __aligned(x) __attribute__((__aligned__(x)))
+#endif
+
 #ifndef _NSIG
 #define _NSIG NSIG
 #endif
 
-/* The host names a file's modification time st_mtimespec. */
+/* The host names a file's times st_*timespec. */
+#define st_atim st_atimespec
 #define st_mtim st_mtimespec
+#define st_ctim st_ctimespec
 
 #ifndef timespeccmp
 #define timespeccmp(a, b, op) \
@@ -74,5 +88,16 @@ emibsd_host_pledge(const char *promises, const char *execpromises)
 	return 0;
 }
 #define pledge emibsd_host_pledge
+
+/* Nor unveil(2); and a seeded random(3) is deterministic on the host already. */
+static inline int
+emibsd_host_unveil(const char *path, const char *permissions)
+{
+	(void)path;
+	(void)permissions;
+	return 0;
+}
+#define unveil emibsd_host_unveil
+#define srandom_deterministic(seed) srandom(seed)
 
 #endif /* EMIBSD_HOST_COMPAT_H */

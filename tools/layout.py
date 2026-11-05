@@ -382,8 +382,12 @@ one place in it, and each place is filled by its class.
   `distrib/`: share/mk, /usr/include with the kernel's headers, the build glue). `just
   world arm64` builds today /usr/include (identical to the Kernel's), csu, libc, libutil,
   libm, libz, libcurses, libkvm and the first 31 programs (init, ksh, mount, ls, ...),
-  static. Still to come: the ramdisk image (makefs for the host, with the metalog's owners
-  and the device nodes), booting it on the Kernel, ld.so and the shared libraries, the other
+  static, and `target/arm64/ramdisk.ffs`, made by the base system's makefs built for the
+  host (`tools/host/makefs.h`, `makefs-host.c`) with the owners and modes the metalog
+  recorded and the nodes of MAKEDEV's `ramdisk` target. It boots on the Kernel
+  single-user: the Kernel mounts it as `rd0a`, init offers the shell and ksh runs (the
+  Kernel's `xtask smoke --ramdisk`, 2026-11-04). Still to come: `/etc/pwd.db` (pwd_mkdb for
+  the host), a multi-user boot (rc, getty, login), ld.so and the shared libraries, the other
   programs, amd64. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
 - **Decisions the user has still to take** about the inherited class: whether the Kernel
   keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
