@@ -214,7 +214,11 @@ LAYOUT = [
         ("base", "Users, groups, shells, the protocol tables, device nodes, the file-system skeleton, root's dotfiles, the per-architecture files.", [
             "etc/master.passwd", "etc/group", "etc/shells", "etc/services", "etc/protocols", "etc/rpc",
             "etc/MAKEDEV.mi", "etc/MAKEDEV.common", "etc/MAKEDEV.sub", "etc/MAKEDEV.man", "etc/MAKEDEV.mansub",
-            "etc/mtree", "etc/skel", "etc/root", "etc/motd", "etc/minfree", "etc/etc.<arch>"]),
+            "etc/mtree", "etc/skel", "etc/root", "etc/motd", "etc/minfree", "etc/etc.<arch>",
+            "etc/Makefile", "etc/Makefile.inc", "etc/amd", "etc/crontab", "etc/examples", "etc/fbtab.head",
+            "etc/fbtab.tail", "etc/ftpusers", "etc/ksh.kshrc", "etc/locate.rc", "etc/mail", "etc/mailer.conf",
+            "etc/moduli", "etc/newsyslog.conf", "etc/nsd.conf", "etc/ntpd.conf", "etc/pf.conf", "etc/pf.os",
+            "etc/ppp", "etc/rpki", "etc/signify", "etc/syslog.conf", "etc/unbound.conf"]),
     ]),
     ("data", "Data for everyone that no program owns, inherited at the pin like the programs: the time zone database, locales, dictionaries, terminal types. A program's manual lives beside the program; `share/` as a tree is generated at install time, not kept.", [
         ("zoneinfo", "The IANA time zone database (tzdata; zic and zdump are usr/sbin/services).", ["share/zoneinfo"]),
@@ -231,7 +235,11 @@ LAYOUT = [
             "include", "sys/crypto", "sys/ddb", "sys/dev", "sys/isofs", "sys/miscfs", "sys/msdosfs", "sys/net",
             "sys/netinet", "sys/netinet6", "sys/netmpls", "sys/net80211", "sys/nfs", "sys/ntfs", "sys/scsi",
             "sys/sys", "sys/ufs", "sys/uvm", "sys/arch/<arch>/include"]),
-        ("share", "/usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages.", ["share/mk", "share/man"]),
+        ("share", "/usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages.", ["share/mk", "share/man", "share/btrace", "share/snmp", "share/tmac", "share/Makefile", "share/Makefile.inc"]),
+        ("build", "The base system's build glue, which belongs to no program: the top Makefile and Makefile.cross, and the Makefile and Makefile.inc of each tree (bin/Makefile.inc makes every /bin program static).", [
+            "Makefile", "Makefile.cross", "bin/Makefile", "bin/Makefile.inc", "sbin/Makefile", "sbin/Makefile.inc",
+            "usr.bin/Makefile", "usr.bin/Makefile.inc", "usr.sbin/Makefile", "usr.sbin/Makefile.inc",
+            "libexec/Makefile", "libexec/Makefile.inc", "lib/Makefile", "distrib/Makefile"]),
     ]),
     ("regress", "The integration battery: what no single program's tests can see. Boots EmiBSD in QEMU and runs scenarios across programs (login over the console, rc bringing up the network, an install from the ramdisk, ssh in, pf rules, a mail delivered), each also run on a reference system and compared, as the kernel's differential battery does.", [
         ("scenarios", "One directory per scenario: the steps, the expected lines, the comparison with a reference system.", []),
@@ -330,7 +338,13 @@ from DevTools; OS assembles the sets with the kernel into a release.
   decision of 2026-11-04): `just host-make` builds that make for the development host from
   its inherited `src/` with DevTools' clang, without any make, and it reads the `share/mk` of
   the same pin. Nothing else is installed for it; `tools/host/compat.h` gives the host tools
-  what macOS lacks, and is never shipped. `just` is the recipes.
+  what macOS lacks, and is never shipped. `just world arm64` (`tools/world.py`) builds for
+  EmiBSD: it copies every inherited `src/` back to its path in the base system's tree under
+  `target/`, builds the host tools the Makefiles run (rpcgen, yacc, lex), then
+  `/usr/include`, csu, the libraries and the programs, each by its own Makefile and the
+  pin's `share/mk`, with DevTools' clang for `aarch64-emibsd-emibsd8.0`. It runs as a user:
+  `tools/host/install.sh` records in `target/<arch>/metalog` the owner, group and mode a
+  Makefile asks for instead of setting them. `just` is the recipes.
 - **Versions.** Semver per program (`src/Cargo.toml`, or `version` in `UPSTREAM.toml` with
   our patch level as `+emibsd.N`); a calendar version, `YEAR.MONTH`, for the system release.
   A commit that changes a program's code carries `Change: breaking|feature|fix` and the bump
@@ -365,10 +379,12 @@ one place in it, and each place is filled by its class.
 - **The inherited class is in the tree, not built.** Every program of the base system has
   its directory at the pin in `src/`, copied by `tools/layout.py` (committed, the user's
   decision of 2026-11-04), and so does every tree that is not a program (`etc/`, `data/`,
-  `distrib/`: share/mk, /usr/include with the kernel's headers). To build: the host make
-  (`just host-make`, it builds and evaluates the tree's Makefiles today), `patches/` applied
-  to a copy, the `Makefile.inc` each relocated Makefile needs (a Makefile
-  that reaches a sibling by `${{.CURDIR}}/..`), and the cross build for the Kernel's ABI. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
+  `distrib/`: share/mk, /usr/include with the kernel's headers, the build glue). `just
+  world arm64` builds today /usr/include (identical to the Kernel's), csu, libc, libutil,
+  libm, libz, libcurses, libkvm and the first 31 programs (init, ksh, mount, ls, ...),
+  static. Still to come: the ramdisk image (makefs for the host, with the metalog's owners
+  and the device nodes), booting it on the Kernel, ld.so and the shared libraries, the other
+  programs, amd64. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
 - **Decisions the user has still to take** about the inherited class: whether the Kernel
   keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
   the milestone letter and the first milestone (proposed: the 110 programs the Kernel builds
@@ -731,6 +747,10 @@ layout src="../Kernel/reference/openbsd-src":
 # The base system's make(1) built for the development host from its inherited src/, into target/host/bin/make.
 host-make:
     sh tools/host/bootstrap-make.sh
+
+# Build the inherited base system for EmiBSD (tools/world.py): `just world arm64`, or some steps of it.
+world arch="arm64" *steps:
+    python3 -I tools/world.py {{arch}} {{steps}}
 
 # Format, clippy and tests over the workspace; the root Cargo.toml comes back with the first written program.
 check:
@@ -1513,7 +1533,7 @@ def main() -> int:
                         unknown.append(p)
                     continue
                 if src is None:
-                    if not (SRC / p).is_dir():   # a whole tree: include, share
+                    if not (SRC / p).exists():   # a whole tree (include) or a top file (Makefile)
                         unknown.append(p)
                 elif p not in sources[src]:
                     hits = [d for d, s in sources.items() if p in s]

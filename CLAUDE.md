@@ -69,7 +69,9 @@ tools/                                 layout.py, version.py, upstream.py, cve.p
 `PATH=/opt/homebrew/opt/rustup/bin:$PATH`; `just check` at the root (fmt, clippy `-D
 warnings`, tests, once a written program brings the workspace back); `just host-make` builds
 the base system's make for the host from its inherited `src/` (the inherited C is built with
-it, never with GNU make or an installed bmake); `just lint`, `just test`, `just man` in a program's directory; `just
+it, never with GNU make or an installed bmake); `just world arm64` builds the inherited
+system for EmiBSD under `target/arm64` (`tools/world.py`: the tree copied back to its paths,
+the host tools, /usr/include, csu, the libraries, the programs); `just lint`, `just test`, `just man` in a program's directory; `just
 status` for the progress numbers. A program is made by the roles of
 `.claude/rules/subagents.md`: `surveyor` (the standard's facts), `designer` (DEFINITION, DESIGN,
 schemas), `implementer` (src, tests, manual), `reviewer`, `integrator`; `mechanical` for the

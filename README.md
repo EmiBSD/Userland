@@ -89,7 +89,13 @@ from DevTools; OS assembles the sets with the kernel into a release.
   decision of 2026-11-04): `just host-make` builds that make for the development host from
   its inherited `src/` with DevTools' clang, without any make, and it reads the `share/mk` of
   the same pin. Nothing else is installed for it; `tools/host/compat.h` gives the host tools
-  what macOS lacks, and is never shipped. `just` is the recipes.
+  what macOS lacks, and is never shipped. `just world arm64` (`tools/world.py`) builds for
+  EmiBSD: it copies every inherited `src/` back to its path in the base system's tree under
+  `target/`, builds the host tools the Makefiles run (rpcgen, yacc, lex), then
+  `/usr/include`, csu, the libraries and the programs, each by its own Makefile and the
+  pin's `share/mk`, with DevTools' clang for `aarch64-emibsd-emibsd8.0`. It runs as a user:
+  `tools/host/install.sh` records in `target/<arch>/metalog` the owner, group and mode a
+  Makefile asks for instead of setting them. `just` is the recipes.
 - **Versions.** Semver per program (`src/Cargo.toml`, or `version` in `UPSTREAM.toml` with
   our patch level as `+emibsd.N`); a calendar version, `YEAR.MONTH`, for the system release.
   A commit that changes a program's code carries `Change: breaking|feature|fix` and the bump
@@ -190,7 +196,8 @@ base/distrib/
 ├── sets                 The install sets and their lists; the release version is YEAR.MONTH (docs/PROGRAM.md, Versions).
 ├── installer            The installer, its ramdisk and the per-architecture media.
 ├── include              /usr/include as include/Makefile assembles it: the C library's public headers (include/) and the kernel's, the ABI the kernel implements (sys/, headers only, without dev/microcode and dev/pci/drm, as that Makefile leaves them out). The libraries' own exported headers stay with each library.
-└── share                /usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages.
+├── share                /usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages.
+└── build                The base system's build glue, which belongs to no program: the top Makefile and Makefile.cross, and the Makefile and Makefile.inc of each tree (bin/Makefile.inc makes every /bin program static).
 regress/
 ├── scenarios            One directory per scenario: the steps, the expected lines, the comparison with a reference system.
 └── harness              Booting the images, driving the console, collecting and comparing.
@@ -205,10 +212,12 @@ one place in it, and each place is filled by its class.
 - **The inherited class is in the tree, not built.** Every program of the base system has
   its directory at the pin in `src/`, copied by `tools/layout.py` (committed, the user's
   decision of 2026-11-04), and so does every tree that is not a program (`etc/`, `data/`,
-  `distrib/`: share/mk, /usr/include with the kernel's headers). To build: the host make
-  (`just host-make`, it builds and evaluates the tree's Makefiles today), `patches/` applied
-  to a copy, the `Makefile.inc` each relocated Makefile needs (a Makefile
-  that reaches a sibling by `${.CURDIR}/..`), and the cross build for the Kernel's ABI. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
+  `distrib/`: share/mk, /usr/include with the kernel's headers, the build glue). `just
+  world arm64` builds today /usr/include (identical to the Kernel's), csu, libc, libutil,
+  libm, libz, libcurses, libkvm and the first 31 programs (init, ksh, mount, ls, ...),
+  static. Still to come: the ramdisk image (makefs for the host, with the metalog's owners
+  and the device nodes), booting it on the Kernel, ld.so and the shared libraries, the other
+  programs, amd64. `gnu/` stays out; the base system's own `regress/` is brought per program when needed.
 - **Decisions the user has still to take** about the inherited class: whether the Kernel
   keeps its own userland build until N9 (proposed) or consumes this repository's ramdisk now;
   the milestone letter and the first milestone (proposed: the 110 programs the Kernel builds

@@ -27,6 +27,10 @@ layout src="../Kernel/reference/openbsd-src":
 host-make:
     sh tools/host/bootstrap-make.sh
 
+# Build the inherited base system for EmiBSD (tools/world.py): `just world arm64`, or some steps of it.
+world arch="arm64" *steps:
+    python3 -I tools/world.py {{arch}} {{steps}}
+
 # Format, clippy and tests over the workspace; the root Cargo.toml comes back with the first written program.
 check:
     #!/bin/sh

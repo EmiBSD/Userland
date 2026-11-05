@@ -8,5 +8,6 @@ How a release is made, and what else is generated at release time: the install s
 | `installer/` | The installer, its ramdisk and the per-architecture media. |
 | `include/` | /usr/include as include/Makefile assembles it: the C library's public headers (include/) and the kernel's, the ABI the kernel implements (sys/, headers only, without dev/microcode and dev/pci/drm, as that Makefile leaves them out). The libraries' own exported headers stay with each library. |
 | `share/` | /usr/share's own trees: share/mk, the rules every Makefile of the base system includes, and the manuals' shared pages. |
+| `build/` | The base system's build glue, which belongs to no program: the top Makefile and Makefile.cross, and the Makefile and Makefile.inc of each tree (bin/Makefile.inc makes every /bin program static). |
 
 Nothing written yet.
