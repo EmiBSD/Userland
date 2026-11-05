@@ -49,6 +49,7 @@ sets and the same SHA256. Every time a build writes into what it ships is
 $SOURCE_DATE_EPOCH, or the commit's time when it is unset (the reproducible builds' rule),
 and no path of the checkout reaches a file.
 """
+import hashlib
 import os
 import re
 import shutil
@@ -144,15 +145,24 @@ def make_env(arch: str, out: Path) -> dict:
     env["WORLD_DESTDIR"] = str(out / "sysroot")
     env["WORLD_PASSWD"] = str(out / "src/etc/master.passwd")
     env["WORLD_GROUP"] = str(out / "src/etc/group")
+    # The objects, root's and wheel's when a re-link kit archives them (owners.h).
+    env["WORLD_OBJDIR"] = str(out / "obj")
     # clang's __DATE__ and __TIME__, owners.h's clamp of the tree's times.
     env["SOURCE_DATE_EPOCH"] = EPOCH
+    # sort.sh's seed for -R: 32 bytes (the host's sort takes no more) from the epoch.
+    seed = HOST / "random-source"
+    digest = hashlib.sha256(f"emibsd sort -R {EPOCH}".encode()).digest()
+    if not seed.exists() or seed.read_bytes() != digest:
+        seed.parent.mkdir(parents=True, exist_ok=True)
+        seed.write_bytes(digest)
+    env["WORLD_RANDOM"] = str(seed)
     return env
 
 
 # The stand-ins for a build run by a user (tools/host): they record in the metalog what
 # they cannot do (owners, groups, device nodes) instead of failing.
 WRAPPERS = {"install": "install.sh", "chown": "chown.sh", "chgrp": "chgrp.sh", "chmod": "chmod.sh",
-            "mknod": "mknod.sh", "gzip": "gzip.sh"}
+            "mknod": "mknod.sh", "gzip": "gzip.sh", "sort": "sort.sh"}
 
 
 def step_host(arch: str, out: Path) -> None:
@@ -275,7 +285,7 @@ def pwd_base(header: Path, dst: Path) -> None:
 # etc/Makefile's distribution runs take tools/host/owners.h, so they see DESTDIR's owners
 # as the metalog records them and the tree's users and groups.
 OWNERS = f"-include {ROOT / 'tools/host/owners.h'}"
-BASE_TOOLS = {"bin/pax": (("pax",), OWNERS, ""),
+BASE_TOOLS = {"bin/pax": (("pax", "tar"), OWNERS, ""),     # tar: a re-link kit's archive
               "usr.sbin/mtree": (("mtree",), OWNERS, ""),
               "bin/md5": (("sha256",), OWNERS, "-lresolv"),     # b64_ntop is libresolv's on the host
               "usr.sbin/pwd_mkdb": (("pwd_mkdb",), f"{OWNERS} -include {HOST / 'include-base/pwd-base.h'}", ""),
@@ -595,7 +605,12 @@ COMPILE_DEFAULTS = ("-Wno-pointer-sign",
                     # implicit declarations stay warnings, as the base system's clang has
                     # them; the Makefiles that want them fatal still say so
                     # (bin/Makefile.inc's -Werror-implicit-function-declaration comes after)
-                    "-Wno-error=implicit-function-declaration", "-Wno-error=implicit-int")
+                    "-Wno-error=implicit-function-declaration", "-Wno-error=implicit-int",
+                    # the DWARF version the base system's clang emits by default, 2, not
+                    # DevTools' 5, whose line table carries each source's MD5: a generated
+                    # source naming the checkout's path (libelf's, libcurses') would differ
+                    # from one checkout to the next in the libraries' debug information
+                    "-fdebug-default-version=2")
 
 
 def compiler_headers(out: Path) -> Path:
@@ -667,6 +682,8 @@ def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
             # A cross build, as Makefile.cross says it: ld.so then does not run the test
             # program it just linked, which the host cannot execute (only ld.so reads it).
             f"CROSSDIR={sysroot}",
+            # A re-link kit runs on the installed system, whose compiler is cc.
+            "RELINK_CC=cc",
             *(f"{var}={HOST / 'bin' / tool}" for var, tool in HOST_TOOL_VARS.get(directory, ())),
             *targets]
     env = make_env(arch, out)
@@ -709,6 +726,11 @@ def step_lib(arch: str, out: Path) -> None:
     order = ["lib/csu", "lib/libc"] + [d for d in subdirs(arch, out, "lib") if d not in ("lib/csu", "lib/libc")]
     bad = [d for d in order if make_walk(arch, out, d) or make_walk(arch, out, d, "install")]
     bad = [d for d in bad if make_walk(arch, out, d) or make_walk(arch, out, d, "install")]
+    # libc's tags name its sources by the path they were compiled from: the base system's
+    # /usr/src, not the checkout's, as the compiler's prefix maps have it.
+    tags = out / "sysroot/var/db/libc.tags"
+    if tags.exists():
+        tags.write_bytes(tags.read_bytes().replace(f"{out / 'src'}/".encode(), b"/usr/src/"))
     print(f"lib: {len(order) - len(bad)} of {len(order)} built and installed" +
           (f"; failed: {' '.join(bad)}" if bad else ""))
     if "lib/libc" in bad or "lib/csu" in bad:

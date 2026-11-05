@@ -1,0 +1,26 @@
+setup places the energy void from SOURCE_DATE_EPOCH when it is set, so a build of one commit makes the same /var/games/phantasia/void.
+
+setup runs at build time and puts the holy grail in the energy void file at a random place.
+With SOURCE_DATE_EPOCH set (the reproducible builds' variable) the place comes from a
+generator seeded with it, and two builds of one commit ship the same file; unset, it is
+arc4random's, as before.
+
+--- a/setup.c
++++ b/setup.c
+@@ -240,5 +240,16 @@
+ double
+ drandom(void)
+ {
++	static int deterministic = -1;
++
++	if (deterministic == -1) {
++		const char *epoch = getenv("SOURCE_DATE_EPOCH");
++
++		deterministic = epoch != NULL && *epoch != '\0';
++		if (deterministic)
++			srandom_deterministic(strtoul(epoch, NULL, 10));
++	}
++	if (deterministic)
++		return((double) random() / 2147483648.0);
+ 	return((double) arc4random() / (UINT32_MAX + 1.0));
+ }

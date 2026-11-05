@@ -14,7 +14,9 @@ paths). Our patches, if any, never change what callers see.
 
 ## Patches
 
-The series under `patches/`, each with its reason in its header: none today.
+The series under `patches/`, each with its reason in its header:
+
+- `0001-void-from-source-date-epoch.patch`: setup places the energy void from SOURCE_DATE_EPOCH when it is set, so a build of one commit makes the same /var/games/phantasia/void.
 
 ## Security history
 

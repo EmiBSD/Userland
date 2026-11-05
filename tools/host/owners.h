@@ -28,7 +28,11 @@
  *   master.passwd and group), never the host's;
  * - chown and its relatives change nothing and record the owner in the metalog; chmod
  *   records the mode and applies it with the user keeping read and write, as the
- *   stand-ins do.
+ *   stand-ins do;
+ * - a path under $WORLD_OBJDIR (the build's objects, which a re-link kit archives) is
+ *   root's and wheel's, as a build run by root makes them;
+ * - with $SOURCE_DATE_EPOCH set, no time of those paths is later than it, and the process
+ *   id that names pax's extended headers is 0, so an archive is the same in every build.
  */
 #ifndef EMIBSD_HOST_OWNERS_H
 #define EMIBSD_HOST_OWNERS_H
@@ -56,6 +60,7 @@ int emibsd_host_chown(const char *, uid_t, gid_t);
 int emibsd_host_fchown(int, uid_t, gid_t);
 int emibsd_host_fchownat(int, const char *, uid_t, gid_t, int);
 int emibsd_host_chmod(const char *, mode_t);
+pid_t emibsd_host_getpid(void);
 
 #define stat(path, sb) emibsd_host_stat(path, sb)
 #define lstat(path, sb) emibsd_host_lstat(path, sb)
@@ -74,5 +79,6 @@ int emibsd_host_chmod(const char *, mode_t);
 #define fchown emibsd_host_fchown
 #define fchownat emibsd_host_fchownat
 #define chmod emibsd_host_chmod
+#define getpid emibsd_host_getpid
 
 #endif /* EMIBSD_HOST_OWNERS_H */

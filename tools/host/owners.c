@@ -21,10 +21,11 @@
  * $WORLD_METALOG holds one record per line, "<path> [uname=<name>] [gname=<name>]
  * [mode=<octal>]", a later field for the same path winning. $WORLD_DESTDIR is the tree;
  * only a path under it is corrected. $WORLD_PASSWD and $WORLD_GROUP are the tree's
- * master.passwd(5) and group(5), which turn the recorded names into ids. With
- * $SOURCE_DATE_EPOCH set, no time of a path under the tree is later than it, so what a tool
- * archives from the tree (etc.tgz) is the same in every build of one commit. Compiled
- * without owners.h, so the host's functions are the ones called here.
+ * master.passwd(5) and group(5), which turn the recorded names into ids. A path under
+ * $WORLD_OBJDIR is root's and wheel's. With $SOURCE_DATE_EPOCH set, no time of a path
+ * under either is later than it, so what a tool archives from them (etc.tgz, a re-link
+ * kit) is the same in every build of one commit. Compiled without owners.h, so the host's
+ * functions are the ones called here.
  */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -64,6 +65,8 @@ static struct id	*users, *groups;
 static size_t		 nusers, ngroups;
 static char		 destdir[PATH_MAX];
 static size_t		 destdirlen;
+static char		 objdir[PATH_MAX];
+static size_t		 objdirlen;
 static int		 loaded;
 static time_t		 epoch = -1;	/* $SOURCE_DATE_EPOCH, -1 when unset */
 
@@ -173,6 +176,8 @@ load(void)
 	}
 	load_ids(getenv("WORLD_PASSWD"), &users, &nusers);
 	load_ids(getenv("WORLD_GROUP"), &groups, &ngroups);
+	if ((root = getenv("WORLD_OBJDIR")) != NULL && realpath(root, objdir) != NULL)
+		objdirlen = strlen(objdir);
 	if ((root = getenv("WORLD_DESTDIR")) == NULL || realpath(root, destdir) == NULL)
 		return;
 	destdirlen = strlen(destdir);
@@ -277,6 +282,24 @@ clamp(struct timespec *ts)
 	}
 }
 
+static void
+clamp_all(struct stat *sb)
+{
+	if (epoch == -1)
+		return;
+	clamp(&sb->st_atimespec);
+	clamp(&sb->st_mtimespec);
+	clamp(&sb->st_ctimespec);
+	clamp(&sb->st_birthtimespec);
+}
+
+/* Whether the absolute `path` is the directory `dir` (of length `len`, 0 when unset) or under it. */
+static int
+under(const char *path, const char *dir, size_t len)
+{
+	return len != 0 && strncmp(path, dir, len) == 0 && (path[len] == '/' || path[len] == '\0');
+}
+
 /* The tree's view of `path` (relative to `cwd`) written over what the host said in `sb`. */
 static void
 correct(const char *path, const char *cwd, struct stat *sb)
@@ -285,16 +308,22 @@ correct(const char *path, const char *cwd, struct stat *sb)
 	struct record key, *r;
 
 	load();
-	if (destdirlen == 0)
+	if (destdirlen == 0 && objdirlen == 0)
 		return;
 	if (cwd == NULL) {
 		if (getcwd(here, sizeof(here)) == NULL)
 			return;
 		cwd = here;
 	}
-	if (normal(path, cwd, full, sizeof(full)) == NULL ||
-	    strncmp(full, destdir, destdirlen) != 0 ||
-	    (full[destdirlen] != '/' && full[destdirlen] != '\0'))
+	if (normal(path, cwd, full, sizeof(full)) == NULL)
+		return;
+	if (under(full, objdir, objdirlen)) {
+		sb->st_uid = 0;
+		sb->st_gid = 0;
+		clamp_all(sb);
+		return;
+	}
+	if (!under(full, destdir, destdirlen))
 		return;
 	key.path = full;
 	key.order = 0;
@@ -321,12 +350,7 @@ correct(const char *path, const char *cwd, struct stat *sb)
 	sb->st_gid = r != NULL && r->gname[0] != '\0' ? number_of(groups, ngroups, r->gname) : 0;
 	if (r != NULL && r->has_mode)
 		sb->st_mode = (sb->st_mode & S_IFMT) | r->mode;
-	if (epoch != -1) {
-		clamp(&sb->st_atimespec);
-		clamp(&sb->st_mtimespec);
-		clamp(&sb->st_ctimespec);
-		clamp(&sb->st_birthtimespec);
-	}
+	clamp_all(sb);
 }
 
 int
@@ -605,4 +629,11 @@ emibsd_host_chmod(const char *path, mode_t mode)
 	snprintf(fields, sizeof(fields), "mode=%o", (unsigned int)(mode & 07777));
 	record(path, fields);
 	return 0;
+}
+
+pid_t
+emibsd_host_getpid(void)
+{
+	load();
+	return epoch != -1 ? 0 : getpid();
 }

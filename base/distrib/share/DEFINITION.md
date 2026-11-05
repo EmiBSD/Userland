@@ -13,3 +13,4 @@ patch under `patches/`.
 The series under `patches/`, each with its reason in its header:
 
 - `0001-makewhatis-by-variable.patch`: makedb runs makewhatis named by MAKEWHATIS, /usr/sbin/makewhatis when unset, so a cross build gives it one that runs on the host.
+- `0002-relink-kit-compiler.patch`: A re-link kit runs the compiler named by RELINK_CC, the build's CC when unset, so a cross build writes the installed system's cc into it.

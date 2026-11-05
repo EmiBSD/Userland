@@ -1,0 +1,23 @@
+A re-link kit runs the compiler named by RELINK_CC, the build's CC when unset, so a cross build writes the installed system's cc into it.
+
+The kit's install.sh is run at boot by /etc/rc's reorder_libs, on the installed system,
+where the compiler is cc. A native build has CC=cc and writes the same kit as before; a
+cross build's CC is the cross compiler with its configuration and sysroot, paths of the
+building machine that the installed system does not have, so the relink failed there.
+
+--- a/share/mk/bsd.prog.mk
++++ b/share/mk/bsd.prog.mk
+@@ -130,10 +130,12 @@
+ 
+ # Construct a re-link kit and install it for boot-time use.
+ # RELINK variable is a shell command to test the relinked binary works.
++# RELINK_CC is the compiler the kit runs, on the installed system.
+ .if defined(RELINK)
++RELINK_CC?=	${CC}
+ install.sh: Makefile ${PROG}
+ 	echo "set -o errexit" > $@
+-	echo "${CC} ${LDFLAGS} ${LDSTATIC} -o ${PROG}" \
++	echo "${RELINK_CC} ${LDFLAGS} ${LDSTATIC} -o ${PROG}" \
+ 	    "\`echo " ${OBJS} "| tr ' ' '\\\n' | sort -R\`" ${LDADD} >> $@
+ 	echo "${RELINK}" >> $@
+ 	echo "install -c -s -o ${BINOWN} -g ${BINGRP} -m ${BINMODE} ${PROG} " \
