@@ -788,6 +788,16 @@ host-make:
 world arch="arm64" *steps:
     python3 -I tools/world.py {{arch}} {{steps}}
 
+# Built from scratch in a worktree of HEAD's tag: dist/userland-<tag>-<arch>.tar.zst and .sha256.
+# A release's artifact of the install sets, one per architecture (`just dist arm64`).
+dist +archs:
+    python3 -I tools/dist.py {{archs}}
+
+# The maintainer's, from the main session (it publishes); a later architecture is added to it.
+# The GitHub release of the sets from a tagged commit, every artifact in dist/ for it.
+release tag:
+    sh tools/release.sh {{tag}}
+
 # Format, clippy and tests over the workspace; the root Cargo.toml comes back with the first written program.
 check:
     #!/bin/sh

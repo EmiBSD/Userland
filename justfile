@@ -31,7 +31,7 @@ host-make:
 world arch="arm64" *steps:
     python3 -I tools/world.py {{arch}} {{steps}}
 
-# Built from scratch in a worktree of HEAD's tag: dist/userland-<tag>-<arch>.tar and .sha256.
+# Built from scratch in a worktree of HEAD's tag: dist/userland-<tag>-<arch>.tar.zst and .sha256.
 # A release's artifact of the install sets, one per architecture (`just dist arm64`).
 dist +archs:
     python3 -I tools/dist.py {{archs}}

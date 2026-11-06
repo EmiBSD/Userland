@@ -1,0 +1,20 @@
+# The pin of an imported program (docs/PROGRAM.md). tools/upstream.py fetches and verifies it.
+[upstream]
+name    = "zstd"
+kind    = "git"
+repo    = "https://github.com/EmiBSD/zstd"           # the organisation's mirror, always
+origin  = "https://github.com/facebook/zstd"          # what the mirror is fed from
+path    = ["lib", "programs", "LICENSE", "COPYING", "README.md", "CHANGELOG"]
+tag     = "v1.5.7"                 # resolved to a commit at fetch, recorded in upstream/.pin
+commit  = "f8745da6ff1ad1e7bab384bd1f9d742439278e99"
+version = "1.5.7"                 # the human version; to fill from the source when empty
+license = ["BSD-3-Clause"]   # dual BSD-3-Clause or GPL-2.0-only upstream; EmiBSD takes the BSD side (no GPL in base)
+
+[security]
+cpe     = "facebook:zstandard"            # NVD product, for tools/cve.py
+
+[patches]
+series  = []   # patches/NNNN-*.patch, in order; each with its reason
+
+[build]
+tree    = "usr.bin/zstd"   # where world.py puts the pinned source and build/ in the copied tree

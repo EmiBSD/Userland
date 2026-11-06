@@ -10,4 +10,6 @@ patch under `patches/`.
 
 ## Patches
 
-The series under `patches/`, each with its reason in its header: none today.
+The series under `patches/`, each with its reason in its header:
+
+- `0001-zstd-in-base.patch`: The base set carries zstd, unzstd and zstdcat, and the man set their manual: zstd is imported into the base system.

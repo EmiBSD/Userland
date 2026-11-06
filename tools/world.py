@@ -82,6 +82,44 @@ def inherited():
         yield d, paths
 
 
+def imported():
+    """(directory, its pin, where it goes in the copied tree) of every imported program."""
+    for status in sorted(BASE.rglob("STATUS")):
+        d = status.parent
+        if not status.read_text().startswith("imported"):
+            continue
+        with open(d / "UPSTREAM.toml", "rb") as fh:
+            doc = tomllib.load(fh)
+        yield d, doc["upstream"], doc["build"]["tree"]
+
+
+def place_imported(view: Path) -> int:
+    """Each imported program's pinned source (upstream/, `tools/upstream.py fetch`) and its
+    build/ glue at its place in the copied tree, its patches applied there."""
+    n = 0
+    for d, up, where in imported():
+        source = ROOT / "upstream" / up["repo"].rstrip("/").rsplit("/", 1)[-1]
+        pin = source / ".pin"
+        if not pin.exists() or pin.read_text().strip() != up["commit"]:
+            raise SystemExit(f"tree: {d.relative_to(ROOT)}: upstream/ is not at its pin; just fetch first")
+        dst = view / where
+        for path in up["path"]:
+            if (source / path).is_dir():
+                shutil.copytree(source / path, dst / path, symlinks=True, dirs_exist_ok=True)
+            else:
+                dst.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source / path, dst / path)
+        shutil.copytree(d / "build", dst, dirs_exist_ok=True)
+        for f in dst.rglob("*"):   # upstream/ is read-only; the copy is the build's
+            if not f.is_symlink():
+                f.chmod(f.stat().st_mode | stat.S_IWUSR)
+        for patch in sorted((d / "patches").glob("*.patch")):
+            subprocess.run(["patch", "-s", "-p1", "-F", "0", "-V", "none", "-t", "-N", "-d", str(dst),
+                            "-i", str(patch)], check=True)
+        n += 1
+    return n
+
+
 def step_tree(arch: str, out: Path) -> None:
     view = out / "src"
     if view.exists():
@@ -106,6 +144,7 @@ def step_tree(arch: str, out: Path) -> None:
             subprocess.run(["patch", "-s", "-p1", "-F", "0", "-V", "none", "-t", "-N", "-d", str(where),
                             "-i", str(patch)], check=True)
         n += 1
+    m = place_imported(view)
     # In the userland __OpenBSD__ becomes __EmiBSD__ (the user's decision of 2026-11-04): the
     # compiler predefines __EmiBSD__ alone, so every place the inherited C tests or names
     # the macro is made to name __EmiBSD__, here in the copy; src/ stays the pin.
@@ -116,7 +155,7 @@ def step_tree(arch: str, out: Path) -> None:
             if b"__OpenBSD__" in data:
                 f.write_bytes(data.replace(b"__OpenBSD__", b"__EmiBSD__"))
                 renamed += 1
-    print(f"tree: {n} inherited entries in {view}; __OpenBSD__ renamed in {renamed} files")
+    print(f"tree: {n} inherited entries and {m} imported in {view}; __OpenBSD__ renamed in {renamed} files")
 
 
 HOST = ROOT / "target" / "host"
@@ -367,7 +406,7 @@ def host_makefs(out: Path) -> None:
     obj.mkdir(parents=True, exist_ok=True)
     subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"),
                     f"CC={host_cc()} -include {ROOT / 'tools/host/makefs.h'} {flags}",
-                    "NOMAN=1", "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", "DPADD=", f"LDADD={lib}",
+                    "NOMAN=1", "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", f"DPADD={lib}", f"LDADD={lib}",
                     "WARNINGS=no"],
                    cwd=out / "src/usr.sbin/makefs", env=dict(os.environ, MAKEOBJDIR=str(obj)), check=True)
     shutil.copy2(obj / "makefs", HOST / "bin/makefs")
@@ -814,6 +853,12 @@ def step_base(arch: str, out: Path) -> None:
         bad += [d for d in install_hooks(out, tree, dirs) if make_walk(arch, out, d, "SUBDIR=", "afterinstall")]
         failed += bad
         print(f"base: {tree}: {len(dirs) - len(bad)} of {len(dirs)} built and installed")
+    # The imported programs, which no SUBDIR of the base system names.
+    places = [where for _, _, where in imported()]
+    bad = [w for w in places if make_walk(arch, out, w, "obj") or make_walk(arch, out, w) or
+           make_walk(arch, out, w, "install")]
+    failed += bad
+    print(f"base: imported: {len(places) - len(bad)} of {len(places)} built and installed")
     (out / "failed").write_text("".join(f"{d}\n" for d in failed))
     print(f"base: {len(failed)} failed, listed in {out / 'failed'}")
 

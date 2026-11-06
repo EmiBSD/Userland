@@ -1,0 +1,44 @@
+The base set carries zstd, unzstd and zstdcat, and the man set their manual: zstd is imported into the base system.
+
+The install sets are zstd archives and the installer extracts them with zstd -dc, so the
+base system ships the program (usr/bin/file-tools/zstd, imported from its upstream at the
+pin of its UPSTREAM.toml, BSD licence).
+
+--- a/distrib/sets/lists/base/mi
++++ b/distrib/sets/lists/base/mi
+@@ -710,6 +710,7 @@
+ ./usr/bin/uniq
+ ./usr/bin/units
+ ./usr/bin/unvis
++./usr/bin/unzstd
+ ./usr/bin/uptime
+ ./usr/bin/usbhidaction
+ ./usr/bin/usbhidctl
+@@ -751,6 +752,8 @@
+ ./usr/bin/zless
+ ./usr/bin/zmore
+ ./usr/bin/znew
++./usr/bin/zstd
++./usr/bin/zstdcat
+ ./usr/games
+ ./usr/include
+ ./usr/lib
+--- a/distrib/sets/lists/man/mi
++++ b/distrib/sets/lists/man/mi
+@@ -520,6 +520,7 @@
+ ./usr/share/man/man1/uniq.1
+ ./usr/share/man/man1/units.1
+ ./usr/share/man/man1/unvis.1
++./usr/share/man/man1/unzstd.1
+ ./usr/share/man/man1/update-patches.1
+ ./usr/share/man/man1/update-plist.1
+ ./usr/share/man/man1/uptime.1
+@@ -553,6 +554,8 @@
+ ./usr/share/man/man1/zforce.1
+ ./usr/share/man/man1/zmore.1
+ ./usr/share/man/man1/znew.1
++./usr/share/man/man1/zstd.1
++./usr/share/man/man1/zstdcat.1
+ ./usr/share/man/man3p/AnyDBM_File.3p
+ ./usr/share/man/man3p/App::Cpan.3p
+ ./usr/share/man/man3p/App::Prove.3p

@@ -20,7 +20,8 @@ usage: dist.py <arch>...     build the sets of each architecture from HEAD's tag
 HEAD must carry a release tag, YEAR.MONTH.N (2026.11.0), and the tree no change to a tracked
 file: a release is cut from a tagged commit. The build runs in a new worktree of that tag
 under target/dist/<tag>, so nothing built before (an object compiled with older flags) reaches
-it, with SOURCE_DATE_EPOCH the tag's commit time (world.py's default when it is unset): anyone
+it (upstream/, the imported programs' sources fetched by `just fetch`, is linked in), with
+SOURCE_DATE_EPOCH the tag's commit time (world.py's default when it is unset): anyone
 who builds the tag again gets the same sets and the same SHA256.
 
 The tarball holds one directory, userland-<tag>-<arch>/, with the sets as world.py's sets step
@@ -71,6 +72,9 @@ def build(tag: str, arch: str) -> Path:
         run("git", "-C", str(ROOT), "worktree", "remove", "--force", str(tree))
     tree.parent.mkdir(parents=True, exist_ok=True)
     run("git", "-C", str(ROOT), "worktree", "add", "--detach", str(tree), tag)
+    # The imported programs' sources (tools/upstream.py fetch, gitignored) are the main
+    # checkout's: world.py checks each against its pin.
+    (tree / "upstream").symlink_to(ROOT / "upstream")
     env = {k: v for k, v in os.environ.items() if k != "SOURCE_DATE_EPOCH"}   # the tag's own time
     log = tree / f"dist-{arch}.log"
     with open(log, "w") as fh:
