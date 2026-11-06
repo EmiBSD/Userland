@@ -32,7 +32,7 @@ The steps, in order (the first eight, through sets, when none is named):
             the failures are listed in target/<arch>/failed
   etc       etc/Makefile's distribution-etc-root-var: /etc, /root, /var, pwd.db, etc.tgz;
             the manual's mandoc.db
-  sets      target/<arch>/sets: base, comp, game and man as gzipped archives, from the
+  sets      target/<arch>/sets: base, comp, game and man as zstd archives, from the
             sysroot by distrib/sets/lists, and their SHA256
   retry     the directories that failed, again
   image     target/<arch>/ramdisk.ffs: the mtree skeleton, the programs, ld.so and the
@@ -850,13 +850,16 @@ def set_list(out: Path, name: str, arch: str) -> list:
 
 
 def step_sets(arch: str, out: Path) -> None:
-    """The install sets, as distrib/sets/maketars makes them (one gzipped archive per set,
-    from DESTDIR, in its list's order with the libraries first), with the owners, groups and
-    modes the metalog and the mtree specification give, not the building user's: bsdtar
-    reads an mtree description of each entry. Every entry's time is the epoch and the gzip
-    header has none, so the archives are the same in every build of one commit; SHA256 is
-    the base system's sha256 over them, as a release lists them. distrib/sets/checkflist's
-    comparison of the lists with DESTDIR is written to sets/checkflist."""
+    """The install sets, as distrib/sets/maketars makes them (one archive per set, from
+    DESTDIR, in its list's order with the libraries first), with the owners, groups and modes
+    the metalog and the mtree specification give, not the building user's: bsdtar reads an
+    mtree description of each entry. Compressed with zstd (level 19), not gzip as the base
+    system's are: <set>80.tar.zst, which the installer reads once the base system carries
+    zstd (an import), pax runs it and install.sub names the sets so. Every entry's time is
+    the epoch and zstd's frame has none, so the archives are the same in every build of one
+    commit; SHA256 is the base system's sha256 over them, as a release lists them.
+    distrib/sets/checkflist's comparison of the lists with DESTDIR is written to
+    sets/checkflist."""
     sysroot, sets = out / "sysroot", out / "sets"
     if sets.exists():
         shutil.rmtree(sets)
@@ -890,13 +893,13 @@ def step_sets(arch: str, out: Path) -> None:
             else:
                 spec.append(f"{mtree_quote(e)} type=file {owner} mode={mode} contents={mtree_quote(str(f))}")
         (sets / f"{name}.mtree").write_text("\n".join(spec) + "\n")
-        archive = sets / f"{name}{OSREV}.tgz"
-        subprocess.run(["bsdtar", "-c", "-z", "--options", "gzip:!timestamp", "--format=ustar", "-f", str(archive),
+        archive = sets / f"{name}{OSREV}.tar.zst"
+        subprocess.run(["bsdtar", "-c", "--zstd", "--options", "zstd:compression-level=19", "--format=ustar", "-f", str(archive),
                         f"@{sets / (name + '.mtree')}"], check=True)
         report.append(f"{name}: {len(entries) - len(missing)} of {len(entries)} entries, "
                       f"{archive.stat().st_size // 1024} KiB")
         (sets / f"{name}.missing").write_text("".join(m + "\n" for m in missing))
-    sums = subprocess.run([str(HOST / "bin/sha256"), *(f"{name}{OSREV}.tgz" for name in SETS)], cwd=sets,
+    sums = subprocess.run([str(HOST / "bin/sha256"), *(f"{name}{OSREV}.tar.zst" for name in SETS)], cwd=sets,
                           capture_output=True, text=True, check=True).stdout
     (sets / "SHA256").write_text(sums)
     installed = {str(p.relative_to(sysroot)) for p in sysroot.rglob("*")}

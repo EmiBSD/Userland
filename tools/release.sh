@@ -18,7 +18,7 @@
 # architecture, from the main session, by the maintainer (it publishes, like a push).
 #
 # The tag is YEAR.MONTH.N (2026.11.0): HEAD must carry it, and every artifact in dist/ for it
-# (userland-<tag>-<arch>.tar, `just dist <arch>`) must match its .sha256 and have been made
+# (userland-<tag>-<arch>.tar.zst, `just dist <arch>`) must match its .sha256 and have been made
 # from it (its MANIFEST says so). The first run creates the release with the artifacts there
 # are; a later run, for an architecture built since (amd64 once Kernel boots it), uploads the
 # artifacts the release lacks, never replacing one, and rewrites the notes with every sum. A
@@ -29,12 +29,12 @@ tag=${1:?the release tag, YEAR.MONTH.N}
 repo=EmiBSD/Userland
 git tag --points-at HEAD | grep -qx "$tag" \
     || { echo "release: HEAD is not tagged $tag (git tag -a $tag -m '...' first; a release is cut from a tagged commit)" >&2; exit 1; }
-set -- dist/userland-"$tag"-*.tar
+set -- dist/userland-"$tag"-*.tar.zst
 [ -f "$1" ] || { echo "release: no artifact in dist/ for $tag (just dist arm64)" >&2; exit 1; }
 for t in "$@"; do
     [ -f "$t.sha256" ] || { echo "release: $t.sha256 missing" >&2; exit 1; }
     (cd dist && shasum -a 256 -c "$(basename "$t").sha256" >/dev/null) || { echo "release: $t does not match its .sha256" >&2; exit 1; }
-    tar -xOf "$t" "$(basename "$t" .tar)/MANIFEST" | grep -qx "tag: $tag" \
+    zstd -dc "$t" | tar -xOf - "$(basename "$t" .tar.zst)/MANIFEST" | grep -qx "tag: $tag" \
         || { echo "release: $t was not made from $tag (its MANIFEST says otherwise): just dist again" >&2; exit 1; }
 done
 git ls-remote --tags origin "refs/tags/$tag" | grep -q . \
@@ -44,7 +44,7 @@ trap 'rm -rf "$work"' EXIT
 existing=
 if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
     existing=$(gh release view "$tag" --repo "$repo" --json assets -q '.assets[].name')
-    gh release download "$tag" --repo "$repo" --pattern '*.tar.sha256' --dir "$work"
+    gh release download "$tag" --repo "$repo" --pattern '*.tar.zst.sha256' --dir "$work"
 fi
 upload=
 for t in "$@"; do
@@ -65,10 +65,10 @@ notes=$work/notes
     echo "One artifact per architecture; fetch by this tag, check the sum, then unpack:"
     echo
     echo '```'
-    cat "$work"/*.tar.sha256
+    cat "$work"/*.tar.zst.sha256
     echo '```'
     echo
-    echo "Inside userland-$tag-<arch>/: the install sets base80.tgz, comp80.tgz, game80.tgz and man80.tgz,"
+    echo "Inside userland-$tag-<arch>/: the install sets base80.tar.zst, comp80, game80 and man80 (zstd),"
     echo "their SHA256, and MANIFEST (the commit, the epoch, the base system's pin, the compiler, the sums,"
     echo "what the sets still lack). Reproducible: \`just dist <arch>\` at this tag gives the same SHA256."
     echo

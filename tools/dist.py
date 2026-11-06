@@ -12,7 +12,7 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-"""The artifact of one architecture's install sets: dist/userland-<tag>-<arch>.tar and its .sha256.
+"""The artifact of one architecture's install sets: dist/userland-<tag>-<arch>.tar.zst and its .sha256.
 
 usage: dist.py <arch>...     build the sets of each architecture from HEAD's tag, from scratch,
                              and pack them
@@ -24,10 +24,11 @@ it, with SOURCE_DATE_EPOCH the tag's commit time (world.py's default when it is 
 who builds the tag again gets the same sets and the same SHA256.
 
 The tarball holds one directory, userland-<tag>-<arch>/, with the sets as world.py's sets step
-made them (base, comp, game, man), their SHA256 as a release lists them, and MANIFEST (the tag,
-the commit, the architecture, the epoch, the base system's pin, the compiler, the sums, what the
-sets still lack). Reproducible: entries sorted, mtime the epoch, root and wheel, modes 0644 and
-0755. The worktree is removed afterwards; dist/ keeps the artifact.
+made them (base80.tar.zst, comp, game, man), their SHA256 as a release lists them, and MANIFEST
+(the tag, the commit, the architecture, the epoch, the base system's pin, the compiler, the sums,
+what the sets still lack). Compressed as DevTools' artifacts are (zstd -19, the host's zstd).
+Reproducible: entries sorted, mtime the epoch, root and wheel, modes 0644 and 0755. The worktree
+is removed afterwards; dist/ keeps the artifact.
 """
 import hashlib
 import io
@@ -108,11 +109,14 @@ def pack(tag: str, arch: str, tree: Path) -> Path:
     epoch = run("git", "-C", str(tree), "log", "-1", "--format=%ct")
     sums = (out / "sets/SHA256").read_text()
     name = f"userland-{tag}-{arch}"
-    files = [(f"{s}{OSREV}.tgz", (out / f"sets/{s}{OSREV}.tgz").read_bytes()) for s in SETS]
+    files = [(f"{s}{OSREV}.tar.zst", (out / f"sets/{s}{OSREV}.tar.zst").read_bytes()) for s in SETS]
     files += [("SHA256", sums.encode()), ("MANIFEST", manifest(tag, arch, tree, epoch, sums).encode())]
     DIST.mkdir(exist_ok=True)
-    tarball = DIST / f"{name}.tar"
-    with tarfile.open(tarball, "w", format=tarfile.USTAR_FORMAT) as tar:
+    tarball = DIST / f"{name}.tar.zst"
+    if shutil.which("zstd") is None:
+        raise SystemExit("dist: zstd not found (the user's install, as DevTools' dist uses)")
+    zstd = subprocess.Popen(["zstd", "-19", "-T0", "-q", "-f", "-o", str(tarball)], stdin=subprocess.PIPE)
+    with tarfile.open(fileobj=zstd.stdin, mode="w|", format=tarfile.USTAR_FORMAT) as tar:
         def entry(path, kind, size=0):
             info = tarfile.TarInfo(path)
             info.type, info.size, info.mtime = kind, size, int(epoch)
@@ -123,6 +127,9 @@ def pack(tag: str, arch: str, tree: Path) -> Path:
         tar.addfile(entry(name, tarfile.DIRTYPE))
         for path, data in sorted(files):
             tar.addfile(entry(f"{name}/{path}", tarfile.REGTYPE, len(data)), io.BytesIO(data))
+    zstd.stdin.close()
+    if zstd.wait() != 0:
+        raise SystemExit("dist: zstd failed")
     digest = hashlib.sha256(tarball.read_bytes()).hexdigest()
     (DIST / f"{name}.tar.sha256").write_text(f"{digest}  {tarball.name}\n")
     return tarball
