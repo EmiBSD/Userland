@@ -17,7 +17,7 @@
 # PreToolUse hook of the writing subagents (designer, implementer, mechanical,
 # integrator; the `hooks:` field of their frontmatter). It makes mechanical what
 # `.claude/rules/subagents.md` says in words: a subagent never pushes, never
-# amends, never forces, never writes under `upstream/` or under a `reference/`
+# amends, never forces, never publishes a release or makes a tag, never writes under `upstream/` or under a `reference/`
 # tree (the Kernel's pinned clone of another system), never cds into either, and never installs
 # or downloads anything (`cargo install`, `rustup`, `brew`, `pip`, `npm`,
 # `curl`, `wget`). Exit 2 refuses the call and hands the reason to the agent;
@@ -70,6 +70,11 @@ printf '%s\n' "$cmd" | grep -qE "${G}[a-z-]+[^;&|]*[[:space:]](-f|--force|--forc
 printf '%s\n' "$cmd" | grep -qE "${W}cargo[[:space:]]+(\+[^[:space:]]+[[:space:]]+)?install([[:space:]]|$)" && refuse "a subagent never cargo-installs"
 printf '%s\n' "$cmd" | grep -qE "${W}(rustup|brew|pip3?|npm|pnpm|yarn|gem|port)([[:space:]]|$)" && refuse "a subagent never installs tools"
 printf '%s\n' "$cmd" | grep -qE "${W}(curl|wget|fetch|ftp)([[:space:]]|$)" && refuse "a subagent never downloads"
+
+# Publishing is the maintainer's: a GitHub release, a tag made or moved, `just release`.
+printf '%s\n' "$cmd" | grep -qE "${W}gh[[:space:]]+release[[:space:]]+(create|upload|edit|delete|delete-asset)([[:space:]]|$)" && refuse "a subagent never publishes or changes a release"
+printf '%s\n' "$cmd" | grep -qE "${W}(just[[:space:]]+release|sh[[:space:]]+tools/release\.sh|tools/release\.sh)([[:space:]]|$)" && refuse "a subagent never cuts a release"
+printf '%s\n' "$cmd" | grep -qE "${G}tag[[:space:]]+(-a|-s|-d|-f|--delete|--force|-m|[^-[:space:]])" && refuse "a subagent never makes, moves or deletes a tag"
 
 # `cd` into upstream/ or a reference tree (read them with `git show`, never from inside).
 printf '%s\n' "$cmd" | grep -qE '(^|[;&|(]|&&)[[:space:]]*cd[[:space:]]+"?[^;&|[:space:]"]*(upstream|reference)(/|"|[[:space:]]|$)' && \

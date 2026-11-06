@@ -16,6 +16,8 @@ of a program, the common grammar, linking, versions); when they change, this fil
 | `implementer` | opus | yes | yes | branch | `src/`, `tests/`, the manual's EXAMPLES, DELIVERY.md of a designed program, on `cli` and `sys`; the additions those two crates need for it (a `Kind`, a libc call), each with its reason; one program per run |
 | `mechanical` | sonnet | yes | yes | branch | the same change over many programs (a `cli` API moved, a rule's wording in every DEFINITION), tests added to an existing program, a manual's lint, `tools/layout.py` regeneration, an import's `UPSTREAM.toml`, `build/` and patch series once the pin is decided |
 | `reviewer` | opus | no | no | nothing | read-only review of a branch: behaviour against DEFINITION.md and POSIX's text, the POSIX forms byte for byte to a pipe, `forbid(unsafe_code)`, the `pledge` profile the least the program needs, nothing copied or translated from another system, tests that assert behaviour, the `Change:` trailer and the version bump, the manual complete |
+| `release-builder` | sonnet | no | yes | `dist/`, `target/`, scratchpad | a tag the main session made: `just dist <arch>` twice from scratch and compared byte for byte, the artifact's contents checked, `just install-check` on it, the hand-off for OS (tag, commit, sum, what changed) drafted; never tags, pushes or publishes |
+| `install-checker` | sonnet | no | yes | `target/`, scratchpad | `just install-check <tag> <arch>` on an artifact in `dist/`: a throwaway medium from the two releases, the install in QEMU under `/tmp/emibsd/ci.lock`, the disk booted to a shell; on a failure, the question, the text and the component it belongs to; never keeps or publishes the medium (OS's) |
 | `integrator` | opus | yes | yes | branch | merge agent branches, resolve the shared files (`Cargo.toml` members, `Cargo.lock`, READMEs, `docs/PROGRAM.md` through `tools/layout.py`, agent memories), finish a stopped agent's work from its `HANDOFF.md`, `just check` and `just status` |
 
 Mechanical vs delicate (the user's split, 2026-10-03): when unsure, it is delicate (opus).
@@ -38,9 +40,11 @@ resumes the run once with `SendMessage` if the work is worth finishing; a second
 return is a stop: the user decides. The worktree roles carry none: a stop in the middle of
 their work leaves commits unmade.
 
-Guard hook: the writing roles (`designer`, `implementer`, `mechanical`, `integrator`) carry a
-`PreToolUse` hook, `.claude/hooks/agent-guard.sh`, that refuses before it runs: `git push`,
-`git commit --amend`, a force of anything, any write under `upstream/` or under a `reference/`
+Guard hook: the writing roles (`designer`, `implementer`, `mechanical`, `integrator`) and the
+release roles (`release-builder`, `install-checker`) carry a `PreToolUse` hook,
+`.claude/hooks/agent-guard.sh`, that refuses before it runs: `git push`,
+`git commit --amend`, a force of anything, a tag made, moved or deleted, `just release` and
+`gh release create|upload|edit|delete` (publishing is the maintainer's), any write under `upstream/` or under a `reference/`
 tree (the Kernel's pinned clone, which the reading roles consult with `git show` and never from inside), a `cd` into
 either, `cargo install`, `rustup`, `brew`, `pip`, `npm`, and `curl` or `wget` (nothing is
 installed and nothing is downloaded without the user's OK; `tools/upstream.py fetch` is the

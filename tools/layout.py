@@ -797,6 +797,11 @@ fetch-build:
 dist +archs:
     python3 -I tools/dist.py {{archs}}
 
+# An internal check, never a release's medium (OS makes those): a throwaway ISO from the two
+# releases, an install in QEMU under /tmp/emibsd/ci.lock, the installed disk booted to a shell.
+install-check tag arch="arm64":
+    python3 -I tools/install-check.py {{tag}} {{arch}}
+
 # The maintainer's, from the main session (it publishes); a later architecture is added to it.
 # The GitHub release of the sets from a tagged commit, every artifact in dist/ for it.
 release tag:

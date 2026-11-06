@@ -41,6 +41,12 @@ practices, its compressed list first). Merge the branch your prompt names.
   tag, version, licence, CPE), `build/build.sh`, the patch series with a reason in each
   header; `python3 -I tools/upstream.py check <dir>` must pass. Never fetch: `upstream/` is
   filled by the main session.
+- The Kernel's release pin: `KERNEL.toml`'s `release`, `commit` and `[kernel.sha256]` moved to
+  the release the user decided, with the sums the main session's `just fetch-build` checked
+  (the artifact in `upstream/kernel/<release>/`); `python3 -I tools/upstream.py check` passes;
+  one commit, its body naming the release and why. `install-checker` runs after it.
+- After `just layout`: `git checkout -- base/usr/bin/records/jpath/DEFINITION.md` (hand-written
+  at `planned`, the generator overwrites it) and `rm -rf tools/__pycache__`.
 - Every file keeps the author's ISC block first. English.
 
 ## Escalate, do not improvise

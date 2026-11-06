@@ -79,5 +79,7 @@ architecture, from a tagged commit (OS fetches it by tag); `just lint`, `just te
 status` for the progress numbers. A program is made by the roles of
 `.claude/rules/subagents.md`: `surveyor` (the standard's facts), `designer` (DEFINITION, DESIGN,
 schemas), `implementer` (src, tests, manual), `reviewer`, `integrator`; `mechanical` for the
-same change over many programs. The main session launches them one by one with the Agent
+same change over many programs; `release-builder` proves a tag the main session made (two
+builds compared, contents, `just install-check`, the hand-off for OS) and `install-checker`
+runs `just install-check` alone; neither tags nor publishes. The main session launches them one by one with the Agent
 tool and gives each the six items of the launching prompt.
