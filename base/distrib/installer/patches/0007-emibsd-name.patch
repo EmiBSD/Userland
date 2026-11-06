@@ -1,0 +1,59 @@
+The installer names the system it installs EmiBSD, and finds the latest boot in dmesg by EmiBSD's kernel banner.
+
+$OBSD, the welcome and the congratulations, and the warning when the boot blocks fail say
+EmiBSD (the user's decision of 2026-11-06). dmesgtail and the release-or-snapshot test
+look for the kernel's banner, which on EmiBSD starts "EmiBSD 8.0", not "OpenBSD 8.0": with
+the old pattern dmesgtail returned the whole buffer instead of the latest boot. The fdisk
+and GPT partition type names (OpenBSD, A6) stay: they are the partitions' types.
+
+--- a/distrib/miniroot/dot.profile
++++ b/distrib/miniroot/dot.profile
+@@ -38,7 +38,7 @@
+ export VNAME=$(sysctl -n kern.osrelease)
+ export VERSION="${VNAME%.*}${VNAME#*.}"
+ export ARCH=$(sysctl -n hw.machine)
+-export OBSD="OpenBSD/$ARCH $VNAME"
++export OBSD="EmiBSD/$ARCH $VNAME"
+ export PATH=/sbin:/bin:/usr/bin:/usr/sbin:/
+ 
+ umask 022
+--- a/distrib/miniroot/install.sub
++++ b/distrib/miniroot/install.sub
+@@ -254,7 +254,7 @@
+ 
+ # Extract the latest boot's worth of dmesg.
+ dmesgtail() {
+-	dmesg | sed -n 'H;/^OpenBSD/h;${g;p;}'
++	dmesg | sed -n 'H;/^EmiBSD/h;${g;p;}'
+ }
+ 
+ # ------------------------------------------------------------------------------
+@@ -3060,7 +3060,7 @@
+ 	# Pat on the back.
+ 	cat <<__EOT
+ 
+-CONGRATULATIONS! Your OpenBSD $MODE has been successfully completed!
++CONGRATULATIONS! Your EmiBSD $MODE has been successfully completed!
+ 
+ __EOT
+ 	if [[ $MODE == install ]]; then
+@@ -3653,7 +3653,7 @@
+ # Are we in a real release, or a snapshot?  If this is a snapshot
+ # install media, default us to a snapshot directory.
+ HTTP_SETDIR=$SETDIR
+-set -- $(scan_dmesg "/^OpenBSD $VNAME\([^ ]*\).*$/s//\1/p")
++set -- $(scan_dmesg "/^EmiBSD $VNAME\([^ ]*\).*$/s//\1/p")
+ [[ $1 == -!(stable) ]] && HTTP_SETDIR=snapshots/$ARCH
+ 
+ # Detect if ftp(1) has tls support and set defaults based on that.
+--- a/distrib/arm64/ramdisk/install.md
++++ b/distrib/arm64/ramdisk/install.md
+@@ -52,7 +52,7 @@
+ 
+ 	if ! installboot -cr /mnt $_disk; then
+ 		echo "\nFailed to install bootblocks."
+-		echo "You will not be able to boot OpenBSD from $_disk."
++		echo "You will not be able to boot EmiBSD from $_disk."
+ 		exit
+ 	fi
+ 

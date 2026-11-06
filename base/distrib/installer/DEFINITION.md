@@ -18,3 +18,4 @@ The series under `patches/`, each with its reason in its header:
 - `0004-ramdisk-list.patch`: The arm64 ramdisk crunches zstd into instbin and leaves out the firmware files and the Raspberry Pi's boot files.
 - `0005-special-zstd.patch`: distrib/special/zstd: the installer's zstd, the decompressor alone, for crunchgen.
 - `0006-more-help-printf.patch`: distrib/special/more writes the opening of morehelp.h with printf, not echo -n.
+- `0007-emibsd-name.patch`: The installer names the system it installs EmiBSD, and finds the latest boot in dmesg by EmiBSD's kernel banner.
