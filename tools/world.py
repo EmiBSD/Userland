@@ -1084,11 +1084,18 @@ def step_sets(arch: str, out: Path) -> None:
         report.append(f"{name}: {len(entries) - len(missing)} of {len(entries)} entries, "
                       f"{archive.stat().st_size // 1024} KiB")
         (sets / f"{name}.missing").write_text("".join(m + "\n" for m in missing))
-    # The installer's ramdisk travels with the sets, as a release lists it.
+    # The installer's ramdisk and the installation notes travel with the sets, as a release
+    # lists them.
     released = [f"{name}{OSREV}.tar.zst" for name in SETS]
     if (out / f"miniroot{OSREV}.fs").exists():
         shutil.copy2(out / f"miniroot{OSREV}.fs", sets / f"miniroot{OSREV}.fs")
         released.append(f"miniroot{OSREV}.fs")
+    # The installation notes, EmiBSD's own: the installer asks before it takes sets from a
+    # directory without them.
+    notes = BASE / f"distrib/installer/notes/INSTALL.{arch}"
+    if notes.exists():
+        shutil.copy2(notes, sets / notes.name)
+        released.append(notes.name)
     sums = subprocess.run([str(HOST / "bin/sha256"), *released], cwd=sets,
                           capture_output=True, text=True, check=True).stdout
     (sets / "SHA256").write_text(sums)

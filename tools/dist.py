@@ -26,7 +26,8 @@ who builds the tag again gets the same sets and the same SHA256.
 
 The tarball holds one directory, userland-<tag>-<arch>/, with the sets as world.py's sets step
 made them (base80.tar.zst, comp, game, man), the installer's ramdisk miniroot80.fs (set into
-the Kernel's bsd.RAMDISK with rdsetroot, it is bsd.rd), their SHA256 as a release lists them, and MANIFEST
+the Kernel's bsd.RAMDISK with rdsetroot, it is bsd.rd), the installation notes INSTALL.<arch>
+(the medium carries them beside the sets), their SHA256 as a release lists them, and MANIFEST
 (the tag, the commit, the architecture, the epoch, the base system's pin, the compiler, the sums,
 what the sets still lack). Compressed as DevTools' artifacts are (zstd -19, the host's zstd).
 Reproducible: entries sorted, mtime the epoch, root and wheel, modes 0644 and 0755. The worktree
@@ -121,6 +122,10 @@ def pack(tag: str, arch: str, tree: Path) -> Path:
     if not miniroot.exists():
         raise SystemExit(f"dist: {arch} has no miniroot{OSREV}.fs (world.py's miniroot step)")
     files.append((miniroot.name, miniroot.read_bytes()))
+    notes = out / f"sets/INSTALL.{arch}"
+    if not notes.exists():
+        raise SystemExit(f"dist: {arch} has no INSTALL.{arch} (base/distrib/installer/notes)")
+    files.append((notes.name, notes.read_bytes()))
     files += [("SHA256", sums.encode()), ("MANIFEST", manifest(tag, arch, tree, epoch, sums).encode())]
     DIST.mkdir(exist_ok=True)
     tarball = DIST / f"{name}.tar.zst"

@@ -1,0 +1,66 @@
+INSTALLATION NOTES for EmiBSD/arm64 8.0
+
+What is on the medium
+---------------------
+
+The install medium's directory 8.0/arm64/ holds:
+
+	bsd.rd		the installer: the kernel with its ramdisk set in
+	bsd.mp		the kernel that is installed, as /bsd
+	base80.tar.zst	the base system
+	comp80.tar.zst	the compiler's set (the libraries and headers today)
+	man80.tar.zst	the manual pages
+	game80.tar.zst	the games
+	SHA256		the sums of every file above
+	INSTALL.arm64	this file
+
+The sets are tar archives compressed with zstd; the installer reads them with
+its own zstd. There is one kernel, bsd.mp, for one CPU or many. The medium's
+/etc/boot.conf boots /8.0/arm64/bsd.rd.
+
+The tested machine
+------------------
+
+This release is tested on QEMU's virt machine with the EDK2 firmware
+(edk2-aarch64-code.fd), a Cortex-A72 CPU, 1 GiB of memory or more, a virtio
+disk of 3 GiB or more and the medium on a virtio SCSI CD-ROM:
+
+	qemu-system-aarch64 -M virt,acpi=off -cpu cortex-a72 -m 1024M -smp 2 \
+	    -drive if=pflash,format=raw,readonly=on,file=edk2-aarch64-code.fd \
+	    -drive if=pflash,format=raw,file=vars.fd \
+	    -drive if=none,format=raw,file=disk.img,id=hd0 \
+	    -device virtio-blk-device,drive=hd0 \
+	    -device virtio-scsi-device \
+	    -drive if=none,format=raw,media=cdrom,file=install80.iso,id=cd0 \
+	    -device scsi-cd,drive=cd0,bootindex=0 \
+	    -serial stdio -display none
+
+vars.fd is a writable copy of edk2-arm-vars.fd. The console is the serial
+port. Other machines that boot with UEFI may work; none is tested yet.
+
+Installing
+----------
+
+Boot the medium: the firmware starts EFI/BOOT/BOOTAA64.EFI from the medium's
+El Torito image, and that boots bsd.rd. At the prompt, answer (I)nstall.
+
+The installer asks for the host name, the network (answer "done" to skip it),
+the root password, the root disk (sd0 on the machine above) and its layout;
+the automatic layout fits a 3 GiB disk.
+
+The sets are installed from local media only, a CD-ROM or a disk: answer cd0
+for "Location of sets?" and accept the default path. Choose the sets (all of
+them by default) and answer "yes" to "Continue without verification?": the
+release's sets are not signed yet, and the installer checks each one against
+SHA256 instead.
+
+The boot loader is copied to the disk's EFI partition. At the end, halt,
+remove the medium and boot the disk.
+
+After the install
+-----------------
+
+The first boot runs /etc/rc to a login prompt. Not there yet in this release:
+the compiler itself (rc's re-linking of the libraries and of the kernel fails
+without it, and the system runs as installed), the network install, and the
+signatures of the sets.
