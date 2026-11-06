@@ -131,7 +131,7 @@ def pack(tag: str, arch: str, tree: Path) -> Path:
     if zstd.wait() != 0:
         raise SystemExit("dist: zstd failed")
     digest = hashlib.sha256(tarball.read_bytes()).hexdigest()
-    (DIST / f"{name}.tar.sha256").write_text(f"{digest}  {tarball.name}\n")
+    (DIST / f"{tarball.name}.sha256").write_text(f"{digest}  {tarball.name}\n")
     return tarball
 
 
