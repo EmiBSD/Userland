@@ -189,11 +189,4 @@ emibsd_host_strtofflags(char **s, u_int32_t *set, u_int32_t *clear)
 #define HOST_NAME_MAX 255
 #endif
 
-/*
- * The base system's seeding of random(3) for a sequence that must repeat: the host's
- * srandom always is (phantasia's setup, under SOURCE_DATE_EPOCH).
- */
-#include <stdlib.h>
-#define srandom_deterministic(seed) srandom(seed)
-
 #endif /* EMIBSD_HOST_COMPAT_H */

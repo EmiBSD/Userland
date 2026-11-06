@@ -1,0 +1,17 @@
+distrib/special/more writes the opening of morehelp.h with printf, not echo -n.
+
+echo -n is not portable: a POSIX sh with XSI echo (the development host's /bin/sh, which
+runs the cross build's commands) prints the -n, and the header no longer compiles.
+printf '%s' writes the same bytes on every sh, the base system's included.
+
+--- a/distrib/special/more/Makefile
++++ b/distrib/special/more/Makefile
+@@ -7,7 +7,7 @@
+ CLEANFILES+=morehelp.h
+ 
+ morehelp.h: ${.CURDIR}/more.help
+-	echo -n 'const char *more_help = "' > morehelp.h
++	printf '%s' 'const char *more_help = "' > morehelp.h
+ 	sed -e 's/[\\"]/\\&/g' -e 's/$$/\\n\\/' ${.CURDIR}/more.help >> morehelp.h
+ 	echo '";' >> morehelp.h
+ 

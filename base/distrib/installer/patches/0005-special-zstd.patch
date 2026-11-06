@@ -1,0 +1,33 @@
+distrib/special/zstd: the installer's zstd, the decompressor alone, for crunchgen.
+
+The ramdisk's list links usr/bin/zstd to instbin; crunchgen takes each program of instbin
+from distrib/special. This one builds upstream's decompressor (no compression, benchmark,
+dictionary builder or trace), single-threaded and small, from the imported source that
+world.py puts at usr.bin/zstd of the copied tree.
+
+--- a/distrib/special/zstd/Makefile
++++ b/distrib/special/zstd/Makefile
+@@ -0,0 +1,23 @@
++#	EmiBSD: the installer's zstd, the decompressor alone
++#
++# zstd as the install media carry it, crunched into instbin: upstream's decompressor
++# (programs/Makefile's zstd-decompress), from the source world.py puts at usr.bin/zstd.
++
++PROG=	zstd
++ZSTD=	${.CURDIR}/../../../usr.bin/zstd
++
++.PATH:	${ZSTD}/programs ${ZSTD}/lib/common ${ZSTD}/lib/decompress
++
++SRCS=	zstdcli.c util.c timefn.c fileio.c fileio_asyncio.c
++SRCS+=	debug.c entropy_common.c error_private.c fse_decompress.c pool.c threading.c \
++	xxhash.c zstd_common.c
++SRCS+=	huf_decompress.c zstd_ddict.c zstd_decompress.c zstd_decompress_block.c
++
++CPPFLAGS+=	-I${ZSTD}/lib -I${ZSTD}/lib/common -I${ZSTD}/programs \
++		-DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -DZSTD_DISABLE_ASM \
++		-DZSTD_NOBENCH -DZSTD_NODICT -DZSTD_NOCOMPRESS -DZSTD_NOTRACE \
++		-DBACKTRACE_ENABLE=0
++COPTS+=	-Oz
++NOMAN=	yes
++
++.include <bsd.prog.mk>

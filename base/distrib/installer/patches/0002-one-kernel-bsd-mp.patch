@@ -1,0 +1,35 @@
+arm64 installs one kernel, bsd.mp, which becomes /bsd on every machine, one CPU or many.
+
+EmiBSD's arm64 release has no single-processor kernel. install.md names the sets the
+machine needs, bsd.mp and bsd.rd (MDSETS, MDSANESETS), and install.sub moves bsd.mp to /bsd
+when there is more than one CPU, as before, and also when there is no bsd beside it, so a
+one-CPU machine is not left without /bsd. Where both kernels are installed (amd64) nothing
+changes.
+
+--- a/distrib/arm64/ramdisk/install.md
++++ b/distrib/arm64/ramdisk/install.md
+@@ -34,6 +34,9 @@
+ 
+ MDBOOTSR=y
+ NCPU=$(sysctl -n hw.ncpufound)
++# One kernel, bsd.mp, whatever the number of CPUs; with bsd.rd for the installer.
++MDSETS="bsd.mp bsd.rd"
++MDSANESETS=bsd.mp
+ COMPATIBLE=$(sysctl -n machdep.compatible)
+ MOUNT_ARGS_msdos="-o-l"
+ KEEP_EFI_SYS=false
+--- a/distrib/miniroot/install.sub
++++ b/distrib/miniroot/install.sub
+@@ -2995,9 +2995,10 @@
+ 	md_installboot $ROOTDISK
+ 
+ 	chmod og-rwx /mnt/bsd{,.mp,.rd} 2>/dev/null
+-	if [[ -f /mnt/bsd.mp ]] && ((NCPU > 1)); then
++	if [[ -f /mnt/bsd.mp ]] && { ((NCPU > 1)) || [[ ! -f /mnt/bsd ]]; }; then
+ 		_kernel=$_kernel.MP
+-		echo "Multiprocessor machine; using bsd.mp instead of bsd."
++		((NCPU > 1)) &&
++			echo "Multiprocessor machine; using bsd.mp instead of bsd."
+ 		mv /mnt/bsd /mnt/bsd.sp 2>/dev/null
+ 		mv /mnt/bsd.mp /mnt/bsd
+ 	fi

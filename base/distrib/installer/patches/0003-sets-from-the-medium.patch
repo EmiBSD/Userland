@@ -1,0 +1,29 @@
+The location of the sets offers the install medium only, disk or CD, not http or nfs.
+
+EmiBSD has no server of its sets yet: an install takes them from the medium it booted from
+(the ISO or the USB image). The question about verification stays: the medium carries
+SHA256, not SHA256.sig.
+
+--- a/distrib/miniroot/install.sub
++++ b/distrib/miniroot/install.sub
+@@ -2800,19 +2800,7 @@
+ 	# Default to method recorded last time, if any.
+ 	local _cddevs=$(get_cddevs) _d=$CGI_METHOD _im _locs=disk _src
+ 
+-	# Offer network methods if there are physical interfaces.
+-	if [[ -n $(get_ifs) ]]; then
+-		_locs="$_locs http"
+-
+-		# Offer NFS if the ramdisk supports it.
+-		[[ -x /sbin/mount_nfs ]] && _locs="$_locs nfs"
+-
+-		# Prefer HTTP to any existing default if installurl(5) exists.
+-		[[ -s /mnt/etc/installurl ]] && _d=http
+-
+-		# Default to HTTP, whether netbooted or not.
+-		: ${_d:=http}
+-	fi
++	# The sets come from the install medium alone (disk or CD): no network methods.
+ 
+ 	# Default to CD, assuming it is installXY.iso containing sets.
+ 	[[ -n $_cddevs ]] && : ${_d:=cd0}

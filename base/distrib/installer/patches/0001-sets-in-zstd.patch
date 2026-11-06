@@ -1,0 +1,58 @@
+The install sets are base80.tar.zst, comp80, man80 and game80, extracted through zstd; the X sets are gone.
+
+EmiBSD's sets are zstd archives and the base system has no X: SETS, SANESETS and the
+upgrade's checks name the .tar.zst sets, and the extraction gains a branch that pipes a
+set through zstd -dc into tar. After base, /var/sysmerge/etc.tgz is extracted as before:
+base carries it, and sysmerge(8) reads it later. A site set stays a .tgz, read as before.
+
+--- a/distrib/miniroot/install.sub
++++ b/distrib/miniroot/install.sub
+@@ -1790,13 +1790,13 @@
+ 		# We are committed to installing new files.  Attempt to cope
+ 		# with potential space shortage in /usr by deleting a few
+ 		# versioned areas which will be replaced from the new sets
+-		if isin base$VERSION.tgz $_get_sets; then
++		if isin base$VERSION.tar.zst $_get_sets; then
+ 			rm -rf /mnt/usr/share/relink/*
+ 			rm -rf /mnt/usr/lib/libLLVM.so.[0-9].0
+ 			rm -rf /mnt/usr/libdata/perl5
+ 			rm -f /mnt/usr/libexec/cpp
+ 		fi
+-		if isin comp$VERSION.tgz $_get_sets; then
++		if isin comp$VERSION.tar.zst $_get_sets; then
+ 			rm -rf /mnt/usr/lib/{gcc-lib,clang}
+ 			rm -rf /mnt/usr/bin/{gcc,g++}
+ 			rm -rf /mnt/usr/include/g++
+@@ -1820,6 +1820,14 @@
+ 
+ 		# Extract the set files and put the kernel files in place.
+ 		case $_fsrc in
++		*.tar.zst)	$_unpriv ftp -D Installing -Vmo - "$_fsrc" |
++				zstd -dcq | tar -xphf - -C /mnt &&
++			if [[ $_f == base*.tar.zst && $MODE == install ]]; then
++				ftp -D Extracting -Vmo - \
++				file:///mnt/var/sysmerge/etc.tgz |
++				tar -zxphf - -C /mnt
++			fi
++			;;
+ 		*.tgz)	$_unpriv ftp -D Installing -Vmo - "$_fsrc" |
+ 				tar -zxphf - -C /mnt &&
+ 			if [[ $_f == ?(x)base*.tgz && $MODE == install ]]; then
+@@ -3680,14 +3688,14 @@
+ # Selected sets will be installed in the order they are listed in $ALLSETS.
+ # Ensure that siteXX.tgz is the *last* set listed so its contents overwrite
+ # the contents of the other sets, not the other way around.
+-SETS=$(echo {base,comp,man,game,xbase,xshare,xfont,xserv}$VERSION.tgz)
++SETS=$(echo {base,comp,man,game}$VERSION.tar.zst)
+ DEFAULTSETS="${MDSETS:-bsd bsd.rd} $SETS"
+ ALLSETS="${MDSETS:-bsd bsd.rd} $SETS site$VERSION.tgz"
+-SANESETS="${MDSANESETS:-bsd} base${VERSION}.tgz"
++SANESETS="${MDSANESETS:-bsd} base${VERSION}.tar.zst"
+ if ((NCPU > 1)); then
+ 	DEFAULTSETS="${MDSETS:-bsd bsd.mp bsd.rd} $SETS"
+ 	ALLSETS="${MDSETS:-bsd bsd.mp bsd.rd} $SETS site$VERSION.tgz"
+-	SANESETS="${MDSANESETS:-bsd bsd.mp} base${VERSION}.tgz"
++	SANESETS="${MDSANESETS:-bsd bsd.mp} base${VERSION}.tar.zst"
+ fi
+ 
+ # Prepare COLUMNS sanely.

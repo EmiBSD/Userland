@@ -21,7 +21,10 @@
  * lstat(2) and cgetent(3) are wrapped (makefs-host.c): makefs takes every file's owner,
  * mode and kind from lstat of the staging tree, which a user cannot set (devices, root's
  * files), so the wrapper reports them from the table the build wrote; and the disktab it
- * reads is the one the build names, not the host's /etc/disktab.
+ * reads is the one the build names, not the host's /etc/disktab. With $SOURCE_DATE_EPOCH
+ * set, every staged file's times are the epoch and the disklabel's uid comes from it, not
+ * from arc4random: an image is the same in every build of one commit (with -T for the
+ * superblock's time and the inodes' generation numbers).
  */
 #ifndef EMIBSD_HOST_MAKEFS_H
 #define EMIBSD_HOST_MAKEFS_H
@@ -38,5 +41,7 @@ int emibsd_host_lstat(const char *, struct stat *);
 int emibsd_host_cgetent(char **, char **, const char *);
 #define cgetent(buf, db, name) emibsd_host_cgetent(buf, db, name)
 int scan_scaled(char *, long long *);
+void emibsd_host_arc4random_buf(void *, size_t);
+#define arc4random_buf(buf, n) emibsd_host_arc4random_buf(buf, n)
 
 #endif /* EMIBSD_HOST_MAKEFS_H */

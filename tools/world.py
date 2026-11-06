@@ -236,6 +236,32 @@ def step_host(arch: str, out: Path) -> None:
     host_base(out)
     host_base_tools(out)
     host_tic(out)
+    host_crunchgen(arch, out)
+
+
+def host_crunchgen(arch: str, out: Path) -> None:
+    """crunchgen(8) for the host, which links the installer's programs into one instbin and,
+    as `crunchgen -h` (crunchide), hides each one's symbols in its ELF object: the target's
+    ELF definitions from the tree (elf.h, sys/exec_elf.h, the machine's ELF size), and
+    MACHINE, which names an obj.<machine> directory, the target's."""
+    inc = HOST / "include-crunchgen"
+    if inc.exists():
+        shutil.rmtree(inc)
+    (inc / "sys").mkdir(parents=True)
+    (inc / "machine").mkdir()
+    shutil.copy2(out / "src/include/elf.h", inc / "elf.h")
+    shutil.copy2(out / "src/sys/sys/exec_elf.h", inc / "sys/exec_elf.h")
+    size = re.search(r"#define\s+ARCH_ELFSIZE\s+(\d+)",
+                     (out / f"src/sys/arch/{MACHINES[arch]['MACHINE']}/include/exec.h").read_text()).group(1)
+    (inc / "machine/exec.h").write_text(f"#define ARCH_ELFSIZE {size}\n")
+    obj = HOST / "obj/usr.sbin/crunchgen"
+    obj.mkdir(parents=True, exist_ok=True)
+    subprocess.run([str(HOST / "bin/make"), "-m", str(out / "src/share/mk"),
+                    f"CC={host_cc()} -I{inc} -DMACHINE='\"{MACHINES[arch]['MACHINE']}\"'",
+                    "NOMAN=1", "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", "WARNINGS=no"],
+                   cwd=out / "src/usr.sbin/crunchgen", env=dict(os.environ, MAKEOBJDIR=str(obj)), check=True)
+    shutil.copy2(obj / "crunchgen", HOST / "bin/crunchgen")
+    print(f"host: {HOST / 'bin/crunchgen'}")
 
 
 def host_tic(out: Path) -> None:
@@ -627,6 +653,93 @@ def step_image(arch: str, out: Path) -> None:
     print(f"image: {image} ({image.stat().st_size // 1024} KiB, {len(lines)} entries with attributes)")
 
 
+# The installer's ramdisk image: rd(4)'s size in the kernel that boots it (the Kernel's
+# bsd.RAMDISK, 65536 sectors), which the image is padded to exactly.
+MINIROOT_SECTORS = 65536
+
+
+def step_miniroot(arch: str, out: Path) -> None:
+    """target/<arch>/miniroot80.fs: the installer's ramdisk as distrib/<arch>/ramdisk's mr.fs
+    target makes it, without the kernel (OS sets the image into the Kernel's bsd.RAMDISK with
+    rdsetroot): instbin crunched by crunchgen from distrib/special, then the list run by
+    distrib/miniroot's runlist.sh into a staging tree laid out by its mtree.conf, then makefs.
+    The host's tools are the tree's (crunchgen, mtree, pwd_mkdb, tic, makefs); MAKEDEV's
+    nodes and every owner go through the stand-ins' metalog. The image is the same in every
+    build of one commit: makefs takes the epoch for its times and labels."""
+    rd = f"distrib/{arch}/ramdisk"
+    src, sysroot = out / "src", out / "sysroot"
+    for d in ("distrib/special", "distrib/special/zstd", rd):
+        make_walk(arch, out, d, "obj")
+    if make_walk(arch, out, "distrib/special/libstubs") or make_walk(arch, out, rd, "instbin"):
+        raise SystemExit(f"miniroot: instbin did not build ({rd})")
+    objdir = (src / rd / "obj").resolve()
+    staging = out / "miniroot"
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir()
+    log = out / "miniroot-metalog"
+    log.unlink(missing_ok=True)
+    env = make_env(arch, out)
+    env.update(WORLD_METALOG=str(log), MAKEDEV_PARTITIONS="16")
+    utils = src / "distrib/miniroot"
+    # -U, the -u of the recipe that exits 0 once every mismatch is corrected: in a new tree
+    # every directory is one.
+    subprocess.run([str(HOST / "bin/mtree"), "-def", str(utils / "mtree.conf"), "-p", str(staging), "-U"],
+                   env=env, check=True, stdout=subprocess.DEVNULL)
+    # runlist.sh's script, with MAKEDEV run as the image step runs it: from a copy whose PATH
+    # line leads to the stand-ins, by bash (the base system's sh has `echo -n` and `local`).
+    makedev = src / f"etc/etc.{arch}/MAKEDEV"
+    runner = out / "MAKEDEV.build"
+    runner.write_text(makedev.read_text().replace("\nPATH=/sbin:/usr/sbin:/bin:/usr/bin\n",
+                                                  f"\nPATH={HOST / 'bin'}:/bin:/usr/bin\n"))
+    script = subprocess.run(["awk", "-f", str(utils / "list2sh.awk"), str(src / rd / "list")],
+                            capture_output=True, text=True, check=True).stdout
+    old = "(cd ${TARGDIR}; cd dev; sh MAKEDEV ramdisk)"
+    assert script.count(old) == 1, "the list's MAKEDEV line moved"
+    script = script.replace(old, f"(cd ${{TARGDIR}}; cd dev; /bin/bash {runner} ramdisk)")
+    env.update(CURDIR=str(src / rd), OBJDIR=str(objdir), OSrev=OSREV, TARGDIR=str(staging),
+               UTILS=str(utils), RELEASEDIR="", DESTDIR=str(sysroot))
+    subprocess.run(["sh", "-e"], input=script, text=True, env=env, check=True, stdout=subprocess.DEVNULL)
+    (staging / "instbin").unlink()
+    # The table makefs's lstat reads: mtree.conf's directories, then what the metalog
+    # recorded (chmod, chown, MAKEDEV's nodes); the rest is root's and wheel's.
+    users, groups = ids_of(utils)
+    attrs = {path: dict(keys) for path, keys in mtree_entries(utils / "mtree.conf")}
+    for path, rec in read_metalog(log, staging).items():
+        attrs.setdefault(path, {}).update(rec)
+    lines = []
+    for path, rec in sorted(attrs.items()):
+        f = staging / path
+        if not (f.exists() or f.is_symlink()):
+            continue
+        st = f.lstat()
+        mode = int(rec["mode"], 8) if rec.get("mode", "").isdigit() else st.st_mode & 0o7777
+        kind = {"char": "c", "block": "b"}.get(rec.get("type", ""), "d" if f.is_dir() else "f")
+        lines.append(f"{mode:o} {users.get(rec.get('uname', 'root'), 0)} {groups.get(rec.get('gname', 'wheel'), 0)} "
+                     f"{kind} {rec.get('major', 0)} {rec.get('minor', 0)} {path}")
+    table = out / "miniroot-attrs"
+    table.write_text("\n".join(lines) + "\n")
+    disktab = out / "miniroot-disktab"
+    tracks, sectors = 2, 256
+    disktab.write_text(
+        f"rdroot|ramdiskroot|RAM-disk root FS image:\\\n"
+        f"\t:dt=rdroot:se#512:nc#{MINIROOT_SECTORS // (tracks * sectors)}:nt#{tracks}:ns#{sectors}:\\\n"
+        f"\t:ta=4.2BSD:oa#0:pa#{MINIROOT_SECTORS}:fa#512:ba#4096:\\\n"
+        f"\t:oc#0:pc#{MINIROOT_SECTORS}:\n")
+    image = out / f"miniroot{OSREV}.fs"
+    image.unlink(missing_ok=True)
+    subprocess.run([str(HOST / "bin/makefs"), "-T", EPOCH, "-o", "disklabel=rdroot,minfree=0,density=4096",
+                    str(image), str(staging)],
+                   env=dict(os.environ, WORLD_STAGING=str(staging), WORLD_ATTRS=str(table),
+                            WORLD_DISKTAB=str(disktab), SOURCE_DATE_EPOCH=EPOCH), check=True)
+    size, want = image.stat().st_size, MINIROOT_SECTORS * 512
+    if size > want:
+        raise SystemExit(f"miniroot: {image} is {size} bytes, more than rd(4)'s {want}")
+    with open(image, "r+b") as fh:
+        fh.truncate(want)
+    print(f"miniroot: {image} ({want} bytes, {len(lines)} entries with attributes)")
+
+
 # The trees `make build` walks after the libraries, by their own Makefiles' SUBDIR. gnu/ is
 # DevTools' (the compiler) or GPL (left out).
 BASE_TREES = ("bin", "libexec", "sbin", "usr.bin", "usr.sbin", "share", "games")
@@ -701,6 +814,10 @@ HOST_TOOL_VARS = {"share/termtypes": (("TIC", "tic"),),
                   "games/fortune/datfiles": (("STRFILE", "strfile"),),
                   "games/boggle": (("MKDICT", "mkdict"), ("MKINDEX", "mkindex")),
                   "share/man": (("MAKEWHATIS", "makewhatis"),)}
+# Other settings a directory needs, for that directory only: crunchgen's instbin.mk links
+# with bsd.own.mk's NOPIE_LDFLAGS, -nopie, a spelling the base system's clang and lld
+# accept and DevTools' do not; -no-pie is the same option in both.
+DIR_VARS = {f"distrib/{arch}/ramdisk": ("NOPIE_LDFLAGS=-no-pie",) for arch in ("arm64", "amd64")}
 
 
 def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
@@ -728,6 +845,7 @@ def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
             # A re-link kit runs on the installed system, whose compiler is cc.
             "RELINK_CC=cc",
             *(f"{var}={HOST / 'bin' / tool}" for var, tool in HOST_TOOL_VARS.get(directory, ())),
+            *DIR_VARS.get(directory, ()),
             *targets]
     env = make_env(arch, out)
     if (out / "src" / directory / "Makefile.bsd-wrapper").exists():   # as bsd.subdir.mk does
@@ -972,7 +1090,7 @@ def ids_of(etc: Path) -> tuple:
 
 STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "obj": step_obj,
          "lib": step_lib, "base": step_base, "retry": step_retry, "image": step_image,
-         "sets": step_sets, "etc": step_etc}
+         "sets": step_sets, "etc": step_etc, "miniroot": step_miniroot}
 # `just world arm64` with no step: the base system built and installed into the sysroot.
 # `make obj` first, as in the base system: include/Makefile has librpcsvc generate its
 # headers, which then must be in that library's obj, where its sources are compiled.

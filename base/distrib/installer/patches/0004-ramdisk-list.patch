@@ -1,0 +1,79 @@
+The arm64 ramdisk crunches zstd into instbin and leaves out the firmware files and the Raspberry Pi's boot files.
+
+zstd: the installer extracts the sets with zstd -dc (distrib/special/zstd, the
+decompressor alone). The USB network firmware (etc/firmware) is not built yet and the
+installer takes no set over the network; the Raspberry Pi's firmware, device trees and
+u-boot come from packages the build does not have, and the machines EmiBSD boots on today
+start through UEFI.
+
+--- a/distrib/arm64/ramdisk/list
++++ b/distrib/arm64/ramdisk/list
+@@ -64,6 +64,7 @@
+ LINK	instbin					usr/bin/sed
+ LINK	instbin					usr/bin/signify
+ LINK	instbin					usr/bin/tee
++LINK	instbin					usr/bin/zstd
+ LINK	instbin					usr/sbin/chroot
+ LINK	instbin					usr/sbin/installboot
+ LINK	instbin					usr/sbin/pwd_mkdb
+@@ -74,60 +75,6 @@
+ LINK	instbin					usr/bin/ftp-ssl usr/bin/ftp
+ SPECIAL	rm usr/bin/ftp-ssl
+ 
+-# firmware we might need
+-COPY	${DESTDIR}/etc/firmware/kue		etc/firmware/kue
+-COPY	${DESTDIR}/etc/firmware/zd1211		etc/firmware/zd1211
+-COPY	${DESTDIR}/etc/firmware/zd1211b		etc/firmware/zd1211b
+-COPY	${DESTDIR}/etc/firmware/rum-rt2573	etc/firmware/rum-rt2573
+-COPY	${DESTDIR}/etc/firmware/run-rt2870	etc/firmware/run-rt2870
+-COPY	${DESTDIR}/etc/firmware/run-rt3071	etc/firmware/run-rt3071
+-COPY	${DESTDIR}/etc/firmware/atu-at76c503-i3863-ext etc/firmware/atu-at76c503-i3863-ext
+-COPY	${DESTDIR}/etc/firmware/atu-at76c503-i3863-int etc/firmware/atu-at76c503-i3863-int
+-COPY	${DESTDIR}/etc/firmware/atu-at76c503-rfmd-acc-ext etc/firmware/atu-at76c503-rfmd-acc-ext
+-COPY	${DESTDIR}/etc/firmware/atu-at76c503-rfmd-acc-int etc/firmware/atu-at76c503-rfmd-acc-int
+-COPY	${DESTDIR}/etc/firmware/atu-at76c505-rfmd-ext etc/firmware/atu-at76c505-rfmd-ext
+-COPY	${DESTDIR}/etc/firmware/atu-at76c505-rfmd-int etc/firmware/atu-at76c505-rfmd-int
+-COPY	${DESTDIR}/etc/firmware/atu-intersil-ext etc/firmware/atu-intersil-ext
+-COPY	${DESTDIR}/etc/firmware/atu-intersil-int etc/firmware/atu-intersil-int
+-COPY	${DESTDIR}/etc/firmware/atu-rfmd-ext etc/firmware/atu-rfmd-ext
+-COPY	${DESTDIR}/etc/firmware/atu-rfmd-int etc/firmware/atu-rfmd-int
+-COPY	${DESTDIR}/etc/firmware/atu-rfmd2958-ext etc/firmware/atu-rfmd2958-ext
+-COPY	${DESTDIR}/etc/firmware/atu-rfmd2958-int etc/firmware/atu-rfmd2958-int
+-COPY	${DESTDIR}/etc/firmware/atu-rfmd2958smc-ext etc/firmware/atu-rfmd2958smc-ext
+-COPY	${DESTDIR}/etc/firmware/atu-rfmd2958smc-int etc/firmware/atu-rfmd2958smc-int
+-COPY    ${DESTDIR}/etc/firmware/rsu-rtl8712	etc/firmware/rsu-rtl8712
+-COPY    ${DESTDIR}/etc/firmware/urtwn-rtl8188eu	etc/firmware/urtwn-rtl8188eu
+-COPY    ${DESTDIR}/etc/firmware/urtwn-rtl8188ftv etc/firmware/urtwn-rtl8188ftv
+-COPY    ${DESTDIR}/etc/firmware/urtwn-rtl8192cT	etc/firmware/urtwn-rtl8192cT
+-COPY    ${DESTDIR}/etc/firmware/urtwn-rtl8192cU	etc/firmware/urtwn-rtl8192cU
+-COPY    ${DESTDIR}/etc/firmware/urtwn-rtl8192eu	etc/firmware/urtwn-rtl8192eu
+-
+-MKDIR	usr/mdec/rpi
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2710-rpi-2-b.dtb usr/mdec/rpi/bcm2710-rpi-2-b.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2710-rpi-3-b.dtb usr/mdec/rpi/bcm2710-rpi-3-b.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2710-rpi-3-b-plus.dtb usr/mdec/rpi/bcm2710-rpi-3-b-plus.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2710-rpi-cm3.dtb usr/mdec/rpi/bcm2710-rpi-cm3.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2710-rpi-zero-2-w.dtb usr/mdec/rpi/bcm2710-rpi-zero-2-w.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2711-rpi-4-b.dtb usr/mdec/rpi/bcm2711-rpi-4-b.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2711-rpi-400.dtb usr/mdec/rpi/bcm2711-rpi-400.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2711-rpi-cm4.dtb usr/mdec/rpi/bcm2711-rpi-cm4.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2712-d-rpi-5-b.dtb usr/mdec/rpi/bcm2712-d-rpi-5-b.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2712-rpi-5-b.dtb usr/mdec/rpi/bcm2712-rpi-5-b.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2712-rpi-500.dtb usr/mdec/rpi/bcm2712-rpi-500.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2712-rpi-cm5-cm4io.dtb usr/mdec/rpi/bcm2712-rpi-cm5-cm4io.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2712-rpi-cm5-cm5io.dtb usr/mdec/rpi/bcm2712-rpi-cm5-cm5io.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2712-rpi-cm5l-cm4io.dtb usr/mdec/rpi/bcm2712-rpi-cm5l-cm4io.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2712-rpi-cm5l-cm5io.dtb usr/mdec/rpi/bcm2712-rpi-cm5l-cm5io.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bcm2712d0-rpi-5-b.dtb usr/mdec/rpi/bcm2712d0-rpi-5-b.dtb
+-COPY	/usr/local/share/raspberrypi-firmware/boot/bootcode.bin usr/mdec/rpi/bootcode.bin
+-COPY	/usr/local/share/raspberrypi-firmware/boot/start.elf usr/mdec/rpi/start.elf
+-COPY	/usr/local/share/raspberrypi-firmware/boot/start4.elf usr/mdec/rpi/start4.elf
+-COPY	/usr/local/share/raspberrypi-firmware/boot/fixup.dat usr/mdec/rpi/fixup.dat
+-COPY	/usr/local/share/raspberrypi-firmware/boot/fixup4.dat usr/mdec/rpi/fixup4.dat
+-COPY	/usr/local/share/raspberrypi-firmware/boot/overlays/bcm2712d0.dtbo usr/mdec/rpi/bcm2712d0.dtbo
+-COPY	/usr/local/share/raspberrypi-firmware/boot/overlays/disable-bt.dtbo usr/mdec/rpi/disable-bt.dtbo
+-COPY	/usr/local/share/u-boot/rpi_arm64/u-boot.bin usr/mdec/rpi/u-boot.bin
+-
+ # copy the MAKEDEV script and make some devices
+ SCRIPT	${DESTDIR}/dev/MAKEDEV			dev/MAKEDEV
+ SPECIAL	cd dev; sh MAKEDEV ramdisk

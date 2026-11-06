@@ -148,6 +148,60 @@ relative(const char *path, char *buf, size_t len)
 	return buf;
 }
 
+/* $SOURCE_DATE_EPOCH, or -1 when it is unset. */
+static long long
+epoch(void)
+{
+	const char *e = getenv("SOURCE_DATE_EPOCH");
+	char *end;
+	long long v;
+
+	if (e == NULL || *e == '\0')
+		return -1;
+	v = strtoll(e, &end, 10);
+	return *end == '\0' && v >= 0 ? v : -1;
+}
+
+/* A staged file's times, the epoch's when it is set: the build made them all just now. */
+static void
+epoch_times(struct stat *sb)
+{
+	long long e = epoch();
+
+	if (e == -1)
+		return;
+	sb->st_atimespec.tv_sec = sb->st_mtimespec.tv_sec = sb->st_ctimespec.tv_sec = (time_t)e;
+	sb->st_atimespec.tv_nsec = sb->st_mtimespec.tv_nsec = sb->st_ctimespec.tv_nsec = 0;
+}
+
+/*
+ * The disklabel's uid: arc4random's, or with the epoch set a sequence that repeats from it
+ * (splitmix64), so two builds of one commit write the same label.
+ */
+void
+emibsd_host_arc4random_buf(void *buf, size_t n)
+{
+	unsigned char *p = buf;
+	unsigned long long x;
+	long long e = epoch();
+
+	if (e == -1) {
+		arc4random_buf(buf, n);
+		return;
+	}
+	x = (unsigned long long)e;
+	while (n > 0) {
+		unsigned long long z = (x += 0x9e3779b97f4a7c15ULL);
+		size_t k;
+
+		z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+		z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+		z ^= z >> 31;
+		for (k = 0; k < 8 && n > 0; k++, n--)
+			*p++ = (unsigned char)(z >> (8 * k));
+	}
+}
+
 int
 emibsd_host_lstat(const char *path, struct stat *sb)
 {
@@ -162,10 +216,12 @@ emibsd_host_lstat(const char *path, struct stat *sb)
 	key.path = rel;
 	a = bsearch(&key, attrs, nattrs, sizeof(*attrs), bypath);
 	if (a == NULL) {
+		epoch_times(sb);
 		sb->st_uid = 0;
 		sb->st_gid = 0;
 		return 0;
 	}
+	epoch_times(sb);
 	sb->st_uid = a->uid;
 	sb->st_gid = a->gid;
 	sb->st_mode = (sb->st_mode & S_IFMT) | (a->mode & 07777);

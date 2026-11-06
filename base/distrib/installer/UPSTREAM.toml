@@ -13,4 +13,4 @@ license = []   # the families; the texts stay in the source
 cpe     = ""            # NVD product, for tools/cve.py
 
 [patches]
-series  = []   # patches/NNNN-*.patch, in order; each with its reason
+series  = ["0001-sets-in-zstd.patch", "0002-one-kernel-bsd-mp.patch", "0003-sets-from-the-medium.patch", "0004-ramdisk-list.patch", "0005-special-zstd.patch", "0006-more-help-printf.patch"]   # patches/NNNN-*.patch, in order; each with its reason
