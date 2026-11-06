@@ -73,7 +73,9 @@ warnings`, tests, once a written program brings the workspace back); `just host-
 the base system's make for the host from its inherited `src/` (the inherited C is built with
 it, never with GNU make or an installed bmake); `just world arm64` builds the inherited
 system for EmiBSD under `target/arm64` (`tools/world.py`: the tree copied back to its paths,
-the host tools, /usr/include, csu, the libraries, the programs); `just lint`, `just test`, `just man` in a program's directory; `just
+the host tools, /usr/include, csu, the libraries, the programs, /etc, the sets); `just dist
+arm64` and `just release <YEAR.MONTH.N>` cut a release of the sets, one artifact per
+architecture, from a tagged commit (OS fetches it by tag); `just lint`, `just test`, `just man` in a program's directory; `just
 status` for the progress numbers. A program is made by the roles of
 `.claude/rules/subagents.md`: `surveyor` (the standard's facts), `designer` (DEFINITION, DESIGN,
 schemas), `implementer` (src, tests, manual), `reviewer`, `integrator`; `mechanical` for the

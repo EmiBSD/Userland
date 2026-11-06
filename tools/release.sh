@@ -1,0 +1,87 @@
+#!/bin/sh
+#
+# Copyright (c) 2026 Emilio Navarrete Lineros <enavarre@outlook.com>
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#
+# tools/release.sh <tag>: the GitHub release of the install sets, one artifact per
+# architecture, from the main session, by the maintainer (it publishes, like a push).
+#
+# The tag is YEAR.MONTH.N (2026.11.0): HEAD must carry it, and every artifact in dist/ for it
+# (userland-<tag>-<arch>.tar, `just dist <arch>`) must match its .sha256 and have been made
+# from it (its MANIFEST says so). The first run creates the release with the artifacts there
+# are; a later run, for an architecture built since (amd64 once Kernel boots it), uploads the
+# artifacts the release lacks, never replacing one, and rewrites the notes with every sum. A
+# consumer (OS's MANIFEST.toml) fetches by tag and architecture and checks the sum.
+set -eu
+cd "$(dirname "$0")/.."
+tag=${1:?the release tag, YEAR.MONTH.N}
+repo=EmiBSD/Userland
+git tag --points-at HEAD | grep -qx "$tag" \
+    || { echo "release: HEAD is not tagged $tag (git tag -a $tag -m '...' first; a release is cut from a tagged commit)" >&2; exit 1; }
+set -- dist/userland-"$tag"-*.tar
+[ -f "$1" ] || { echo "release: no artifact in dist/ for $tag (just dist arm64)" >&2; exit 1; }
+for t in "$@"; do
+    [ -f "$t.sha256" ] || { echo "release: $t.sha256 missing" >&2; exit 1; }
+    (cd dist && shasum -a 256 -c "$(basename "$t").sha256" >/dev/null) || { echo "release: $t does not match its .sha256" >&2; exit 1; }
+    tar -xOf "$t" "$(basename "$t" .tar)/MANIFEST" | grep -qx "tag: $tag" \
+        || { echo "release: $t was not made from $tag (its MANIFEST says otherwise): just dist again" >&2; exit 1; }
+done
+git ls-remote --tags origin "refs/tags/$tag" | grep -q . \
+    || { echo "release: $tag is not on origin yet: git push origin main $tag (the maintainer's), then again" >&2; exit 1; }
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+existing=
+if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
+    existing=$(gh release view "$tag" --repo "$repo" --json assets -q '.assets[].name')
+    gh release download "$tag" --repo "$repo" --pattern '*.tar.sha256' --dir "$work"
+fi
+upload=
+for t in "$@"; do
+    b=$(basename "$t")
+    if printf '%s\n' "$existing" | grep -qx "$b"; then
+        cmp -s "$t.sha256" "$work/$b.sha256" \
+            || { echo "release: $b is on the release with another sum; a released artifact is never replaced" >&2; exit 1; }
+        continue
+    fi
+    cp "$t.sha256" "$work/"
+    upload="$upload $t $t.sha256"
+done
+[ -n "$upload" ] || { echo "release: $tag already has every artifact in dist/"; exit 0; }
+notes=$work/notes
+{
+    echo "The inherited base system of EmiBSD, built for EmiBSD from the tag \`$tag\`."
+    echo
+    echo "One artifact per architecture; fetch by this tag, check the sum, then unpack:"
+    echo
+    echo '```'
+    cat "$work"/*.tar.sha256
+    echo '```'
+    echo
+    echo "Inside userland-$tag-<arch>/: the install sets base80.tgz, comp80.tgz, game80.tgz and man80.tgz,"
+    echo "their SHA256, and MANIFEST (the commit, the epoch, the base system's pin, the compiler, the sums,"
+    echo "what the sets still lack). Reproducible: \`just dist <arch>\` at this tag gives the same SHA256."
+    echo
+    echo "The base system is OpenBSD's at its pin, changed only by the patches each program's directory"
+    echo "carries. Not affiliated with or endorsed by the OpenBSD project."
+} > "$notes"
+if [ -z "$existing" ]; then
+    echo "release: creating $tag on $repo with:$upload"
+    # shellcheck disable=SC2086
+    gh release create "$tag" $upload --repo "$repo" --title "$tag" --notes-file "$notes" --verify-tag
+else
+    echo "release: adding to $tag on $repo:$upload"
+    # shellcheck disable=SC2086
+    gh release upload "$tag" $upload --repo "$repo"
+    gh release edit "$tag" --repo "$repo" --notes-file "$notes"
+fi
