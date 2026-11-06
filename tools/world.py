@@ -16,7 +16,7 @@
 
 usage: world.py <arch> [step...]
 
-The steps, in order (the first eight, through sets, when none is named):
+The steps, in order (the first nine, through sets, when none is named):
 
   tree      target/<arch>/src: every inherited directory's src/ copied back to its path in
             the base system's tree, so each Makefile finds its neighbours where it expects
@@ -32,8 +32,10 @@ The steps, in order (the first eight, through sets, when none is named):
             the failures are listed in target/<arch>/failed
   etc       etc/Makefile's distribution-etc-root-var: /etc, /root, /var, pwd.db, etc.tgz;
             the manual's mandoc.db
+  miniroot  target/<arch>/miniroot80.fs: the installer's ramdisk, as distrib/<arch>/ramdisk
+            makes it (instbin crunched, the list run, makefs), padded to rd(4)'s size
   sets      target/<arch>/sets: base, comp, game and man as zstd archives, from the
-            sysroot by distrib/sets/lists, and their SHA256
+            sysroot by distrib/sets/lists, the miniroot beside them, and their SHA256
   retry     the directories that failed, again
   image     target/<arch>/ramdisk.ffs: the mtree skeleton, the programs, ld.so and the
             shared libraries, /etc from the tree, /dev by MAKEDEV's `ramdisk` target, made
@@ -977,8 +979,28 @@ def step_base(arch: str, out: Path) -> None:
            make_walk(arch, out, w, "install")]
     failed += bad
     print(f"base: imported: {len(places) - len(bad)} of {len(places)} built and installed")
+    failed += install_from_kernel(arch, out)
     (out / "failed").write_text("".join(f"{d}\n" for d in failed))
     print(f"base: {len(failed)} failed, listed in {out / 'failed'}")
+
+
+def install_from_kernel(arch: str, out: Path) -> list:
+    """What the base system takes from the Kernel's release (KERNEL.toml, fetched by
+    `just fetch`): the boot loader, in /usr/mdec as the base system's own Makefile installs
+    its loader (root, bin, 555). Returns what could not be installed."""
+    with open(ROOT / "KERNEL.toml", "rb") as fh:
+        k = tomllib.load(fh)["kernel"]
+    where = ROOT / "upstream/kernel" / k["release"]
+    pin = where / ".pin"
+    if arch not in k["sha256"] or not pin.exists() or pin.read_text().strip() != k["commit"]:
+        print(f"base: kernel {k['release']}: {arch} not fetched or not pinned (just fetch)")
+        return [f"KERNEL.toml {k['release']} {arch}"]
+    for name in k["take"]:
+        subprocess.run([str(HOST / "bin/install"), "-c", "-o", "root", "-g", "bin", "-m", "555",
+                        str(where / f"kernel-{k['release']}-{arch}" / name), str(out / "sysroot/usr/mdec" / name)],
+                       env=make_env(arch, out), check=True)
+    print(f"base: kernel {k['release']}: {', '.join(k['take'])} installed in /usr/mdec")
+    return []
 
 
 def step_etc(arch: str, out: Path) -> None:
@@ -1062,7 +1084,12 @@ def step_sets(arch: str, out: Path) -> None:
         report.append(f"{name}: {len(entries) - len(missing)} of {len(entries)} entries, "
                       f"{archive.stat().st_size // 1024} KiB")
         (sets / f"{name}.missing").write_text("".join(m + "\n" for m in missing))
-    sums = subprocess.run([str(HOST / "bin/sha256"), *(f"{name}{OSREV}.tar.zst" for name in SETS)], cwd=sets,
+    # The installer's ramdisk travels with the sets, as a release lists it.
+    released = [f"{name}{OSREV}.tar.zst" for name in SETS]
+    if (out / f"miniroot{OSREV}.fs").exists():
+        shutil.copy2(out / f"miniroot{OSREV}.fs", sets / f"miniroot{OSREV}.fs")
+        released.append(f"miniroot{OSREV}.fs")
+    sums = subprocess.run([str(HOST / "bin/sha256"), *released], cwd=sets,
                           capture_output=True, text=True, check=True).stdout
     (sets / "SHA256").write_text(sums)
     installed = {str(p.relative_to(sysroot)) for p in sysroot.rglob("*")}
@@ -1094,7 +1121,7 @@ STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "obj":
 # `just world arm64` with no step: the base system built and installed into the sysroot.
 # `make obj` first, as in the base system: include/Makefile has librpcsvc generate its
 # headers, which then must be in that library's obj, where its sources are compiled.
-DEFAULT = ("tree", "host", "obj", "includes", "lib", "base", "etc", "sets")
+DEFAULT = ("tree", "host", "obj", "includes", "lib", "base", "etc", "miniroot", "sets")
 
 
 def case_sensitive(out: Path) -> None:

@@ -31,6 +31,10 @@ host-make:
 world arch="arm64" *steps:
     python3 -I tools/world.py {{arch}} {{steps}}
 
+# What `just world` builds from (network): KERNEL.toml's release and the imported programs' sources.
+fetch-build:
+    python3 -I tools/upstream.py fetch --build
+
 # Built from scratch in a worktree of HEAD's tag: dist/userland-<tag>-<arch>.tar.zst and .sha256.
 # A release's artifact of the install sets, one per architecture (`just dist arm64`).
 dist +archs:

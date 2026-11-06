@@ -788,6 +788,10 @@ host-make:
 world arch="arm64" *steps:
     python3 -I tools/world.py {{arch}} {{steps}}
 
+# What `just world` builds from (network): KERNEL.toml's release and the imported programs' sources.
+fetch-build:
+    python3 -I tools/upstream.py fetch --build
+
 # Built from scratch in a worktree of HEAD's tag: dist/userland-<tag>-<arch>.tar.zst and .sha256.
 # A release's artifact of the install sets, one per architecture (`just dist arm64`).
 dist +archs:
@@ -836,8 +840,9 @@ exec python3 -I "$(git rev-parse --show-toplevel)/tools/version.py" check-commit
 
 GITIGNORE = """# Fetched upstream sources (tools/upstream.py), read-only, never committed.
 upstream/
-# Build output.
+# Build output, and a release's artifacts (tools/dist.py).
 target/
+dist/
 # What the base system's own tree ignores: a `make obj` directory or link beside a Makefile,
 # an editor's tags. Nothing at the pin matches them; its third pattern, CVS, is left out:
 # on a case-insensitive file system it hides the cvs program. Broader patterns (*.a, *.so)
@@ -868,14 +873,18 @@ UPSTREAM_PY = r'''#!/usr/bin/env python3
 """Fetch, verify and pin the upstream sources of the imported programs (docs/PROGRAM.md).
 
 usage: upstream.py fetch [<program dir>...]     fetch what the UPSTREAM.toml files name
+       upstream.py fetch --build                 what world.py builds from: KERNEL.toml's release and
+                                                 the imported programs' sources, nothing inherited
        upstream.py check [<program dir>...]     every fetched upstream matches its pin
 
 Git upstreams are cloned sparse, blob-less, into upstream/<mirror name>/ at the repository
 root, one clone per mirror shared by every program that names it (EmiBSD/OpenBSD-src holds
 most of them), checked out at the pinned commit (or the commit a pinned tag resolves to).
 Tarball upstreams are downloaded into upstream/<name>/, their SHA-256 verified before
-extraction. Everything fetched is made read-only; upstream/<key>/.pin records the hash.
-Stdlib only.
+extraction. KERNEL.toml's Kernel release is downloaded by tag (gh), one artifact per
+architecture it pins a sum for, checked, and what `take` names unpacked into
+upstream/kernel/<release>/<artifact>/. Everything fetched is made read-only;
+upstream/<key>/.pin records the hash. Stdlib only.
 """
 import hashlib
 import os
@@ -988,7 +997,49 @@ def fetch_tarball(key, up):
     print(f"upstream: {key}: {digest[:12]} pinned")
 
 
+def kernel_pin():
+    with open(ROOT / "KERNEL.toml", "rb") as fh:
+        return tomllib.load(fh)["kernel"]
+
+
+def fetch_kernel():
+    k = kernel_pin()
+    dest = UPSTREAM / "kernel" / k["release"]
+    if dest.exists():
+        readonly_off(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    repo = "/".join(k["repo"].rstrip("/").split("/")[-2:])
+    for arch, want in sorted(k["sha256"].items()):
+        name = f"kernel-{k['release']}-{arch}"
+        archive = dest / f"{name}.tar.zst"
+        if not archive.exists() or hashlib.sha256(archive.read_bytes()).hexdigest() != want:
+            archive.unlink(missing_ok=True)
+            print(f"upstream: kernel: downloading {archive.name} from {repo} {k['release']}")
+            subprocess.run(["gh", "release", "download", k["release"], "--repo", repo, "--pattern", archive.name,
+                            "--dir", str(dest)], check=True)
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        if digest != want:
+            archive.unlink()
+            raise SystemExit(f"upstream: kernel: {archive.name}: SHA-256 {digest} != {want}")
+        members = [f"{name}/{f}" for f in k["take"]]
+        zstd = subprocess.Popen(["zstd", "-dcq", str(archive)], stdout=subprocess.PIPE)
+        subprocess.run(["tar", "-xf", "-", "-C", str(dest), *members], stdin=zstd.stdout, check=True)
+        if zstd.wait():
+            raise SystemExit(f"upstream: kernel: zstd could not read {archive.name}")
+        print(f"upstream: kernel: {k['release']} {arch} {digest[:12]} pinned ({', '.join(k['take'])})")
+    (dest / ".pin").write_text(k["commit"] + "\n")
+    readonly(dest)
+
+
 def cmd_fetch(args):
+    if args == ["--build"]:
+        args = [str(s.parent) for s in sorted(ROOT.joinpath("base").rglob("STATUS"))
+                if s.read_text().startswith("imported")]
+        fetch_kernel()
+        if not args:
+            return
+    elif not args:
+        fetch_kernel()
     groups = {}
     for d, up in tomls(args):
         groups.setdefault(key_of(up), []).append(up)
@@ -1015,6 +1066,12 @@ def cmd_check(args):
             if up.get("commit") or up.get("sha256"):
                 print(f"upstream: {d.relative_to(ROOT)}: {key} at {have[:12]}, pinned {want[:12]}")
                 bad += 1
+    if not args:
+        k = kernel_pin()
+        pin = UPSTREAM / "kernel" / k["release"] / ".pin"
+        if not pin.exists() or pin.read_text().strip() != k["commit"]:
+            print(f"upstream: KERNEL.toml: kernel {k['release']} not fetched (just fetch)")
+            bad += 1
     if bad:
         raise SystemExit(bad)
     print("upstream: every fetched upstream matches its pin")

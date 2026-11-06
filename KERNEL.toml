@@ -1,0 +1,13 @@
+# The Kernel's release the base system takes the Kernel's part of itself from (the user's
+# decision of 2026-11-05): /usr/mdec/BOOTAA64.EFI, the boot loader installboot(8) puts on
+# the disk. tools/upstream.py fetch downloads each architecture's artifact by tag into
+# upstream/kernel/<release>/ and checks its sum; world.py's base step installs what `take`
+# names from it. A new Kernel release is a commit that moves this pin, with its reason.
+[kernel]
+repo    = "https://github.com/EmiBSD/Kernel"
+release = "20261106-ea7fc032"                          # the GitHub release (a pre-release)
+commit  = "ea7fc03286146582264f08f3e5d10b04c0d1c4e2"   # what the tag names
+take    = ["BOOTAA64.EFI"]                             # installed in /usr/mdec, root:bin 555
+
+[kernel.sha256]   # kernel-<release>-<arch>.tar.zst; amd64 joins when the Kernel releases it
+arm64 = "3a838cd599c175e62c63bfaf0598523b9cdff125a05b517c694f594f2e756eba"

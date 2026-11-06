@@ -69,6 +69,7 @@ notes=$work/notes
     echo '```'
     echo
     echo "Inside userland-$tag-<arch>/: the install sets base80.tar.zst, comp80, game80 and man80 (zstd),"
+    echo "the installer's ramdisk miniroot80.fs (rdsetroot it into the Kernel's bsd.RAMDISK to make bsd.rd),"
     echo "their SHA256, and MANIFEST (the commit, the epoch, the base system's pin, the compiler, the sums,"
     echo "what the sets still lack). Reproducible: \`just dist <arch>\` at this tag gives the same SHA256."
     echo

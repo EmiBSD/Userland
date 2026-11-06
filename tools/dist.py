@@ -25,7 +25,8 @@ SOURCE_DATE_EPOCH the tag's commit time (world.py's default when it is unset): a
 who builds the tag again gets the same sets and the same SHA256.
 
 The tarball holds one directory, userland-<tag>-<arch>/, with the sets as world.py's sets step
-made them (base80.tar.zst, comp, game, man), their SHA256 as a release lists them, and MANIFEST
+made them (base80.tar.zst, comp, game, man), the installer's ramdisk miniroot80.fs (set into
+the Kernel's bsd.RAMDISK with rdsetroot, it is bsd.rd), their SHA256 as a release lists them, and MANIFEST
 (the tag, the commit, the architecture, the epoch, the base system's pin, the compiler, the sums,
 what the sets still lack). Compressed as DevTools' artifacts are (zstd -19, the host's zstd).
 Reproducible: entries sorted, mtime the epoch, root and wheel, modes 0644 and 0755. The worktree
@@ -102,7 +103,9 @@ def manifest(tag: str, arch: str, tree: Path, epoch: str, sums: str) -> str:
     return "".join([
         f"tag: {tag}\n", f"commit: {commit}\n", f"arch: {arch}\n", f"source_date_epoch: {epoch}\n",
         f"base system pin: {pin}\n", f"compiler: {llvm.splitlines()[0]}\n", "\n",
-        "sets (SHA256):\n", sums, "\n",
+        f"miniroot: miniroot{OSREV}.fs, an FFS image of {(out / f'sets/miniroot{OSREV}.fs').stat().st_size} bytes "
+        "for rd(4) (rdsetroot into the Kernel's bsd.RAMDISK)\n",
+        "\n", "sets (SHA256):\n", sums, "\n",
         "entries of each set's list the build does not make yet:\n",
         *(f"{s}: {n}\n" for s, n in missing.items()),
     ])
@@ -114,6 +117,10 @@ def pack(tag: str, arch: str, tree: Path) -> Path:
     sums = (out / "sets/SHA256").read_text()
     name = f"userland-{tag}-{arch}"
     files = [(f"{s}{OSREV}.tar.zst", (out / f"sets/{s}{OSREV}.tar.zst").read_bytes()) for s in SETS]
+    miniroot = out / f"sets/miniroot{OSREV}.fs"
+    if not miniroot.exists():
+        raise SystemExit(f"dist: {arch} has no miniroot{OSREV}.fs (world.py's miniroot step)")
+    files.append((miniroot.name, miniroot.read_bytes()))
     files += [("SHA256", sums.encode()), ("MANIFEST", manifest(tag, arch, tree, epoch, sums).encode())]
     DIST.mkdir(exist_ok=True)
     tarball = DIST / f"{name}.tar.zst"
