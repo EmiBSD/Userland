@@ -7,3 +7,4 @@ One line per lesson, appended at the end; task state goes in HANDOFF.md
 - What made builds differ once, if it comes back: SOURCE_DATE_EPOCH unset, sort -R unseeded, DWARF 5 MD5s of checkout paths, makefs times and disklabel uid, gzip/zstd headers with times (see the reproducible-sets commits).
 - The sets' sums in SHA256 differ from a `just world` in the main checkout: that build's epoch is HEAD's, not the tag's; compare dist with dist only.
 - A published tag is never cut again: a defect found after publication is a new tag (2026.11.1 and on).
+- 2026.11.2: two builds identical, install-check PASS; second build plus check about 35 minutes after the first.
