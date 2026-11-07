@@ -5,9 +5,9 @@
 # names from it. A new Kernel release is a commit that moves this pin, with its reason.
 [kernel]
 repo    = "https://github.com/EmiBSD/Kernel"
-release = "20261106-ea7fc032"                          # the GitHub release (a pre-release)
-commit  = "ea7fc03286146582264f08f3e5d10b04c0d1c4e2"   # what the tag names
+release = "20261107-d2107de6"                          # the GitHub release (a pre-release)
+commit  = "d2107de61423409f558d0d14698951d5c57ef1c8"   # what the tag names
 take    = ["BOOTAA64.EFI"]                             # installed in /usr/mdec, root:bin 555
 
 [kernel.sha256]   # kernel-<release>-<arch>.tar.zst; amd64 joins when the Kernel releases it
-arm64 = "3a838cd599c175e62c63bfaf0598523b9cdff125a05b517c694f594f2e756eba"
+arm64 = "a6612550f5015fb8fadf1a059562cebd773d5831071b3652474a3b02de8a61f2"
