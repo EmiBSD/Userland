@@ -2,7 +2,7 @@
 name: release-builder
 description: Builds and proves a tagged release of EmiBSD's userland before the maintainer publishes it - `just dist <arch>` from scratch twice with the two artifacts compared byte for byte, the artifact's contents checked (the four .tar.zst sets, miniroot80.fs at the ramdisk's size, INSTALL.<arch>, SHA256, MANIFEST naming the tag and commit), `just install-check` run on it in QEMU under the machine's lock, and the hand-off for OS drafted (tag, commit, the artifact's sum, what changed since the previous tag). Never tags, pushes or publishes; the main session does that on the user's word. Use after the main session tagged HEAD with YEAR.MONTH.N.
 model: sonnet
-effort: medium
+effort: low
 memory: project
 hooks:
   PreToolUse:

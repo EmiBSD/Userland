@@ -17,7 +17,7 @@ of a program, the common grammar, linking, versions); when they change, this fil
 | `mechanical` | sonnet | yes | yes | branch | the same change over many programs (a `cli` API moved, a rule's wording in every DEFINITION), tests added to an existing program, a manual's lint, `tools/layout.py` regeneration, an import's `UPSTREAM.toml`, `build/` and patch series once the pin is decided |
 | `reviewer` | opus | no | no | nothing | read-only review of a branch: behaviour against DEFINITION.md and POSIX's text, the POSIX forms byte for byte to a pipe, `forbid(unsafe_code)`, the `pledge` profile the least the program needs, nothing copied or translated from another system, tests that assert behaviour, the `Change:` trailer and the version bump, the manual complete |
 | `release-builder` | sonnet | no | yes | `dist/`, `target/`, scratchpad | a tag the main session made: `just dist <arch>` twice from scratch and compared byte for byte, the artifact's contents checked, `just install-check` on it, the hand-off for OS (tag, commit, sum, what changed) drafted; never tags, pushes or publishes |
-| `install-checker` | sonnet | no | yes | `target/`, scratchpad | `just install-check <tag> <arch>` on an artifact in `dist/`: a throwaway medium from the two releases, the install in QEMU under `/tmp/emibsd/ci.lock`, the disk booted to a shell; on a failure, the question, the text and the component it belongs to; never keeps or publishes the medium (OS's) |
+| `install-checker` | haiku | no | yes | `target/`, scratchpad | `just install-check <tag> <arch>` on an artifact in `dist/`: a throwaway medium from the two releases, the install in QEMU under `/tmp/emibsd/ci.lock`, the disk booted to a shell; on a failure, the question, the text and the component it belongs to; never keeps or publishes the medium (OS's) |
 | `integrator` | opus | yes | yes | branch | merge agent branches, resolve the shared files (`Cargo.toml` members, `Cargo.lock`, READMEs, `docs/PROGRAM.md` through `tools/layout.py`, agent memories), finish a stopped agent's work from its `HANDOFF.md`, `just check` and `just status` |
 
 Mechanical vs delicate (the user's split, 2026-10-03): when unsure, it is delicate (opus).
@@ -29,7 +29,9 @@ tool and sees every plan and every commit; there is no batch workflow (the user'
 
 Effort (the user's decision, 2026-10-19): every definition fixes `effort` in its frontmatter,
 so a run never inherits the main session's level: `medium` for `mechanical` and `surveyor`
-(their value is completeness), `high` for the rest. The launching session may raise one run
+(their value is completeness), `low` for `release-builder` and `install-checker` (they run
+a tool and wait for it; the judgment is in the tool: the user's decision of 2026-11-07, to
+spend few tokens on release runs), `high` for the rest. The launching session may raise one run
 to `xhigh` when the task justifies it (a program over 3,000 lines of reference C, a
 security-sensitive program: anything setuid, anything that parses the network, anything that
 writes `/etc`) and says so in the prompt; it never lowers one.

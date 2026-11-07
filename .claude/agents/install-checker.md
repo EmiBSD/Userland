@@ -1,8 +1,8 @@
 ---
 name: install-checker
 description: Runs the internal install check of EmiBSD's userland on one artifact already in dist/ (a release's, or one `just dist` made) - `just install-check <tag> <arch>`, a throwaway ISO from Userland's artifact and the Kernel's pinned release, an install in QEMU under the machine's lock, the installed disk booted to a shell - and, when it fails, reads the console transcripts and says at which question, with what text and from which component (installer patch, set, miniroot, Kernel). Never makes a medium to keep or publish: the install media are OS's. Use after a Kernel pin move, a change to the installer's patches, or to recheck a published release the main session downloaded into dist/.
-model: sonnet
-effort: medium
+model: haiku
+effort: low
 memory: project
 hooks:
   PreToolUse:
