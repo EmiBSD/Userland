@@ -27,11 +27,10 @@ Five ideas order the rest:
 
 The workspace is `Cargo.toml` at the root; a program's package is `src/` under its directory
 and joins `members` when its STATUS reaches `implemented` (`docs/PROGRAM.md`, "Written").
-Since 2026-11-04 `main` has no written code: `cli`, `sys`, `ls` and `cp`, the code this file
-names as the pattern, are on the `experimental` branch and are read there with `git show
-experimental:<path>`; the first program implemented again brings back the root `Cargo.toml`,
-`rust-toolchain.toml` and the `cli` and `sys` it needs, taken from that branch or written
-anew, in their own commits.
+Since 2026-11-04 `main` has no written code, and the proof of concept's code (`cli`, `sys`,
+`ls`, `cp`, which this file still names as examples) was dropped on 2026-11-08; the first
+program implemented again brings back the root `Cargo.toml`, `rust-toolchain.toml` and the
+`cli` and `sys` it needs, written anew from their documents, in their own commits.
 
 - **One `Command`, one `main.rs`, modules by domain.** `src/options.rs` holds the `Command`
   and the `Config` built from the parsed options; `main.rs` pledges, parses through `cli`,

@@ -47,9 +47,9 @@ base system's own lld does by default for its target (`--undefined-version`,
 ## Written (from scratch, in Rust)
 
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
-proof of concept: their code and their documents are on the `experimental` branch; `ls` and
-`cp` are inherited like the rest, and only the two shared crates keep their documents here
-at `designed`. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
+proof of concept, dropped on 2026-11-08; `ls` and `cp` are inherited like the rest, and
+only the two shared crates keep their documents here at `designed`, from which their code is
+written anew. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
 program implemented again. What follows is the contract that program meets.
 
 ```

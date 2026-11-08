@@ -5,10 +5,10 @@ Kernel (`../Kernel`, GitHub `EmiBSD/Kernel`). Phase 3 of the project. Since the 
 decision of 2026-11-04 its base is **inherited**: OpenBSD's base system at LandingZone's pin,
 in this repository's layout, changed only by patches; the programs **written from scratch in
 Rust** grow from it one at a time. The first written programs (`cli`, `sys`, `ls`, `cp`)
-were a proof of concept: their code and documents are on the `experimental` branch (read
-them with `git show experimental:<path>`); `ls` and `cp` are inherited like the rest, only
-the documents of `cli` and `sys` stay in `main` at `designed`, and `main` has no Rust code, no
-`Cargo.toml` and no toolchain pin until a written program is implemented again.
+were a proof of concept, dropped with their branch on 2026-11-08; `ls` and `cp` are inherited
+like the rest, only the documents of `cli` and `sys` stay in `main` at `designed`, and `main`
+has no Rust code, no `Cargo.toml` and no toolchain pin until a written program is implemented
+again, writing the code of `cli` and `sys` anew from those documents.
 The process of a written program (the user's decisions of 2026-10-23, that nothing is ported,
 2026-10-24 and 2026-10-25): the reference manual and code are read to write a program's specification
 (DEFINITION.md: what each parameter does, how the output is formatted, the exit codes) and,

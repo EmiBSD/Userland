@@ -91,11 +91,11 @@ A prompt that misses one of these gets a question back, not a guess.
 
 ## Setup in a worktree
 
-- Since 2026-11-04 `main` carries no written code (`docs/PROGRAM.md`, "Written"): every path
-  under `base/lib/crates/cli/src`, `base/lib/crates/sys/src`, `base/bin/files/ls/src` or
-  `base/bin/files/cp/src` an agent definition names is read on the `experimental` branch
-  with `git show experimental:<path>`. A launching prompt for an implementer says whether it
-  restores `cli` and `sys` from that branch or writes them anew.
+- Since 2026-11-04 `main` carries no written code (`docs/PROGRAM.md`, "Written"), and the
+  proof of concept's code was dropped on 2026-11-08: a path under `base/lib/crates/cli/src`,
+  `base/lib/crates/sys/src`, `base/bin/files/ls/src` or `base/bin/files/cp/src` that an agent
+  definition names does not exist. The first implementer writes `cli` and `sys` anew from
+  their DEFINITION and DESIGN in `main`.
 
 - The main checkout is the first line of `git worktree list --porcelain`:
   `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')`. `upstream/` (fetched
@@ -115,8 +115,8 @@ A prompt that misses one of these gets a question back, not a guess.
 
 ## While working
 
-- Author block: every file starts with the author's ISC block (`LICENSE`; copy the header of
-  `base/lib/crates/cli/src/lib.rs` on the `experimental` branch). Everything in the repository is in English.
+- Author block: every file starts with the author's ISC block (`LICENSE`, as a comment, with
+  the copyright line first). Everything in the repository is in English.
 - A written program is written from scratch under its DEFINITION. The reference manual and
   code are read to write that DEFINITION (what each parameter does, how the output is
   formatted, the exit codes) and, while implementing, to settle what it leaves open and to

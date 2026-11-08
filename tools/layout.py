@@ -321,8 +321,8 @@ from DevTools; OS assembles the sets with the kernel into a release.
   `__EmiBSD__` (2026-11-04): the inherited C sees only the macro the compiler predefines,
   and the build renames every `__OpenBSD__` in its copy of the tree to `__EmiBSD__`.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
-  showed the written class and its grammar; their code and documents live on the
-  `experimental` branch. `ls` and `cp` are inherited here like every other program; the
+  showed the written class and its grammar; their code was dropped on 2026-11-08. `ls`
+  and `cp` are inherited here like every other program; the
   documents of the two shared crates stay at `designed`. `main` carries no Rust code, no
   workspace and no toolchain pin until a written program returns.
 - **Rust** for what is written; C only where the ABI demands it, assembly only in libc's
@@ -478,9 +478,9 @@ base system's own lld does by default for its target (`--undefined-version`,
 ## Written (from scratch, in Rust)
 
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
-proof of concept: their code and their documents are on the `experimental` branch; `ls` and
-`cp` are inherited like the rest, and only the two shared crates keep their documents here
-at `designed`. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
+proof of concept, dropped on 2026-11-08; `ls` and `cp` are inherited like the rest, and
+only the two shared crates keep their documents here at `designed`, from which their code is
+written anew. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
 program implemented again. What follows is the contract that program meets.
 
 ```
