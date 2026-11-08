@@ -125,22 +125,142 @@ def render(tag: str, site: dict, out: Path) -> None:
                 raise SystemExit(f"man-site: mandoc failed on {key}: {r.stderr.decode(errors='replace')[:200]}")
             page.write_bytes(r.stdout)
     shutil.copy(ROOT / "target/arm64/src/usr.bin/mandoc/mandoc.css", out / "mandoc.css")
+    aliases = alias_pages(out, site)
+    unlink_missing(out, set(site) | set(aliases))
     by_section = {}
     for key in site:
         by_section.setdefault(key.rsplit(".", 1)[1][0], []).append(key)
-    rows = []
+    (out / "index.html").write_text(index_page(tag, out, by_section, len(site), aliases))
+
+
+NAME = re.compile(r'id="NAME".*?(?=class="Nd")', re.S)
+NM = re.compile(r'<code class="Nm">([^<]+)</code>')
+XR = re.compile(r'<a class="Xr" href="([^"#]+)"[^>]*>(.*?)</a>', re.S)
+
+
+def alias_pages(out: Path, site: dict) -> dict:
+    """{alias key: page key}: every other name a page's NAME section gives (clock_settime in
+    clock_gettime.2). The base system ships one file per page and man(1) finds the others in
+    mandoc.db; on the site each other name is a small page that sends the reader to the page."""
+    aliases = {}
+    for key in sorted(site):
+        if "/" in key:
+            continue
+        ext = key.rsplit(".", 1)[1]
+        m = NAME.search((out / key).read_text(errors="replace"))
+        for name in NM.findall(m.group(0)) if m else ():
+            alias = f"{html.unescape(name).strip()}.{ext}"
+            if alias not in site and alias not in aliases and "/" not in alias and alias.strip("."):
+                aliases[alias] = key
+    for alias, key in aliases.items():
+        (out / alias).write_text(
+            '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
+            f'<meta http-equiv="refresh" content="0; url={html.escape(key)}">'
+            f'<link rel="canonical" href="{html.escape(key)}"><title>{html.escape(alias)}</title></head>'
+            f'<body><p><a href="{html.escape(key)}">{html.escape(alias)} is documented in '
+            f'{html.escape(key)}</a>.</p></body></html>\n')
+    return aliases
+
+
+def unlink_missing(out: Path, keys: set) -> None:
+    """A cross-reference to a page the release does not have (a package's, X11's) is text, not a 404."""
+    for key in keys:
+        page = out / key
+        text = page.read_text(errors="replace")
+        new = XR.sub(lambda m: m.group(0) if (m.group(1) if "/" not in key else "../" + m.group(1)).removeprefix("../") in keys
+                     else f'<span class="Xr">{m.group(2)}</span>', text)
+        if new != text:
+            page.write_text(new)
+
+
+ND = re.compile(r'<span class="Nd"[^>]*>(.*?)</span>', re.S)
+TAG = re.compile(r"<[^>]+>")
+
+# The index's own look: mandoc.css styles the pages, not a list of them.
+INDEX_CSS = """
+:root { color-scheme: light dark; --bg: #fbfbfa; --fg: #1d1d1f; --muted: #6b6b70;
+  --line: #e4e4e2; --link: #0b57d0; --chip: #f0f0ee; --hi: #fff6d6; }
+@media (prefers-color-scheme: dark) { :root { --bg: #161618; --fg: #ececee; --muted: #9a9aa2;
+  --line: #2c2c30; --link: #8ab4f8; --chip: #222226; --hi: #3a3320; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+header { position: sticky; top: 0; z-index: 1; background: var(--bg);
+  border-bottom: 1px solid var(--line); padding: 16px 24px 12px; }
+h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
+.sub { margin: 2px 0 12px; color: var(--muted); font-size: 13px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#q { flex: 1 1 260px; max-width: 420px; padding: 7px 11px; font: inherit; color: var(--fg);
+  background: var(--chip); border: 1px solid var(--line); border-radius: 8px; outline: none; }
+#q:focus { border-color: var(--link); }
+nav a { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--chip);
+  color: var(--fg); text-decoration: none; font-size: 13px; }
+nav a:hover { color: var(--link); }
+main { padding: 8px 24px 48px; max-width: 1400px; }
+h2 { font-size: 16px; margin: 28px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+h2 span { color: var(--muted); font-weight: 400; }
+ul { list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2px 24px; }
+li { padding: 3px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+li a { color: var(--link); text-decoration: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13.5px; }
+li a:hover { text-decoration: underline; }
+li .s { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+li .d { color: var(--muted); }
+li.hit { background: var(--hi); border-radius: 4px; }
+.none { color: var(--muted); display: none; margin-top: 24px; }
+footer { color: var(--muted); font-size: 12px; padding: 0 24px 32px; }
+@media (max-width: 600px) { header, main, footer { padding-left: 16px; padding-right: 16px; }
+  ul { grid-template-columns: 1fr; } }
+"""
+
+# Filter by name or description as you type; / focuses the box.
+INDEX_JS = """
+const q = document.getElementById('q'), items = [...document.querySelectorAll('li')];
+const groups = [...document.querySelectorAll('section')], none = document.querySelector('.none');
+function filter() {
+  const v = q.value.trim().toLowerCase();
+  for (const li of items) li.hidden = v !== '' && !li.dataset.k.includes(v);
+  let shown = 0;
+  for (const g of groups) { const n = g.querySelectorAll('li:not([hidden])').length; g.hidden = n === 0; shown += n; }
+  none.style.display = shown ? 'none' : 'block';
+}
+q.addEventListener('input', filter);
+document.addEventListener('keydown', e => { if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); q.focus(); } });
+"""
+
+
+def index_page(tag: str, out: Path, by_section: dict, count: int, aliases: dict) -> str:
+    """index.html: every page by section, with its one-line description, filtered as one types."""
+    nav, body = [], []
+    others = {}
+    for alias, key in aliases.items():
+        others.setdefault(key, []).append(alias.rsplit(".", 1)[0])
     for sec in sorted(by_section):
-        rows.append(f'<h2 id="{sec}">Section {sec}: {html.escape(SECTIONS.get(sec, ""))}</h2>\n<p>')
-        rows.append(" ".join(f'<a href="{html.escape(k)}">{html.escape(k.removesuffix("." + k.rsplit(".", 1)[1]))}</a>'
-                             for k in sorted(by_section[sec])))
-        rows.append("</p>")
-    (out / "index.html").write_text(
-        '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f'<link rel="stylesheet" href="mandoc.css">\n<title>EmiBSD {VERSION} manual pages</title>\n</head>\n<body>\n'
-        f'<h1>EmiBSD {VERSION} manual pages</h1>\n<p>The manual of Userland {html.escape(tag)}, '
-        f'{len(site)} pages, rendered by EmiBSD\'s mandoc. On a system: <code>man ls</code>.</p>\n'
-        + "\n".join(rows) + "\n</body>\n</html>\n")
+        title = SECTIONS.get(sec, "")
+        nav.append(f'<a href="#s{sec}">{sec} {html.escape(title)}</a>')
+        rows = []
+        for key in sorted(by_section[sec], key=str.lower):
+            m = ND.search((out / key).read_text(errors="replace"))
+            desc = html.unescape(TAG.sub("", m.group(1))).strip() if m else ""
+            name, ext = key.rsplit(".", 1)
+            keywords = " ".join([name, *others.get(key, []), desc]).lower()
+            rows.append(f'<li data-k="{html.escape(keywords)}"><a href="{html.escape(key)}">'
+                        f'{html.escape(name)}</a><span class="s">({html.escape(ext)})</span>'
+                        f'{" <span class=d>&mdash; " + html.escape(desc) + "</span>" if desc else ""}</li>')
+        body.append(f'<section><h2 id="s{sec}">Section {sec} <span>{html.escape(title)}</span></h2>\n<ul>\n'
+                    + "\n".join(rows) + "\n</ul></section>")
+    return ('<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            f'<title>EmiBSD {VERSION} manual pages</title>\n<style>{INDEX_CSS}</style>\n</head>\n<body>\n'
+            f'<header><h1>EmiBSD {VERSION} manual pages</h1>\n'
+            f'<p class="sub">Userland {html.escape(tag)} &middot; {count} pages &middot; on a system: <code>man ls</code></p>\n'
+            '<div class="bar"><input id="q" type="search" placeholder="Filter by name or description  ( / )" '
+            'autocomplete="off" aria-label="Filter the manual pages">\n'
+            f'<nav aria-label="Sections">{" ".join(nav)}</nav></div></header>\n<main>\n'
+            + "\n".join(body) + '\n<p class="none">No page matches.</p>\n</main>\n'
+            '<footer>Rendered by EmiBSD&rsquo;s mandoc from the release&rsquo;s sets.</footer>\n'
+            f'<script>{INDEX_JS}</script>\n</body>\n</html>\n')
 
 
 def publish(out: Path) -> None:
