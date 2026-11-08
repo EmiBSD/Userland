@@ -162,6 +162,44 @@ HISTORY_RE = re.compile(r"OpenBSD(?= \d+\.\d)")
 MDOC_OX = ('\tcase MDOC_Ox:\n\t\tos = "EmiBSD";\n',
            '\tcase MDOC_Ox:\n\t\t/* a version after .Ox says where code first appeared; bare, it is this system */\n'
            '\t\tos = n->child == NULL ? "EmiBSD" : "OpenBSD";\n')
+# Data that describes other systems is not EmiBSD's text: OS fingerprints of remote hosts,
+# the magic of other systems' formats (EmiBSD's own binaries carry the old note name), the
+# autoconf and libtool host tables (the packages are configured for an "openbsd" host), the
+# registered MIB modules, the history calendar, the mdoc macro package's system names.
+DATA_RE = re.compile(
+    r"^etc/pf\.os$|^usr\.bin/file/magdir/|(^|/)(config\.guess|config\.sub|ltmain\.sh|configure|aclocal\.m4)$"
+    r"|(^|/)(libtool|lt\w+)\.m4$|^share/snmp/OPENBSD-[\w-]+\.txt$|^usr\.bin/calendar/calendars/calendar\.openbsd$"
+    r"|^share/tmac/mdoc/doc-common$")
+# Nothing EmiBSD runs or tells a user may send mail to the base system's project: a contact
+# address at its hosts becomes the same local part at emibsd.org; a person's address in a
+# copyright, a licence, an AUTHORS section or a credit comment stays.
+ROLE_RE = re.compile(r"(?i)(bugs|security|misc|tech|ports|dmesg|announce|majordomo|www|webmaster|"
+                     r"source-changes|ports-changes|advocacy|hackers|office|owner-[\w+.-]+|bugs-[\w+.-]+)")
+OLD_HOST_RE = re.compile(r"(?i)(?:[\w-]+\.)*openbsd\.(?:org|com|net)")
+SOURCE_SUFFIXES = (".c", ".h", ".y", ".l", ".sh", ".pl", ".pm", ".py", ".awk", ".S", ".s", ".m4", ".cc")
+COMMENT_LINE = re.compile(r'^\s*(?:/\*|\*|//|#|\.\\"|dnl\b|;|--)')
+PROSE_WORDS = re.compile(r"(?i)\b(send|mail|report|write|contact|mailing)\b")
+# The base system's CVS servers (anoncvs@...:/cvs) are not mail and have no counterpart: the
+# instruction or the example goes, and where the text needs a sentence it says where the
+# sources are. Exact texts of the original; the build stops if one moved.
+CVS_EDITS = {
+    "usr.bin/cvs/cvsintro.7": (
+        ("from local mirror anoncvs.nl.openbsd.org:\n",
+         "from a CVS repository (the sources are on GitHub,\n"
+         "https://github.com/EmiBSD, and are not served by CVS):\n"),
+        ("$ cvs -d anoncvs@anoncvs.nl.openbsd.org:/cvs checkout -P src",
+         "$ cvs -d /path/to/repository checkout -P src"),
+        ("$ cvs -d anoncvs@anoncvs.nl.openbsd.org:/cvs update -Pd",
+         "$ cvs -d /path/to/repository update -Pd"),
+    ),
+    "share/man/man8/release.8": (
+        ("See\n.Lk https://www.openbsd.org/anoncvs.html\nfor instructions on fetching the sources for the first time.\n",
+         "The sources are on GitHub:\n.Lk https://github.com/EmiBSD .\n"),
+    ),
+    "usr.sbin/config/config.8": (
+        ("deraadt@i386.openbsd.org:/usr/src", "user@build.example.org:/usr/src"),
+    ),
+}
 KEPT_LISTED = ("abi",)
 # A key file's name inside a line, and a set-list line that is just that file.
 KEY_RE = re.compile(r"openbsd-[\w${}()+ -]*?\.pub")
@@ -174,7 +212,7 @@ class Rename:
     def __init__(self, view: Path):
         self.view = view
         self.renamed = {"url": 0, "other": 0}
-        self.kept = {"licence": 0, "email": 0, "abi": 0, "history": 0, "odd-case": 0}
+        self.kept = {"licence": 0, "email": 0, "abi": 0, "data": 0, "history": 0, "odd-case": 0}
         self.listed = {k: [] for k in KEPT_LISTED}
         self.ids = {"line": 0, "declaration": 0, "keyword": 0}
         self.ids_by_kind = {}
@@ -183,6 +221,10 @@ class Rename:
         self.keys = []   # EmiBSD's public keys installed in place of the base system's
         self.key_refs = []   # where a reference to a key was changed
         self.key_dropped = []   # list lines for a key EmiBSD does not have
+        self.cvs = []   # CVS servers and examples removed or made neutral
+        self.contacts = {}   # address -> files, renamed to emibsd.org
+        self.ambiguous = []   # personal addresses in prose that asks the reader to write
+        self.data_files = {}   # file -> occurrences of the name kept in it
         self.paths = []   # (old, new) of every file and directory renamed
 
     def count_id(self, found: str, where: str) -> None:
@@ -277,7 +319,34 @@ class Rename:
                 add(m, "history")
         return found, urls
 
-    def rename_line(self, line: str, licence: bool, where: str, number: int, script: bool) -> str:
+    def contact_mail(self, line: str, where: str, number: int, section: str, source: bool, man: bool) -> str:
+        """The addresses at the old hosts that a program, a message or a reader's instructions
+        use become the same local part at emibsd.org."""
+        if "@" not in line:
+            return line
+
+        def fix(m):
+            local, _, host = m.group(0).rpartition("@")
+            if not OLD_HOST_RE.fullmatch(host):
+                return m.group(0)
+            comment = bool(COMMENT_LINE.match(line))
+            contact = bool(ROLE_RE.fullmatch(local)) or where.startswith("distrib/notes/") or \
+                (source and not comment and not re.search(r"\w\s*<" + re.escape(m.group(0)) + ">", line)) or \
+                (man and section != "AUTHORS" and re.match(r"\s*\.(?:Mt|Aq)\b", line) is not None
+                 and not re.match(r"\s*\.An\b", line))
+            if not contact:
+                if PROSE_WORDS.search(line) and not comment:
+                    self.ambiguous.append(f"{where}:{number}: {m.group(0)}")
+                return m.group(0)
+            new = f"{local}@emibsd.org"
+            self.contacts.setdefault(new, set()).add(where)
+            return new
+        return EMAIL_RE.sub(fix, line)
+
+    def rename_line(self, line: str, licence: bool, where: str, number: int, script: bool,
+                    section: str = "", source: bool = False, man: bool = False) -> str:
+        if not licence or "copyright" not in line.lower():   # a role address in a notice is still a contact
+            line = self.contact_mail(line, where, number, section, source, man)
         if not NAME_RE.search(line):
             return line
         if licence:
@@ -330,12 +399,41 @@ class Rename:
                 else:
                     keep.append((l, lic))
             lines, licence = [k[0] for k in keep], [k[1] for k in keep]
+        sections, section = [], ""
+        for l in lines:
+            if l.startswith(".Sh "):
+                section = l[4:].strip().strip('"')
+            sections.append(section)
+        source = path.suffix in SOURCE_SUFFIXES
+        man = re.search(r"\.\d\w*$", path.name) is not None
+        if DATA_RE.search(where):
+            lines = [l if "copyright" in l.lower() else self.contact_mail(l, where, i + 1, sections[i], source, man)
+                     for i, (l, lic) in enumerate(zip(lines, licence))]
+            count = sum(len(NAME_RE.findall(l)) for l in lines)
+            if count:
+                self.data_files[where] = count
+                self.kept["data"] += count
+            new = "\n".join(lines).encode(coding)
+            if new != data:
+                path.write_bytes(new)
+            return
         script = path.name.startswith("ld.script") or path.suffix in (".ld", ".lds")
-        lines = [self.rename_line(l, lic, where, i + 1, script)
+        lines = [self.rename_line(l, lic, where, i + 1, script, sections[i], source, man)
                  for i, (l, lic) in enumerate(zip(lines, licence))]
         new = "\n".join(lines).encode(coding)
         if new != data:
             path.write_bytes(new)
+
+    def cvs_edits(self) -> None:
+        for name, edits in CVS_EDITS.items():
+            f = self.view / name
+            text = f.read_text()
+            for old, new in edits:
+                if text.count(old) != 1:
+                    raise SystemExit(f"tree: {name} no longer holds the text the CVS edit expects")
+                text = text.replace(old, new)
+                self.cvs.append(f"{name}: {old.strip().splitlines()[0][:100]}")
+            f.write_text(text)
 
     def install_keys(self) -> None:
         """EmiBSD signs with its own keys (base/etc/signify): the base system's are removed
@@ -350,6 +448,7 @@ class Rename:
 
     def tree(self) -> None:
         self.install_keys()
+        self.cvs_edits()
         for dirpath, dirs, files in os.walk(self.view):
             dirs.sort()
             for name in sorted(files):
@@ -418,6 +517,20 @@ class Rename:
         r.append("")
         r.append(f"== set-list lines for a key EmiBSD does not have, dropped ({len(self.key_dropped)})")
         r.extend(self.key_dropped)
+        r.append("")
+        r.append(f"== contact addresses renamed to emibsd.org ({len(self.contacts)})")
+        for addr in sorted(self.contacts):
+            r.append(f"{addr}: {', '.join(sorted(self.contacts[addr])[:6])}"
+                     + (f" (+{len(self.contacts[addr]) - 6} more)" if len(self.contacts[addr]) > 6 else ""))
+        r.append("")
+        r.append(f"== personal addresses in prose that asks the reader to write, kept ({len(self.ambiguous)})")
+        r.extend(self.ambiguous)
+        r.append("")
+        r.append(f"== CVS servers (anoncvs) removed or made neutral ({len(self.cvs)})")
+        r.extend(self.cvs)
+        r.append("")
+        r.append(f"== data about other systems, kept as they are ({len(self.data_files)} files)")
+        r.extend(f"{n} {f}" for f, n in sorted(self.data_files.items()))
         r.append("")
         r.append(f"== files and directories renamed ({len(self.paths)})")
         r.extend(f"{old} -> {new}" for old, new in sorted(self.paths))
@@ -1175,7 +1288,9 @@ def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
                                    "-V", var], cwd=out / "src" / directory, env=env,
                                   capture_output=True, text=True).stdout.strip()
             opts = re.sub(r"(--with-(?:ssl|libevent|libexpat))=/usr\b", rf"\1={sysroot}/usr", opts)
-            args.append(f"{var}={opts} --host={m['MACHINE_ARCH']}-unknown-emibsd "
+            # The packages' autoconf tables are data about other systems and stay as they are
+            # (the rename keeps them), so the host they are told is the one they know.
+            args.append(f"{var}={opts} --host={m['MACHINE_ARCH']}-unknown-openbsd "
                         f"--build={os.uname().machine}-apple-darwin")
             # What a cross configure cannot learn by running a program, as the target answers.
             env.update(CONFIGURE_ANSWERS)
