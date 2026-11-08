@@ -26,7 +26,7 @@ The steps, in order (the first nine, through sets, when none is named):
             inherited trees' text after the patches, never in the imported programs, and the
             version-control ids ($OpenBSD$, $Id$...) removed; copyright and licence notices,
             e-mail addresses, names of files that keep the old name, target triples and the
-            ELF wire values stay; target/<arch>/rename-report.txt counts and lists them
+            the PT_OPENBSD_* names in linker scripts (lld reads them by text) stay; the ELF note name and section names are EmiBSD's; target/<arch>/rename-report.txt counts and lists them
   host      the base system's own tools the build runs on the development host (rpcgen,
             yacc, lex, mklocale, strfile, mkdict, mkindex, makefs, pax, mtree, sha256,
             pwd_mkdb, tic), built by the same make, into target/host/bin
@@ -70,7 +70,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE = ROOT / "base"
 TREES = ("etc", "data", "distrib")   # their entries keep their full paths under src/
 LLVM = Path(os.environ.get("EMIBSD_LLVM_BIN",
-                           Path.home() / "devel/emibsd/toolchains/llvm-23.1.4+emibsd.1-aarch64-apple-darwin/bin"))
+                           Path.home() / "devel/emibsd/toolchains/llvm-23.1.4+emibsd.2-aarch64-apple-darwin-arm64/bin"))
 EPOCH = os.environ.get("SOURCE_DATE_EPOCH") or \
     subprocess.run(["git", "-C", str(ROOT), "log", "-1", "--format=%ct"], capture_output=True,
                    text=True, check=True).stdout.strip()
@@ -134,8 +134,9 @@ def place_imported(view: Path) -> int:
 # copy, never by patch). Everything that is a fact about someone else is kept: copyright and
 # licence notices, e-mail addresses, the names of files that exist with the old name, the
 # target triples and Perl's architecture names, and the ELF wire values that the Kernel and
-# the linker read by text (the note name, the .openbsd.* section names, the linker script's
-# PT_OPENBSD_* names) until they move together. The version-control keywords are removed.
+# the linker read by text (the PT_OPENBSD_* names in a linker script, which lld parses) and the
+# numeric values. The note name and the section names are EmiBSD's now (the Kernel accepts the
+# note "EmiBSD", lld maps the .emibsd.* sections). The version-control keywords are removed.
 
 NAME_RE = re.compile(r"(?i)openbsd")
 NAME_FORMS = {"OpenBSD": "EmiBSD", "openbsd": "emibsd", "OPENBSD": "EMIBSD", "openBSD": "emiBSD"}
@@ -153,9 +154,7 @@ LICENCE_FILE = re.compile(r"(?i)licen[cs]e|copying|copyright")
 LINE_COMMENT = re.compile(r'^\s*(?:\.?\\"|#|//|dnl\b|;|--)')
 EMAIL_RE = re.compile(r"[\w.+%-]+@[\w.-]*\w")
 URL_RE = re.compile(r"(?i)(?:(?:https?|ftp)://[^\s\"'<>)\]|]+|(?<![\w@.-])(?:[\w-]+\.)*openbsd\.(?:org|com|net)(?:/[^\s\"'<>)\]|]*)?)")
-# ABI wire values: section names, the note's name string where it is written (\0 follows) or
-# described (@nn), and the linker script's segment types, which lld reads by text.
-WIRE_RE = re.compile(r"(?i)(?<![\w.])\.(?:note\.)?openbsd\.(?!(?:org|com|net)\b)[\w.*-]+|OpenBSD(?=\\{1,2}0|@nn)")
+# The linker script's segment types are read by text by lld, which knows them by the old name.
 SCRIPT_RE = re.compile(r"\b(?:PT|PF)_OPENBSD_\w+")
 # "first appeared in OpenBSD 2.1" is a true statement about where the code came from.
 HISTORY_RE = re.compile(r"OpenBSD(?= \d+\.\d)")
@@ -199,6 +198,29 @@ CVS_EDITS = {
     "usr.sbin/config/config.8": (
         ("deraadt@i386.openbsd.org:/usr/src", "user@build.example.org:/usr/src"),
     ),
+}
+# The ident notes written by hand: the name is "EmiBSD\0", 7 bytes, so namesz is 7 and the
+# name is padded to the next word before the description.
+NOTE_EDITS = {
+    "lib/csu/crt0.c": (
+        ('"\t.long\t8\\n"\n"\t.long\t0\\n"\n"\t.long\t2\\n"\n"\t.ascii \\"EmiBSD\\\\0\\"\\n"\n',
+         '"\t.long\t7\\n"\n"\t.long\t0\\n"\n"\t.long\t2\\n"\n"\t.ascii \\"EmiBSD\\\\0\\"\\n"\n'
+         '"\t.p2align\t2\\n"\n'),
+    ),
+    "lib/csu/os-note-elf.h": (
+        ('"\t.long\t8\\n"\n"\t.long\t4\\n"\n"\t.long\t1\\n"\n"\t.ascii \\"EmiBSD\\\\0\\"\\n"\n',
+         '"\t.long\t7\\n"\n"\t.long\t4\\n"\n"\t.long\t1\\n"\n"\t.ascii \\"EmiBSD\\\\0\\"\\n"\n'
+         '"\t.p2align\t2\\n"\n'),
+    ),
+}
+# file(1)'s ELF magic names no system; the objects of EmiBSD (and, as data, of the base system
+# it came from) are told by the name in their ident note.
+MAGIC_EDITS = {
+    "usr.bin/file/magdir/elf": (
+        "0\tstring\t\t\\177ELF\t\tELF\n",
+        "0\tstring\t\t\\177ELF\t\tELF\n"
+        ">0\tsearch/65536\tEmiBSD\\0\tfor EmiBSD,\n"
+        ">0\tsearch/65536\tOpenBSD\\0\tfor OpenBSD,\n"),
 }
 KEPT_LISTED = ("abi",)
 # A key file's name inside a line, and a set-list line that is just that file.
@@ -309,8 +331,6 @@ class Rename:
         for m in EMAIL_RE.finditer(line):
             if NAME_RE.search(m.group(0)):
                 add(m, "email")
-        for m in WIRE_RE.finditer(line):
-            add(m, "abi")
         if script:
             for m in SCRIPT_RE.finditer(line):
                 add(m, "abi")
@@ -456,6 +476,7 @@ class Rename:
                 if not f.is_symlink():
                     self.file(f)
         self.mandoc_ox()
+        self.abi_edits()
         self.rename_paths()
 
     def rename_paths(self) -> None:
@@ -482,6 +503,18 @@ class Rename:
                     link.unlink()
                     link.symlink_to(target)
 
+    def abi_edits(self) -> None:
+        """The ident notes and file(1)'s magic for them, in the renamed copy."""
+        for edits in (NOTE_EDITS, {k: (v,) for k, v in MAGIC_EDITS.items()}):
+            for name, pairs in edits.items():
+                f = self.view / name
+                text = f.read_text()
+                for old, new in pairs:
+                    if text.count(old) != 1:
+                        raise SystemExit(f"tree: {name} no longer holds the text the ABI edit expects")
+                    text = text.replace(old, new)
+                f.write_text(text)
+
     def mandoc_ox(self) -> None:
         """mandoc prints .Ox as the system's name when bare and as OpenBSD when a version
         follows (HISTORY sections), so the manuals stay true: one line in mandoc's copy."""
@@ -506,7 +539,7 @@ class Rename:
         for k in sorted(self.ids_by_kind):
             r.append(f"  keyword {k}: {self.ids_by_kind[k]}")
         r.append("")
-        r.append(f"== kept: ABI wire values, pending Kernel and DevTools ({len(self.listed['abi'])})")
+        r.append(f"== kept: linker-script segment types (lld parses PT_OPENBSD_* by text) ({len(self.listed['abi'])})")
         r.extend(self.listed["abi"])
         r.append("")
         r.append(f"== signify keys installed ({len(self.keys)})")

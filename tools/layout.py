@@ -802,6 +802,10 @@ dist +archs:
 install-check tag arch="arm64":
     python3 -I tools/install-check.py {{tag}} {{arch}}
 
+# The same check on the sets of `just world` (target/<arch>/sets), before any tag is made.
+install-check-world arch="arm64":
+    python3 -I tools/install-check.py --world {{arch}}
+
 # The maintainer's, from the main session (it publishes); a later architecture is added to it.
 # The GitHub release of the sets from a tagged commit, every artifact in dist/ for it.
 release tag:

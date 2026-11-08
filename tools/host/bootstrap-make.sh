@@ -20,7 +20,7 @@
 
 set -eu
 root=$(git rev-parse --show-toplevel)
-llvm=${EMIBSD_LLVM_BIN:-$HOME/devel/emibsd/toolchains/llvm-23.1.4+emibsd.1-aarch64-apple-darwin/bin}
+llvm=${EMIBSD_LLVM_BIN:-$HOME/devel/emibsd/toolchains/llvm-23.1.4+emibsd.2-aarch64-apple-darwin-arm64/bin}
 src=$root/base/usr/bin/development/make/src
 util=$root/base/lib/system/libutil/src
 obj=$root/target/host/make

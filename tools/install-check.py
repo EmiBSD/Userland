@@ -17,6 +17,11 @@ throwaway install medium, an install on a fresh disk in QEMU answered from the c
 that disk booted alone to a shell.
 
 usage: install-check.py <tag> [<arch>]      (arch: arm64, the default)
+       install-check.py --world [<arch>]    (the sets of `just world <arch>`, before any tag)
+
+With --world the sets are taken straight from a `just world` output, target/<arch>/sets (the
+sets, miniroot80.fs, INSTALL.<arch>, SHA256, checked against that SHA256), instead of an artifact
+in dist/: a change is proven on an install before a tag is made. Everything else is the same.
 
 Reads only local files, downloads nothing: Userland's artifact dist/userland-<tag>-<arch>.tar.zst
 (checked against its .sha256; `just dist` made it, or the main session downloaded the published
@@ -109,6 +114,23 @@ def artifact(tag: str, arch: str) -> Path:
     return tarball
 
 
+def verify(top: Path) -> None:
+    """Every file a directory's SHA256 names, checked."""
+    lines = [l for l in (top / "SHA256").read_text().splitlines() if l]
+    check = "".join(f"{l.split(' = ')[1]}  {l.split('(')[1].split(')')[0]}\n" for l in lines)
+    subprocess.run(["shasum", "-a", "256", "-c", "-"], cwd=top, input=check, text=True, check=True,
+                   stdout=subprocess.DEVNULL)
+
+
+def world_sets(arch: str) -> Path:
+    """The sets `just world <arch>` made, checked against their SHA256."""
+    top = ROOT / "target" / arch / "sets"
+    if not (top / "SHA256").exists():
+        raise SystemExit(f"install-check: no {top.relative_to(ROOT)}/SHA256 (just world {arch})")
+    verify(top)
+    return top
+
+
 def unpack(tarball: Path, dest: Path) -> Path:
     """The one directory a release's artifact holds, checked against its own SHA256."""
     dest.mkdir(parents=True)
@@ -118,10 +140,7 @@ def unpack(tarball: Path, dest: Path) -> Path:
     if zstd.wait():
         raise SystemExit(f"install-check: zstd failed on {tarball.name}")
     top = dest / tarball.name.removesuffix(".tar.zst")
-    lines = [l for l in (top / "SHA256").read_text().splitlines() if l]
-    check = "".join(f"{l.split(' = ')[1]}  {l.split('(')[1].split(')')[0]}\n" for l in lines)
-    subprocess.run(["shasum", "-a", "256", "-c", "-"], cwd=top, input=check, text=True, check=True,
-                   stdout=subprocess.DEVNULL)
+    verify(top)
     return top
 
 
@@ -285,6 +304,9 @@ def remove(tree: Path) -> None:
 
 def main() -> int:
     args = sys.argv[1:]
+    from_world = args[:1] == ["--world"]
+    if from_world:
+        args = ["world"] + args[1:]
     if not 1 <= len(args) <= 2 or (len(args) == 2 and args[1] != "arm64"):
         print(__doc__, file=sys.stderr)
         return 2
@@ -292,12 +314,13 @@ def main() -> int:
     for tool in ("makefs", "sha256"):
         if not (HOST / tool).exists():
             raise SystemExit(f"install-check: no target/host/bin/{tool} (just host-make; just world {arch} tree host)")
-    userland_tarball, kernel_tarball = artifact(tag, arch), kernel_release(arch)
+    userland_tarball = None if from_world else artifact(tag, arch)
+    kernel_tarball = kernel_release(arch)
     work = WORK / f"{tag}-{arch}"
     remove(work)
     logs = {n: WORK / f"{tag}-{arch}.{n}.log" for n in ("install", "boot")}
     try:
-        userland = unpack(userland_tarball, work / "userland")
+        userland = world_sets(arch) if from_world else unpack(userland_tarball, work / "userland")
         kernel = unpack(kernel_tarball, work / "kernel")
         iso = medium(work, userland, kernel, arch)
         disk = work / "disk.img"
