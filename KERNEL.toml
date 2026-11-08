@@ -8,10 +8,10 @@
 # moves this pin, with its reason.
 [kernel]
 repo    = "https://github.com/EmiBSD/Kernel"
-release = "20261108-2c665343"                          # the GitHub release (a pre-release)
+release = "20261108-b99aedaf"                          # the GitHub release (a pre-release)
 commit  = ""   # what the tag names
 take    = ["BOOTAA64.EFI", "MANUAL.toml", "include"]   # unpacked (include/ keeps its machine -> arm64 link)
 mdec    = ["BOOTAA64.EFI"]                             # installed in /usr/mdec, root:bin 555
 
 [kernel.sha256]   # kernel-<release>-<arch>.tar.zst; amd64 joins when the Kernel releases it
-arm64 = "5fea0216f3d82bd46ec38a52b58747b93b04d17e5af6af7beda498a7162cc4f8"
+arm64 = "cd407fcf4133d9289977269188223900a3950e6a53ea57eae0e4c2d68d7372dc"
