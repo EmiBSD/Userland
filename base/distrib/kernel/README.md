@@ -1,6 +1,6 @@
 # distrib/kernel
 
-The kernel's sources the userland compiles too, reached by the Makefiles' .PATH into sys/: bpf_filter for libpcap, pf_ruleset for pfctl, pf_osfp for tcpdump, ffs_subr and ffs_tables for fsck_ffs and fsdb, ext2fs_bswap for the ext2fs tools, syscalls for btrace, the three DRM device lists fw_update matches firmware with, and the DRM ioctls kdump decodes.
+The kernel's sources the userland compiles too, reached by the Makefiles' .PATH into sys/: bpf_filter for libpcap, pf_ruleset for pfctl, pf_osfp for tcpdump, ffs_subr and ffs_tables for fsck_ffs and fsdb, ext2fs_bswap for the ext2fs tools, syscalls for btrace, the three DRM device lists fw_update matches firmware with, and the DRM ioctls kdump decodes; and the files that declare the kernel's devices (sys/conf/files, the architectures' files.<arch> and the files.* of sys/dev and sys/scsi), which world.py reads to tell a device's manual page from a protocol's.
 
 Programs of this group:
 
@@ -17,5 +17,41 @@ Programs of this group:
 - `i915_drm.h` (sys/dev/pci/drm/include/uapi/drm/i915_drm.h)
 - `drm.h` (sys/dev/pci/drm/include/uapi/drm/drm.h)
 - `drm_mode.h` (sys/dev/pci/drm/include/uapi/drm/drm_mode.h)
+- `files` (sys/conf/files)
+- `files.<arch>` (sys/arch/<arch>/conf/files.<arch>)
+- `files.scsi` (sys/scsi/files.scsi)
+- `files.acpi` (sys/dev/acpi/files.acpi)
+- `files.adb` (sys/dev/adb/files.adb)
+- `files.ata` (sys/dev/ata/files.ata)
+- `files.atapiscsi` (sys/dev/atapiscsi/files.atapiscsi)
+- `files.cardbus` (sys/dev/cardbus/files.cardbus)
+- `files.dec` (sys/dev/dec/files.dec)
+- `files.efi` (sys/dev/efi/files.efi)
+- `files.eisa` (sys/dev/eisa/files.eisa)
+- `files.fdt` (sys/dev/fdt/files.fdt)
+- `files.gpio` (sys/dev/gpio/files.gpio)
+- `files.hid` (sys/dev/hid/files.hid)
+- `files.hil` (sys/dev/hil/files.hil)
+- `files.i2c` (sys/dev/i2c/files.i2c)
+- `files.isa` (sys/dev/isa/files.isa)
+- `files.isapnp` (sys/dev/isa/files.isapnp)
+- `files.mii` (sys/dev/mii/files.mii)
+- `files.ofw` (sys/dev/ofw/files.ofw)
+- `files.onewire` (sys/dev/onewire/files.onewire)
+- `files.drm` (sys/dev/pci/drm/files.drm)
+- `files.agp` (sys/dev/pci/files.agp)
+- `files.pci` (sys/dev/pci/files.pci)
+- `files.pckbc` (sys/dev/pckbc/files.pckbc)
+- `files.pcmcia` (sys/dev/pcmcia/files.pcmcia)
+- `files.pv` (sys/dev/pv/files.pv)
+- `files.rasops` (sys/dev/rasops/files.rasops)
+- `files.sbus` (sys/dev/sbus/files.sbus)
+- `files.sdmmc` (sys/dev/sdmmc/files.sdmmc)
+- `files.sun` (sys/dev/sun/files.sun)
+- `files.tc` (sys/dev/tc/files.tc)
+- `files.dwc2` (sys/dev/usb/dwc2/files.dwc2)
+- `files.usb` (sys/dev/usb/files.usb)
+- `files.wscons` (sys/dev/wscons/files.wscons)
+- `files.wsfont` (sys/dev/wsfont/files.wsfont)
 
 Inherited: `src/` holds these at their paths in the base system's tree, at the pin of `UPSTREAM.toml`.
