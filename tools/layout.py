@@ -802,6 +802,11 @@ dist +archs:
 sign +archs:
     python3 -I tools/dist.py --sign {{archs}}
 
+# A release's manual as man.emibsd.org, from its artifact in dist/ and EmiBSD's host mandoc;
+# `just man-site <tag> --publish` uploads it (the main session's, after the release).
+man-site tag *flags:
+    python3 -I tools/man-site.py {{tag}} {{flags}}
+
 # An internal check, never a release's medium (OS makes those): a throwaway ISO from the two
 # releases, an install in QEMU under /tmp/emibsd/ci.lock, the installed disk booted to a shell.
 install-check tag arch="arm64":

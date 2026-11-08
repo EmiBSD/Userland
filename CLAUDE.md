@@ -75,7 +75,8 @@ it, never with GNU make or an installed bmake); `just world arm64` builds the in
 system for EmiBSD under `target/arm64` (`tools/world.py`: the tree copied back to its paths,
 the host tools, /usr/include, csu, the libraries, the programs, /etc, the sets); `just dist
 arm64` and `just release <YEAR.MONTH.N>` cut a release of the sets, one artifact per
-architecture, from a tagged commit (OS fetches it by tag); `just lint`, `just test`, `just man` in a program's directory; `just
+architecture, from a tagged commit (OS fetches it by tag), signed with `just sign`, and its
+manual published to man.emibsd.org with `just man-site <tag> --publish`; `just lint`, `just test`, `just man` in a program's directory; `just
 status` for the progress numbers. A program is made by the roles of
 `.claude/rules/subagents.md`: `surveyor` (the standard's facts), `designer` (DEFINITION, DESIGN,
 schemas), `implementer` (src, tests, manual), `reviewer`, `integrator`; `mechanical` for the
