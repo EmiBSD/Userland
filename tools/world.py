@@ -1541,7 +1541,6 @@ def step_base(arch: str, out: Path) -> None:
     system's subdir loop stops at the first failure, and one program must not hide the
     rest. The failures are listed in target/<arch>/failed."""
     failed = []
-    (out / "manual-dropped").unlink(missing_ok=True)   # every page is installed again; the etc step filters again
     for tree in BASE_TREES:
         dirs = [d for d in subdirs(arch, out, tree) if d not in EXCLUDED]
         installed = set(subdirs(arch, out, tree, "install"))
@@ -1743,8 +1742,9 @@ def step_manual(arch: str, out: Path) -> None:
     # The database is made again from what stays (etc's makedb).
     (root / "mandoc.db").unlink(missing_ok=True)
     after = {s: sum(1 for f in (root / s).rglob("*") if not f.is_dir()) for s in sections if (root / s).exists()}
-    # What an earlier run took out stays out of the lists (a second run on a filtered sysroot
-    # drops nothing new); the base step starts the list again, as it installs every page again.
+    # What an earlier run took out stays out of the lists: a second run on a filtered sysroot
+    # drops nothing new, and the steps that install pages (lib, base) install only what changed.
+    # A new Kernel pin starts from a new target/<arch>.
     before_run = (out / "manual-dropped").read_text().split("\n") if (out / "manual-dropped").exists() else []
     (out / "manual-dropped").write_text("".join(d + "\n" for d in sorted(set(dropped) | set(before_run) - {""})))
 
