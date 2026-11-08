@@ -31,12 +31,17 @@ The steps, in order (the first nine, through sets, when none is named):
             yacc, lex, mklocale, strfile, mkdict, mkindex, makefs, pax, mtree, sha256,
             pwd_mkdb, tic), built by the same make, into target/host/bin
   obj       `make obj` over lib/ and the trees of the base
-  includes  target/<arch>/sysroot/usr/include, by include/Makefile's own targets
+  includes  target/<arch>/sysroot/usr/include: the kernel-ABI headers (sys/, net/, machine ->
+            arm64...) from the Kernel's release (KERNEL.toml, include/), the C library's and
+            the libraries' by include/Makefile's own targets; the system calls of sys/syscall.h
+            checked against the Kernel's MANUAL.toml
   lib       lib/ as Makefile.cross builds it: csu and libc first, then the rest
   base      every directory the trees' SUBDIR reach, each built and installed on its own;
             the failures are listed in target/<arch>/failed
   etc       etc/Makefile's distribution-etc-root-var: /etc, /root, /var, pwd.db, etc.tgz;
-            the manual's mandoc.db
+            the manual of what the Kernel implements (the manual step: the pages for what
+            its MANUAL.toml says it lacks leave the sysroot and the set lists, and
+            manual-report.txt and abi-report.txt say what and why); the manual's mandoc.db
   miniroot  target/<arch>/miniroot80.fs: the installer's ramdisk, as distrib/<arch>/ramdisk
             makes it (instbin crunched, the list run, makefs), padded to rd(4)'s size
   sets      target/<arch>/sets: base, comp, game and man as zstd archives, from the
@@ -199,6 +204,15 @@ CVS_EDITS = {
         ("deraadt@i386.openbsd.org:/usr/src", "user@build.example.org:/usr/src"),
     ),
 }
+# A third party's mailing-list server (majordomo) is not EmiBSD's to send readers to (the user's
+# decision of 2026-11-07): the instruction to subscribe goes, with the line that says what to
+# write in the message. The other contact lines of the MIB module stay. Exact texts, as above.
+LIST_EDITS = {
+    "share/snmp/SNMP-USER-BASED-SM-MIB.txt": (
+        ("                  Subscribe:  majordomo@lists.tislabs.com\n"
+         "                              In msg body:  subscribe snmpv3\n", ""),
+    ),
+}
 # The ident notes written by hand: the name is "EmiBSD\0", 7 bytes, so namesz is 7 and the
 # name is padded to the next word before the description.
 NOTE_EDITS = {
@@ -236,8 +250,10 @@ class Rename:
         self.renamed = {"url": 0, "other": 0}
         self.kept = {"licence": 0, "email": 0, "abi": 0, "data": 0, "history": 0, "odd-case": 0}
         self.listed = {k: [] for k in KEPT_LISTED}
-        self.ids = {"line": 0, "declaration": 0, "keyword": 0}
+        self.ids = {"line": 0, "licence line": 0, "declaration": 0, "keyword": 0}
         self.ids_by_kind = {}
+        self.licence_ids = []   # the file of each id removed from inside a licence block
+        self.current = ""
         self.files = 0
         self.latin1 = 0
         self.keys = []   # EmiBSD's public keys installed in place of the base system's
@@ -300,18 +316,27 @@ class Rename:
     def strip_ids(self, lines: list, licence: list) -> tuple:
         out, out_licence = [], []
         for line, lic in zip(lines, licence):
-            if lic or not ID_RE.search(line):
+            if not ID_RE.search(line):
                 out.append(line)
                 out_licence.append(lic)
                 continue
             found = [m.group(1) for m in ID_RE.finditer(line)]
             rest = ID_RE.sub("", line)
             if COMMENT_ONLY.match(rest):
+                # An id on a line of its own goes, inside a licence block too (the user's
+                # decision of 2026-11-07): the block's comment keeps its text, and no
+                # line of the notice itself holds only an id.
                 for f in found:
-                    self.count_id(f, "line")
+                    self.count_id(f, "licence line" if lic else "line")
+                if lic:
+                    self.licence_ids.append(self.current)
                 if rest.count("/*") != rest.count("*/"):   # an unbalanced delimiter stays
                     out.append(rest.rstrip())
-                    out_licence.append(False)
+                    out_licence.append(lic)
+                continue
+            if lic:   # an id inside a line of the notice itself stays with the notice
+                out.append(line)
+                out_licence.append(lic)
                 continue
             for f in found:
                 self.count_id(f, "keyword")
@@ -407,6 +432,7 @@ class Rename:
             text = data.decode(coding)
             self.latin1 += 1
         self.files += 1
+        self.current = where
         text = self.strip_declarations(text)
         lines = text.split("\n")
         lines, licence = self.strip_ids(lines, self.licence_lines(lines, path.name))
@@ -445,7 +471,7 @@ class Rename:
             path.write_bytes(new)
 
     def cvs_edits(self) -> None:
-        for name, edits in CVS_EDITS.items():
+        for name, edits in {**CVS_EDITS, **LIST_EDITS}.items():
             f = self.view / name
             text = f.read_text()
             for old, new in edits:
@@ -538,6 +564,12 @@ class Rename:
             r.append(f"  {k}: {v}")
         for k in sorted(self.ids_by_kind):
             r.append(f"  keyword {k}: {self.ids_by_kind[k]}")
+        files = sorted(set(self.licence_ids))
+        manuals = [f for f in files if re.search(r"\.\d\w*$", f)]
+        r.append("")
+        r.append(f"== ids removed from inside a licence block: {len(self.licence_ids)} lines in {len(files)} files "
+                 f"({len(manuals)} manuals)")
+        r.extend(files)
         r.append("")
         r.append(f"== kept: linker-script segment types (lld parses PT_OPENBSD_* by text) ({len(self.listed['abi'])})")
         r.extend(self.listed["abi"])
@@ -559,7 +591,7 @@ class Rename:
         r.append(f"== personal addresses in prose that asks the reader to write, kept ({len(self.ambiguous)})")
         r.extend(self.ambiguous)
         r.append("")
-        r.append(f"== CVS servers (anoncvs) removed or made neutral ({len(self.cvs)})")
+        r.append(f"== CVS servers (anoncvs) and mailing-list instructions (majordomo) removed or made neutral ({len(self.cvs)})")
         r.extend(self.cvs)
         r.append("")
         r.append(f"== data about other systems, kept as they are ({len(self.data_files)} files)")
@@ -961,8 +993,94 @@ def step_includes(arch: str, out: Path) -> None:
     resources = subprocess.run([f"{LLVM}/clang", "-print-resource-dir"], capture_output=True, text=True,
                                check=True).stdout.strip()
     shutil.copy2(Path(resources) / f"lib/{triple}/libclang_rt.builtins.a", sysroot / "usr/lib/libcompiler_rt.a")
-    make(arch, out, "include", "includes", "copies", objdir=False)
+    # The kernel-ABI part of /usr/include is the Kernel's (the user's decision of 2026-11-08),
+    # laid out first as include/Makefile's `copies` did, before the libraries' own includes
+    # targets run; the base system's own part (libc's API, the libraries') is include/Makefile's
+    # `includes` with no kernel copy (SYS_INCLUDE empty: it would copy the pin's sys/ over).
+    kernel_headers(arch, out)
+    make(arch, out, "include", "includes", extra=("SYS_INCLUDE=",), objdir=False)
     compiler_headers(out)
+    check_syscalls(arch, out)
+
+
+def kernel_headers(arch: str, out: Path) -> None:
+    """The Kernel release's include/ (its LDIRS trees, its architecture directory and the
+    machine -> arm64 link) as /usr/include holds them: each top directory root:bin 755 as
+    include/Makefile installs it, the files read-only (the `includes` target's find then
+    records their modes), whatever was there before removed first."""
+    k, kernel, fetched = kernel_release(arch)
+    if not fetched or "include" not in k["take"]:
+        raise SystemExit(f"includes: kernel {k['release']}: include/ for {arch} not fetched (just fetch)")
+    src = kernel / "include"
+    inc = out / "sysroot/usr/include"
+    inc.mkdir(parents=True, exist_ok=True)
+    install = [str(HOST / "bin/install"), "-d", "-o", "root", "-g", "bin", "-m", "755"]
+    copied = []
+    for top in sorted(src.iterdir()):
+        dst = inc / top.name
+        if dst.is_symlink() or dst.is_file():
+            dst.unlink()
+        elif dst.exists():
+            shutil.rmtree(dst)
+        if top.is_symlink():
+            dst.symlink_to(os.readlink(top))
+            continue
+        subprocess.run([*install, str(dst)], env=make_env(arch, out), check=True)
+        for dirpath, dirs, files in os.walk(top):
+            here = dst / Path(dirpath).relative_to(top)
+            for d in sorted(dirs):
+                if (Path(dirpath) / d).is_symlink():
+                    (here / d).symlink_to(os.readlink(Path(dirpath) / d))
+                else:
+                    (here / d).mkdir(exist_ok=True)
+                    (here / d).chmod(0o755)
+            for f in sorted(files):
+                from_ = Path(dirpath) / f
+                if from_.is_symlink():
+                    (here / f).symlink_to(os.readlink(from_))
+                else:
+                    shutil.copyfile(from_, here / f)
+                    copied.append(here / f)
+    # The base system's name in these headers is EmiBSD's as it is in the C that includes them
+    # (libc's init.c names AUX_emibsd_execpath): the same rename pass, over the copies, never
+    # over the Kernel's release.
+    rename = Rename(inc)
+    rename.have = set()
+    for f in copied:
+        f.chmod(0o644)
+        rename.file(f)
+    (out / "include-rename").mkdir(exist_ok=True)
+    summary = rename.report(out / "include-rename")
+    for f in copied:
+        f.chmod(0o444)
+    print(f"includes: {len(copied)} kernel headers from {k['release']} in {inc}; name: {summary}")
+
+
+def check_syscalls(arch: str, out: Path) -> None:
+    """Every `#define SYS_<name> <number>` of the installed sys/syscall.h must be in exactly
+    one of the Kernel's MANUAL.toml [syscalls] lists (native, legacy, absent), by name and
+    number: the manual and libc are filtered by those lists, so a header that says otherwise
+    stops the build."""
+    _, kernel, _ = kernel_release(arch)
+    with open(kernel / "MANUAL.toml", "rb") as fh:
+        lists = tomllib.load(fh)["syscalls"]
+    where = {}
+    for kind in ("native", "legacy", "absent"):
+        for call in lists[kind]:
+            where.setdefault((call["name"], call["number"]), []).append(kind)
+    header = out / "sysroot/usr/include/sys/syscall.h"
+    defined = {}
+    for line in header.read_text().splitlines():
+        m = re.fullmatch(r"#define\s+SYS_(\w+)\s+(\d+)\s*", line)
+        if m and m.group(1) != "MAXSYSCALL":
+            defined[m.group(1)] = int(m.group(2))
+    bad = [f"SYS_{name} {number}: " + (", ".join(where[(name, number)]) if (name, number) in where else "in no list")
+           for name, number in sorted(defined.items(), key=lambda kv: kv[1])
+           if len(where.get((name, number), [])) != 1]
+    if bad:
+        raise SystemExit(f"includes: {len(bad)} of {len(defined)} system calls of sys/syscall.h are not in exactly one "
+                         "list of MANUAL.toml [syscalls]:\n  " + "\n  ".join(bad))
+    print(f"includes: {len(defined)} system calls of sys/syscall.h, each in exactly one list of MANUAL.toml")
 
 
 # What the ramdisk's /etc holds, from the tree (the arm64 files from etc/etc.<arch>), and
@@ -1423,6 +1541,7 @@ def step_base(arch: str, out: Path) -> None:
     system's subdir loop stops at the first failure, and one program must not hide the
     rest. The failures are listed in target/<arch>/failed."""
     failed = []
+    (out / "manual-dropped").unlink(missing_ok=True)   # every page is installed again; the etc step filters again
     for tree in BASE_TREES:
         dirs = [d for d in subdirs(arch, out, tree) if d not in EXCLUDED]
         installed = set(subdirs(arch, out, tree, "install"))
@@ -1443,24 +1562,238 @@ def step_base(arch: str, out: Path) -> None:
     print(f"base: {len(failed)} failed, listed in {out / 'failed'}")
 
 
+def kernel_release(arch: str) -> tuple:
+    """(KERNEL.toml's [kernel], the unpacked artifact's directory for `arch`, whether
+    `just fetch` has fetched and unpacked it at the pin)."""
+    with open(ROOT / "KERNEL.toml", "rb") as fh:
+        k = tomllib.load(fh)["kernel"]
+    where = ROOT / "upstream/kernel" / k["release"]
+    pin = where / ".pin"
+    fetched = arch in k["sha256"] and pin.exists() and pin.read_text().strip() == k["commit"]
+    return k, where / f"kernel-{k['release']}-{arch}", fetched
+
+
 def install_from_kernel(arch: str, out: Path) -> list:
     """What the base system takes from the Kernel's release (KERNEL.toml, fetched by
     `just fetch`): the boot loader, in /usr/mdec as the base system's own Makefile installs
     its loader (root, bin, 555). The includes and manual steps read the rest of what it
     unpacks (include/, MANUAL.toml). Returns what could not be installed."""
-    with open(ROOT / "KERNEL.toml", "rb") as fh:
-        k = tomllib.load(fh)["kernel"]
-    where = ROOT / "upstream/kernel" / k["release"]
-    pin = where / ".pin"
-    if arch not in k["sha256"] or not pin.exists() or pin.read_text().strip() != k["commit"]:
+    k, kernel, fetched = kernel_release(arch)
+    if not fetched:
         print(f"base: kernel {k['release']}: {arch} not fetched or not pinned (just fetch)")
         return [f"KERNEL.toml {k['release']} {arch}"]
     for name in k["mdec"]:
         subprocess.run([str(HOST / "bin/install"), "-c", "-o", "root", "-g", "bin", "-m", "555",
-                        str(where / f"kernel-{k['release']}-{arch}" / name), str(out / "sysroot/usr/mdec" / name)],
+                        str(kernel / name), str(out / "sysroot/usr/mdec" / name)],
                        env=make_env(arch, out), check=True)
     print(f"base: kernel {k['release']}: {', '.join(k['mdec'])} installed in /usr/mdec")
     return []
+
+
+# --- the manual the Kernel implements ------------------------------------------------------
+#
+# The Kernel publishes what it implements (MANUAL.toml: its configured drivers, its system
+# calls native, legacy and absent, the pages it knows are wrong for it); the manual of the
+# system is that, not the base system's whole (the user's decision of 2026-11-07). After the
+# programs are installed and before the manual's database is made, the pages that describe
+# what the Kernel does not have leave the sysroot, with their links, and the set lists
+# (manual-dropped) so the sets step finds no entry without a file.
+MAN_DIR = "usr/share/man"
+DEVICE_RE = re.compile(r"^(?:pseudo-)?device[ \t]+(\w+)", re.M)
+NAME_HEAD_RE = re.compile(r'^\.S[hH][ \t]+"?NAME"?[ \t]*$')
+PAGE_RE = re.compile(r"(\w+)\((\d)\)")
+# A kernel-pin reason that says "unverified" is a doubt, not a finding: the page stays and
+# the report names it. Any other reason in [[pages]] is a finding, and the page goes.
+UNVERIFIED = "unverified"
+DROPPED_PREFIXES = (f"./{MAN_DIR}/man9",)   # all of section 9
+
+
+def page_names(text: str) -> list:
+    """The names in a page's NAME section: the first word of each .Nm of an mdoc(7) page, the
+    comma-separated words before the dash of a man(7) one."""
+    names, inside = [], False
+    for line in text.splitlines():
+        if not inside:
+            inside = bool(NAME_HEAD_RE.match(line))
+            continue
+        if line.startswith((".Nd", ".Sh", ".SH", ".Sh")):
+            break
+        if line.startswith(".Nm"):
+            words = line.split()[1:]
+            if words:
+                names.append(words[0].strip('",').replace("\\&", ""))
+        elif line and not line.startswith("."):
+            names += [n.strip() for n in line.split("\\-")[0].split(",") if n.strip()]
+    return [n for n in names if n]
+
+
+def man_groups(directory: Path) -> list:
+    """The pages of one section directory as [(paths, text)]: the manual links of the base
+    system's Makefiles (MLINKS) are hard links, so every name of one page shares an inode; a
+    symbolic link joins the page it points to."""
+    by_page = {}
+    for f in sorted(directory.rglob("*")):
+        if f.is_dir() and not f.is_symlink():
+            continue
+        try:
+            st = f.stat()
+        except FileNotFoundError:
+            continue   # a dangling link has no page
+        by_page.setdefault((st.st_dev, st.st_ino), []).append(f)
+    return [(paths, paths[0].read_bytes().decode("latin-1")) for paths in by_page.values()]
+
+
+def read_manual_inventory(arch: str) -> dict:
+    k, kernel, fetched = kernel_release(arch)
+    if not fetched or "MANUAL.toml" not in k["take"]:
+        raise SystemExit(f"manual: kernel {k['release']}: MANUAL.toml for {arch} not fetched (just fetch)")
+    with open(kernel / "MANUAL.toml", "rb") as fh:
+        doc = tomllib.load(fh)
+    if doc["meta"]["schema"] != 1:
+        raise SystemExit(f"manual: MANUAL.toml has schema {doc['meta']['schema']}, this build reads 1")
+    doc["release"] = k["release"]
+    return doc
+
+
+def declared_devices(out: Path, arch: str) -> set:
+    """The names of the `device` and `pseudo-device` declarations of the configuration files of
+    the pin: sys/conf/files, the architecture's files.<arch> and the files.* of sys/dev and
+    sys/scsi (distrib/kernel)."""
+    src = out / "src/sys"
+    files = [src / "conf/files", *sorted((src / "arch" / MACHINES[arch]["MACHINE"] / "conf").glob("files.*")),
+             *sorted(src.glob("dev/**/files.*")), *sorted(src.glob("scsi/files.*"))]
+    names = set()
+    for f in files:
+        if not f.is_file():
+            raise SystemExit(f"manual: {f.relative_to(out)} is missing (just layout, distrib/kernel)")
+        names.update(DEVICE_RE.findall(f.read_text(encoding="latin-1")))
+    return names
+
+
+def step_manual(arch: str, out: Path) -> None:
+    """Drop from the sysroot's manual what the Kernel's MANUAL.toml says it does not have:
+    section 2 pages whose every NAME is an absent call; section 4 pages of a device declared
+    in the pin's configuration files and not configured; the pages the inventory lists as
+    wrong for this Kernel (config(8), options(4), ddb(4)); all of section 9. Writes
+    target/<arch>/manual-report.txt and manual-dropped (the entries the set lists lose)."""
+    inv = read_manual_inventory(arch)
+    root = out / "sysroot" / MAN_DIR
+    absent = {c["name"] for c in inv["syscalls"]["absent"] if c["name"]}
+    configured = set(inv["drivers"]["configured"])
+    devices = declared_devices(out, arch)
+    sections = sorted(p.name for p in root.glob("man*") if p.is_dir())
+    before = {s: sum(1 for f in (root / s).rglob("*") if not f.is_dir()) for s in sections}
+    dropped, report = [], {k: [] for k in ("sys", "sys-mixed", "sys-unparsed", "drv", "drv-mixed", "drv-kept",
+                                           "pages", "pages-kept", "nine")}
+
+    def drop(paths: list) -> None:
+        for f in paths:
+            dropped.append("./" + f.relative_to(out / "sysroot").as_posix())
+            f.unlink()
+
+    # The inventory's own list of pages that are wrong for this Kernel.
+    for entry in inv.get("pages", []):
+        m = PAGE_RE.fullmatch(entry["page"])
+        if m is None:
+            raise SystemExit(f"manual: MANUAL.toml: page {entry['page']!r} is not name(section)")
+        if entry["reason"].startswith(UNVERIFIED):
+            there = (root / f"man{m.group(2)}" / f"{m.group(1)}.{m.group(2)}").exists()
+            report["pages-kept"].append(f"{entry['page']} ({'in the manual' if there else 'not installed'}): "
+                                        f"{entry['reason']}")
+            continue
+        page = root / f"man{m.group(2)}" / f"{m.group(1)}.{m.group(2)}"
+        if not page.exists():
+            report["pages"].append(f"{entry['page']}: not in the manual")
+            continue
+        inode = page.stat().st_ino
+        links = [f for f in (root / f"man{m.group(2)}").rglob("*") if f.is_file() and f.stat().st_ino == inode]
+        drop(links)
+        report["pages"].append(f"{entry['page']}: {', '.join(f.name for f in links)}")
+    for paths, text in man_groups(root / "man2") if (root / "man2").is_dir() else []:
+        names = page_names(text)
+        gone = [n for n in names if n in absent]
+        label = f"{', '.join(f.name for f in paths)}: {', '.join(names)}"
+        if not names:
+            report["sys-unparsed"].append(label)
+        elif len(gone) == len(names):
+            drop(paths)
+            report["sys"].append(label)
+        elif gone:
+            report["sys-mixed"].append(f"{label} (absent: {', '.join(gone)})")
+    for paths, text in man_groups(root / "man4") if (root / "man4").is_dir() else []:
+        names = [n for n in dict.fromkeys([paths[0].stem, *(p.stem for p in paths), *page_names(text)])]
+        drivers = [n for n in names if n in devices]
+        label = f"{', '.join(f.name for f in paths)}: {', '.join(names)}"
+        if not drivers:
+            report["drv-kept"].append(paths[0].name)
+        elif any(n in configured for n in drivers):
+            if all(n in configured for n in drivers):
+                continue
+            report["drv-mixed"].append(f"{label} (not configured: {', '.join(n for n in drivers if n not in configured)})")
+        else:
+            drop(paths)
+            report["drv"].append(label)
+    nine = root / "man9"
+    if nine.exists():
+        for paths, _ in man_groups(nine):
+            report["nine"].append(", ".join(f.name for f in paths))
+            dropped.extend("./" + f.relative_to(out / "sysroot").as_posix() for f in paths)
+        dropped.append(f"./{MAN_DIR}/man9")
+        shutil.rmtree(nine)
+    # The database is made again from what stays (etc's makedb).
+    (root / "mandoc.db").unlink(missing_ok=True)
+    after = {s: sum(1 for f in (root / s).rglob("*") if not f.is_dir()) for s in sections if (root / s).exists()}
+    # What an earlier run took out stays out of the lists (a second run on a filtered sysroot
+    # drops nothing new); the base step starts the list again, as it installs every page again.
+    before_run = (out / "manual-dropped").read_text().split("\n") if (out / "manual-dropped").exists() else []
+    (out / "manual-dropped").write_text("".join(d + "\n" for d in sorted(set(dropped) | set(before_run) - {""})))
+
+    def part(title: str, items: list) -> list:
+        return ["", f"== {title} ({len(items)})", *items]
+    r = [f"manual-report: the manual filtered by the Kernel {inv['release']} (MANUAL.toml, kernel {inv['meta']['kernel'][:12]})",
+         "", "files of the manual by section, before and after:"]
+    r += [f"  {s}: {before[s]} -> {after.get(s, 0)} ({before[s] - after.get(s, 0)} dropped)" for s in sections]
+    r += [f"  total: {sum(before.values())} -> {sum(after.values())}"]
+    r += part("section 2, dropped: every name of NAME is an absent call", report["sys"])
+    r += part("section 2, kept: a name of NAME is absent but the page also documents a present call", report["sys-mixed"])
+    r += part("section 2, kept: NAME could not be read", report["sys-unparsed"])
+    r += part("section 4, dropped: a device the pin declares and the Kernel does not configure", report["drv"])
+    r += part("section 4, kept: documents devices of which only some are configured", report["drv-mixed"])
+    r += part("section 4, kept: not a device of the pin's configuration files (protocols, interfaces, kernel services)",
+              report["drv-kept"])
+    r += part("the inventory's [[pages]], dropped", report["pages"])
+    r += part("the inventory's [[pages]], kept (unverified), for the maintainer to check", report["pages-kept"])
+    r += part("section 9, dropped", report["nine"])
+    (out / "manual-report.txt").write_text("\n".join(r) + "\n")
+    print("manual: " + ", ".join(f"{s} {before[s] - after.get(s, 0)}" for s in sections if before[s] != after.get(s, 0))
+          + f" files dropped; {out / 'manual-report.txt'}")
+    abi_report(arch, out, inv)
+
+
+def abi_report(arch: str, out: Path, inv: dict) -> None:
+    """target/<arch>/abi-report.txt: the system calls MANUAL.toml lists as absent that libc
+    still exports a name for (the stub, or the wrapper that stands where it was). Information,
+    not a failure: libc's own sources are the base system's."""
+    absent = {c["name"]: c["number"] for c in inv["syscalls"]["absent"] if c["name"]}
+    libs = sorted((out / "sysroot/usr/lib").glob("libc.so.*"))
+    lines = [f"abi-report: absent system calls of the Kernel {inv['release']} that libc still exports", ""]
+    if not libs:
+        lines.append("libc.so is not built yet (run the lib step)")
+    else:
+        exported = subprocess.run([f"{LLVM}/llvm-nm", "-D", "--defined-only", str(libs[-1])], capture_output=True,
+                                  text=True, check=True).stdout.split("\n")
+        symbols = {}
+        for line in exported:
+            w = line.split()
+            if len(w) == 3:
+                symbols.setdefault(w[2], w[1])
+        stubs = {n: [s for s in (n, f"_thread_sys_{n}") if s in symbols] for n in absent}
+        stubs = {n: s for n, s in stubs.items() if s}
+        lines.append(f"{libs[-1].name}: {len(stubs)} of {len(absent)} named absent calls have an export")
+        lines.append("")
+        lines += [f"{n} ({absent[n]}): {', '.join(stubs[n])}" for n in sorted(stubs, key=absent.get)]
+    (out / "abi-report.txt").write_text("\n".join(lines) + "\n")
+    print(f"manual: {out / 'abi-report.txt'}")
 
 
 def step_etc(arch: str, out: Path) -> None:
@@ -1473,6 +1806,8 @@ def step_etc(arch: str, out: Path) -> None:
     if make_walk(arch, out, "etc", "install-mtree", "distribution-etc-root-var"):
         raise SystemExit("etc: distribution-etc-root-var failed")
     print(f"etc: {out / 'sysroot/var/sysmerge/etc.tgz'}")
+    # The manual of what the Kernel implements, before its database is made of it.
+    step_manual(arch, out)
     # The top Makefile's afterinstall, the manual's database; the locate database beside it
     # (distrib/sets's makedb) is not made yet: makelocatedb names the target's own tools.
     if make_walk(arch, out, "share/man", "makedb"):
@@ -1491,6 +1826,11 @@ def set_list(out: Path, name: str, arch: str) -> list:
     for f in ("mi", f"md.{arch}", f"clang.{arch}"):
         if (lists / f).exists():
             entries.update(l.strip() for l in (lists / f).read_text().splitlines() if l.strip())
+    # What the manual step took out of the sysroot is in no list (the Kernel does not have it).
+    dropped = out / "manual-dropped"
+    if dropped.exists():
+        gone = set(dropped.read_text().split("\n"))
+        entries = {e for e in entries if e not in gone and not e.startswith(tuple(f"{p}/" for p in DROPPED_PREFIXES))}
     return sorted(entries)
 
 
@@ -1584,7 +1924,7 @@ def ids_of(etc: Path) -> tuple:
 
 STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "obj": step_obj,
          "lib": step_lib, "base": step_base, "retry": step_retry, "image": step_image,
-         "sets": step_sets, "etc": step_etc, "miniroot": step_miniroot}
+         "sets": step_sets, "etc": step_etc, "miniroot": step_miniroot, "manual": step_manual}
 # `just world arm64` with no step: the base system built and installed into the sysroot.
 # `make obj` first, as in the base system: include/Makefile has librpcsvc generate its
 # headers, which then must be in that library's obj, where its sources are compiled.
