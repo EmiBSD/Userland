@@ -1446,7 +1446,8 @@ def step_base(arch: str, out: Path) -> None:
 def install_from_kernel(arch: str, out: Path) -> list:
     """What the base system takes from the Kernel's release (KERNEL.toml, fetched by
     `just fetch`): the boot loader, in /usr/mdec as the base system's own Makefile installs
-    its loader (root, bin, 555). Returns what could not be installed."""
+    its loader (root, bin, 555). The includes and manual steps read the rest of what it
+    unpacks (include/, MANUAL.toml). Returns what could not be installed."""
     with open(ROOT / "KERNEL.toml", "rb") as fh:
         k = tomllib.load(fh)["kernel"]
     where = ROOT / "upstream/kernel" / k["release"]
@@ -1454,11 +1455,11 @@ def install_from_kernel(arch: str, out: Path) -> list:
     if arch not in k["sha256"] or not pin.exists() or pin.read_text().strip() != k["commit"]:
         print(f"base: kernel {k['release']}: {arch} not fetched or not pinned (just fetch)")
         return [f"KERNEL.toml {k['release']} {arch}"]
-    for name in k["take"]:
+    for name in k["mdec"]:
         subprocess.run([str(HOST / "bin/install"), "-c", "-o", "root", "-g", "bin", "-m", "555",
                         str(where / f"kernel-{k['release']}-{arch}" / name), str(out / "sysroot/usr/mdec" / name)],
                        env=make_env(arch, out), check=True)
-    print(f"base: kernel {k['release']}: {', '.join(k['take'])} installed in /usr/mdec")
+    print(f"base: kernel {k['release']}: {', '.join(k['mdec'])} installed in /usr/mdec")
     return []
 
 

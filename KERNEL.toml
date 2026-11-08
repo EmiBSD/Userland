@@ -1,13 +1,17 @@
 # The Kernel's release the base system takes the Kernel's part of itself from (the user's
-# decision of 2026-11-05): /usr/mdec/BOOTAA64.EFI, the boot loader installboot(8) puts on
-# the disk. tools/upstream.py fetch downloads each architecture's artifact by tag into
-# upstream/kernel/<release>/ and checks its sum; world.py's base step installs what `take`
-# names from it. A new Kernel release is a commit that moves this pin, with its reason.
+# decisions of 2026-11-05 and 2026-11-08): the boot loader installboot(8) puts on the disk
+# (/usr/mdec/BOOTAA64.EFI), the kernel-ABI headers of /usr/include (include/) and the
+# interface inventory the manual is filtered by (MANUAL.toml). tools/upstream.py fetch
+# downloads each architecture's artifact by tag into upstream/kernel/<release>/, checks its
+# sum and unpacks what `take` names; world.py installs from it: `mdec` in /usr/mdec, include/
+# in /usr/include, MANUAL.toml read by the manual step. A new Kernel release is a commit that
+# moves this pin, with its reason.
 [kernel]
 repo    = "https://github.com/EmiBSD/Kernel"
-release = "20261107-b2a15ba6"                          # the GitHub release (a pre-release)
+release = "20261108-2c665343"                          # the GitHub release (a pre-release)
 commit  = ""   # what the tag names
-take    = ["BOOTAA64.EFI"]                             # installed in /usr/mdec, root:bin 555
+take    = ["BOOTAA64.EFI", "MANUAL.toml", "include"]   # unpacked (include/ keeps its machine -> arm64 link)
+mdec    = ["BOOTAA64.EFI"]                             # installed in /usr/mdec, root:bin 555
 
 [kernel.sha256]   # kernel-<release>-<arch>.tar.zst; amd64 joins when the Kernel releases it
-arm64 = "5479dd94db5d77fb45eed86b252a3868c2d4f52b68d3909ea2ee0f7995047b8a"
+arm64 = "5fea0216f3d82bd46ec38a52b58747b93b04d17e5af6af7beda498a7162cc4f8"

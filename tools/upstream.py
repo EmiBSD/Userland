@@ -155,6 +155,11 @@ def fetch_kernel():
         subprocess.run(["tar", "-xf", "-", "-C", str(dest), *members], stdin=zstd.stdout, check=True)
         if zstd.wait():
             raise SystemExit(f"upstream: kernel: zstd could not read {archive.name}")
+        # include/ is a tree whose machine -> <arch> link /usr/include needs as a link; tar
+        # extracts links as links, and a copy or a flattening would not.
+        link = dest / name / "include" / "machine"
+        if "include" in k["take"] and not link.is_symlink():
+            raise SystemExit(f"upstream: kernel: {link} is not the symbolic link the release carries")
         print(f"upstream: kernel: {k['release']} {arch} {digest[:12]} pinned ({', '.join(k['take'])})")
     (dest / ".pin").write_text(k["commit"] + "\n")
     readonly(dest)
