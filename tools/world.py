@@ -1683,7 +1683,7 @@ def step_manual(arch: str, out: Path) -> None:
     sections = sorted(p.name for p in root.glob("man*") if p.is_dir())
     before = {s: sum(1 for f in (root / s).rglob("*") if not f.is_dir()) for s in sections}
     dropped, report = [], {k: [] for k in ("sys", "sys-mixed", "sys-unparsed", "drv", "drv-mixed", "drv-kept",
-                                           "pages", "pages-kept", "nine")}
+                                           "pages", "pages-kept", "nine", "arch")}
 
     def drop(paths: list) -> None:
         for f in paths:
@@ -1719,6 +1719,15 @@ def step_manual(arch: str, out: Path) -> None:
             report["sys"].append(label)
         elif gone:
             report["sys-mixed"].append(f"{label} (absent: {', '.join(gone)})")
+    # The architecture-dependent drivers' pages (man4/<arch>/) of every architecture but this
+    # one (the user's decision of 2026-11-08; amd64's return when the Kernel ships amd64).
+    for sub in sorted(p for p in (root / "man4").glob("*") if p.is_dir() and p.name != MACHINES[arch]["MACHINE"]):
+        for f in sorted(sub.rglob("*")):
+            if not f.is_dir():
+                report["arch"].append(f"{sub.name}/{f.name}")
+            dropped.append("./" + f.relative_to(out / "sysroot").as_posix())
+        dropped.append("./" + sub.relative_to(out / "sysroot").as_posix())
+        shutil.rmtree(sub)
     for paths, text in man_groups(root / "man4") if (root / "man4").is_dir() else []:
         names = [n for n in dict.fromkeys([paths[0].stem, *(p.stem for p in paths), *page_names(text)])]
         drivers = [n for n in names if n in devices]
@@ -1757,6 +1766,7 @@ def step_manual(arch: str, out: Path) -> None:
     r += part("section 2, dropped: every name of NAME is an absent call", report["sys"])
     r += part("section 2, kept: a name of NAME is absent but the page also documents a present call", report["sys-mixed"])
     r += part("section 2, kept: NAME could not be read", report["sys-unparsed"])
+    r += part("section 4, dropped: the pages of other architectures (man4/<arch>/)", report["arch"])
     r += part("section 4, dropped: a device the pin declares and the Kernel does not configure", report["drv"])
     r += part("section 4, kept: documents devices of which only some are configured", report["drv-mixed"])
     r += part("section 4, kept: not a device of the pin's configuration files (protocols, interfaces, kernel services)",
@@ -1830,7 +1840,9 @@ def set_list(out: Path, name: str, arch: str) -> list:
     dropped = out / "manual-dropped"
     if dropped.exists():
         gone = set(dropped.read_text().split("\n"))
-        entries = {e for e in entries if e not in gone and not e.startswith(tuple(f"{p}/" for p in DROPPED_PREFIXES))}
+        other = re.compile(rf"\./{MAN_DIR}/man4/(?!{MACHINES[arch]["MACHINE"]}(?:/|$))[^/.]+(?:/|$)")
+        entries = {e for e in entries if e not in gone and not other.match(e)
+                   and not e.startswith(tuple(f"{p}/" for p in DROPPED_PREFIXES))}
     return sorted(entries)
 
 
