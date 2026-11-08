@@ -70,7 +70,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE = ROOT / "base"
 TREES = ("etc", "data", "distrib")   # their entries keep their full paths under src/
 LLVM = Path(os.environ.get("EMIBSD_LLVM_BIN",
-                           Path.home() / "devel/emibsd/toolchains/llvm-23.1.4+emibsd.1-aarch64-apple-darwin/bin"))
+                           Path.home() / "devel/emibsd/toolchains/llvm-23.1.4+emibsd.2-aarch64-apple-darwin-arm64/bin"))
 EPOCH = os.environ.get("SOURCE_DATE_EPOCH") or \
     subprocess.run(["git", "-C", str(ROOT), "log", "-1", "--format=%ct"], capture_output=True,
                    text=True, check=True).stdout.strip()
