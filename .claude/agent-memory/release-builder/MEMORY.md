@@ -9,3 +9,4 @@ One line per lesson, appended at the end; task state goes in HANDOFF.md
 - A published tag is never cut again: a defect found after publication is a new tag (2026.11.1 and on).
 - 2026.11.2: two builds identical, install-check PASS; second build plus check about 35 minutes after the first.
 - 2026.11.3: two builds identical, install-check PASS; miniroot80.fs is plain-text searchable with strings -a (check install.sub there); target/arm64 in the main checkout is a stale tree, not the dist's.
+- 2026.11.4: two builds identical (about 9 min each, warm), install-check PASS (about 3 min); the 2026.11.3-to-4 set shrank ~560 KB (man pages dropped).
