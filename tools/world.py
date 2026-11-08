@@ -21,7 +21,12 @@ The steps, in order (the first nine, through sets, when none is named):
   tree      target/<arch>/src: every inherited directory's src/ copied back to its path in
             the base system's tree, so each Makefile finds its neighbours where it expects
             them (${.CURDIR}/.., BSDSRCDIR); patches/ applied to the copy, src/ only read;
-            __OpenBSD__ renamed __EmiBSD__ in the copy
+            __OpenBSD__ renamed __EmiBSD__ in the copy; the base system's name (OpenBSD to
+            EmiBSD, in prose, messages, comments, identifiers and URLs) renamed in the
+            inherited trees' text after the patches, never in the imported programs, and the
+            version-control ids ($OpenBSD$, $Id$...) removed; copyright and licence notices,
+            e-mail addresses, names of files that keep the old name, target triples and the
+            ELF wire values stay; target/<arch>/rename-report.txt counts and lists them
   host      the base system's own tools the build runs on the development host (rpcgen,
             yacc, lex, mklocale, strfile, mkdict, mkindex, makefs, pax, mtree, sha256,
             pwd_mkdb, tic), built by the same make, into target/host/bin
@@ -122,6 +127,307 @@ def place_imported(view: Path) -> int:
     return n
 
 
+# --- the base system's name -------------------------------------------------------------
+#
+# In the userland the base system's name becomes EmiBSD in the copied tree (the user's
+# decision of 2026-11-07: prose, messages, comments, identifiers and URLs; build time, in the
+# copy, never by patch). Everything that is a fact about someone else is kept: copyright and
+# licence notices, e-mail addresses, the names of files that exist with the old name, the
+# target triples and Perl's architecture names, and the ELF wire values that the Kernel and
+# the linker read by text (the note name, the .openbsd.* section names, the linker script's
+# PT_OPENBSD_* names) until they move together. The version-control keywords are removed.
+
+NAME_RE = re.compile(r"(?i)openbsd")
+NAME_FORMS = {"OpenBSD": "EmiBSD", "openbsd": "emibsd", "OPENBSD": "EMIBSD", "openBSD": "emiBSD"}
+KEYWORDS = "OpenBSD|NetBSD|FreeBSD|Id|Header"
+ID_RE = re.compile(r"\$(" + KEYWORDS + r")(?::[ \t][^$\n]*)?\$")
+# What can surround a version-control id on a line that holds nothing else.
+COMMENT_ONLY = re.compile(r'^\s*(?:(?:/\*|\*/|//|#|\.\\"|\\"|dnl\b|--|;|\*|<!--|-->)\s*)*$')
+DECL_RE = re.compile(
+    r"^[ \t]*(?:static\s+)?(?:const\s+)?(?:volatile\s+)?char\s*(?:const\s*)?\*?\s*(\w+)\s*(?:\[\s*\])?"
+    r"(?:\s*__\w+(?:\s*\(\([^)]*\)\))?)*\s*=\s*(?:\"[^\"\n]*\"\s*)+;[ \t]*\n", re.M)
+MACRO_RE = re.compile(r"^[ \t]*(?:__\w*RCSID|__FBSDID|__IDSTRING|__SCCSID)\s*\((?:[^;\n]|\n)*?\)\s*;?[ \t]*\n", re.M)
+IDENT_RE = re.compile(r"^[ \t]*#\s*(?:ident|pragma\s+ident)\s+\"[^\"\n]*\"[ \t]*\n", re.M)
+LICENCE_WORDS = re.compile(r"PROVIDED|WARRANT|(?i:Redistribution|permission notice|endorse or promote)")
+LICENCE_FILE = re.compile(r"(?i)licen[cs]e|copying|copyright")
+LINE_COMMENT = re.compile(r'^\s*(?:\.?\\"|#|//|dnl\b|;|--)')
+EMAIL_RE = re.compile(r"[\w.+%-]+@[\w.-]*\w")
+URL_RE = re.compile(r"(?i)(?:(?:https?|ftp)://[^\s\"'<>)\]|]+|(?<![\w@.-])(?:[\w-]+\.)*openbsd\.(?:org|com|net)(?:/[^\s\"'<>)\]|]*)?)")
+# ABI wire values: section names, the note's name string where it is written (\0 follows) or
+# described (@nn), and the linker script's segment types, which lld reads by text.
+WIRE_RE = re.compile(r"(?i)(?<![\w.])\.(?:note\.)?openbsd\.(?!(?:org|com|net)\b)[\w.*-]+|OpenBSD(?=\\{1,2}0|@nn)")
+SCRIPT_RE = re.compile(r"\b(?:PT|PF)_OPENBSD_\w+")
+# "first appeared in OpenBSD 2.1" is a true statement about where the code came from.
+HISTORY_RE = re.compile(r"OpenBSD(?= \d+\.\d)")
+MDOC_OX = ('\tcase MDOC_Ox:\n\t\tos = "EmiBSD";\n',
+           '\tcase MDOC_Ox:\n\t\t/* a version after .Ox says where code first appeared; bare, it is this system */\n'
+           '\t\tos = n->child == NULL ? "EmiBSD" : "OpenBSD";\n')
+KEPT_LISTED = ("abi",)
+# A key file's name inside a line, and a set-list line that is just that file.
+KEY_RE = re.compile(r"openbsd-[\w${}()+ -]*?\.pub")
+KEY_LIST_RE = re.compile(r"^\./etc/signify/openbsd-(\d+)-(\w+)\.pub\s*$")
+
+
+class Rename:
+    """The state of one rename pass: the counts, the kept occurrences, the report."""
+
+    def __init__(self, view: Path):
+        self.view = view
+        self.renamed = {"url": 0, "other": 0}
+        self.kept = {"licence": 0, "email": 0, "abi": 0, "history": 0, "odd-case": 0}
+        self.listed = {k: [] for k in KEPT_LISTED}
+        self.ids = {"line": 0, "declaration": 0, "keyword": 0}
+        self.ids_by_kind = {}
+        self.files = 0
+        self.latin1 = 0
+        self.keys = []   # EmiBSD's public keys installed in place of the base system's
+        self.key_refs = []   # where a reference to a key was changed
+        self.key_dropped = []   # list lines for a key EmiBSD does not have
+        self.paths = []   # (old, new) of every file and directory renamed
+
+    def count_id(self, found: str, where: str) -> None:
+        self.ids[where] += 1
+        self.ids_by_kind[found] = self.ids_by_kind.get(found, 0) + 1
+
+    def strip_declarations(self, text: str) -> str:
+        """Remove the declarations that only hold a version-control id, when nothing else
+        refers to what they declare."""
+        def drop(m, name=None):
+            body = m.group(0)
+            found = [i.group(1) for i in ID_RE.finditer(body)]
+            if not found or "copyright" in body.lower():
+                return body
+            if name is not None and len(re.findall(r"\b%s\b" % re.escape(name), text)) != 1:
+                return body
+            for f in found:
+                self.count_id(f, "declaration")
+            return ""
+        text = DECL_RE.sub(lambda m: drop(m, m.group(1)), text)
+        text = MACRO_RE.sub(drop, text)
+        return IDENT_RE.sub(drop, text)
+
+    def licence_lines(self, lines: list, name: str) -> list:
+        """Per line: is it part of a copyright or licence notice."""
+        n = len(lines)
+        if LICENCE_FILE.search(name):
+            return [True] * n
+        flag = ["copyright" in line.lower() or bool(LICENCE_WORDS.search(line)) for line in lines]
+        i = 0
+        while i < n:   # a comment block that holds a Copyright line is licence through its end
+            line = lines[i]
+            start = i
+            if "/*" in line and "*/" not in line.split("/*", 1)[1]:
+                while i < n - 1 and "*/" not in lines[i]:
+                    i += 1
+            elif LINE_COMMENT.match(line):
+                while i < n - 1 and LINE_COMMENT.match(lines[i + 1]):
+                    i += 1
+            else:
+                i += 1
+                continue
+            # From the first Copyright line: what precedes it in the block (a version id) is not.
+            first = next((j for j in range(start, i + 1) if "copyright" in lines[j].lower()), None)
+            if first is not None:
+                for j in range(first, i + 1):
+                    flag[j] = True
+            i += 1
+        return flag
+
+    def strip_ids(self, lines: list, licence: list) -> tuple:
+        out, out_licence = [], []
+        for line, lic in zip(lines, licence):
+            if lic or not ID_RE.search(line):
+                out.append(line)
+                out_licence.append(lic)
+                continue
+            found = [m.group(1) for m in ID_RE.finditer(line)]
+            rest = ID_RE.sub("", line)
+            if COMMENT_ONLY.match(rest):
+                for f in found:
+                    self.count_id(f, "line")
+                if rest.count("/*") != rest.count("*/"):   # an unbalanced delimiter stays
+                    out.append(rest.rstrip())
+                    out_licence.append(False)
+                continue
+            for f in found:
+                self.count_id(f, "keyword")
+            out.append(rest)
+            out_licence.append(False)
+        return out, out_licence
+
+    def spans(self, line: str, script: bool) -> tuple:
+        """(start, end, category) of what is kept on a line, the earlier category winning,
+        and the spans of its URLs."""
+        urls = [(m.start(), m.end()) for m in URL_RE.finditer(line)]
+        found = []
+
+        def add(m, cat):
+            if not any(m.start() < e and s < m.end() for s, e, _ in found):
+                found.append((m.start(), m.end(), cat))
+        for m in EMAIL_RE.finditer(line):
+            if NAME_RE.search(m.group(0)):
+                add(m, "email")
+        for m in WIRE_RE.finditer(line):
+            add(m, "abi")
+        if script:
+            for m in SCRIPT_RE.finditer(line):
+                add(m, "abi")
+        if not line.lstrip().startswith(".Os"):
+            for m in HISTORY_RE.finditer(line):
+                add(m, "history")
+        return found, urls
+
+    def rename_line(self, line: str, licence: bool, where: str, number: int, script: bool) -> str:
+        if not NAME_RE.search(line):
+            return line
+        if licence:
+            self.kept["licence"] += len(NAME_RE.findall(line))
+            return line
+        found, urls = self.spans(line, script)
+        for m in KEY_RE.finditer(line):
+            self.key_refs.append(f"{where}:{number}: {line.strip()[:120]}")
+        out, last = [], 0
+        for m in NAME_RE.finditer(line):
+            cat = next((c for s, e, c in found if s <= m.start() < e), None)
+            if cat:
+                self.kept[cat] += 1
+                if cat in self.listed:
+                    self.listed[cat].append(f"{where}:{number}: {line.strip()[:120]}")
+                continue
+            new = NAME_FORMS.get(m.group(0))
+            if new is None:
+                self.kept["odd-case"] += 1
+                continue
+            out.append(line[last:m.start()])
+            out.append(new)
+            last = m.end()
+            self.renamed["url" if any(s <= m.start() < e for s, e in urls) else "other"] += 1
+        out.append(line[last:])
+        return "".join(out)
+
+    def file(self, path: Path) -> None:
+        data = path.read_bytes()
+        if b"\0" in data or not re.search(rb"(?i)openbsd|\$(?:NetBSD|FreeBSD|Id|Header)", data):
+            return
+        where = path.relative_to(self.view).as_posix()
+        try:
+            coding = "utf-8"
+            text = data.decode(coding)
+        except UnicodeDecodeError:
+            coding = "latin-1"   # an old 8-bit text: every byte maps back to itself
+            text = data.decode(coding)
+            self.latin1 += 1
+        self.files += 1
+        text = self.strip_declarations(text)
+        lines = text.split("\n")
+        lines, licence = self.strip_ids(lines, self.licence_lines(lines, path.name))
+        if "/lists/" in f"/{where}":   # a set list names no key that EmiBSD does not have
+            keep = []
+            for l, lic in zip(lines, licence):
+                m = KEY_LIST_RE.match(l)
+                if m and m.groups() not in self.have:
+                    self.key_dropped.append(f"{where}: {l.strip()}")
+                else:
+                    keep.append((l, lic))
+            lines, licence = [k[0] for k in keep], [k[1] for k in keep]
+        script = path.name.startswith("ld.script") or path.suffix in (".ld", ".lds")
+        lines = [self.rename_line(l, lic, where, i + 1, script)
+                 for i, (l, lic) in enumerate(zip(lines, licence))]
+        new = "\n".join(lines).encode(coding)
+        if new != data:
+            path.write_bytes(new)
+
+    def install_keys(self) -> None:
+        """EmiBSD signs with its own keys (base/etc/signify): the base system's are removed
+        from the copy and ours take their place under etc/signify."""
+        target = self.view / "etc/signify"
+        for old in sorted(target.glob("openbsd-*.pub")):
+            old.unlink()
+        for key in sorted((BASE / "etc/signify").glob("*.pub")):
+            shutil.copyfile(key, target / key.name)
+            self.keys.append(key.name)
+        self.have = {re.fullmatch(r"emibsd-(\d+)-(\w+)\.pub", k).groups() for k in self.keys}
+
+    def tree(self) -> None:
+        self.install_keys()
+        for dirpath, dirs, files in os.walk(self.view):
+            dirs.sort()
+            for name in sorted(files):
+                f = Path(dirpath) / name
+                if not f.is_symlink():
+                    self.file(f)
+        self.mandoc_ox()
+        self.rename_paths()
+
+    def rename_paths(self) -> None:
+        """Files and directories named after the old name get the new one, bottom up, as the
+        text that refers to them has: the installed names follow. A symbolic link's own text
+        follows too."""
+        def renamed(name):
+            return NAME_RE.sub(lambda m: NAME_FORMS.get(m.group(0), m.group(0)), name)
+        for dirpath, dirs, files in os.walk(self.view, topdown=False):
+            for entry in sorted(dirs + files):
+                new = renamed(entry)
+                if new == entry:
+                    continue
+                old = Path(dirpath) / entry
+                if (Path(dirpath) / new).exists() or (Path(dirpath) / new).is_symlink():
+                    raise SystemExit(f"tree: {old.relative_to(self.view)} would replace {new}")
+                os.rename(old, Path(dirpath) / new)
+                self.paths.append((old.relative_to(self.view).as_posix(), new))
+        for dirpath, dirs, files in os.walk(self.view):
+            for entry in sorted(dirs + files):
+                link = Path(dirpath) / entry
+                if link.is_symlink() and NAME_RE.search(os.readlink(link)):
+                    target = renamed(os.readlink(link))
+                    link.unlink()
+                    link.symlink_to(target)
+
+    def mandoc_ox(self) -> None:
+        """mandoc prints .Ox as the system's name when bare and as OpenBSD when a version
+        follows (HISTORY sections), so the manuals stay true: one line in mandoc's copy."""
+        f = self.view / "usr.bin/mandoc/mdoc_validate.c"
+        text = f.read_text()
+        if text.count(MDOC_OX[0]) != 1:
+            raise SystemExit("tree: mandoc's .Ox handling is not where the rename expects it")
+        f.write_text(text.replace(*MDOC_OX))
+
+    def report(self, out: Path) -> str:
+        """Write target/<arch>/rename-report.txt; return its one-line summary."""
+        r = ["rename-report: OpenBSD -> EmiBSD in the inherited trees' copy", ""]
+        r.append(f"files read with the name or an id: {self.files}")
+        r.append(f"renamed: {sum(self.renamed.values())} (URLs and host names {self.renamed['url']}, "
+                 f"everything else {self.renamed['other']})")
+        r.append("kept, by category:")
+        for k, v in self.kept.items():
+            r.append(f"  {k}: {v}")
+        r.append("version-control ids removed:")
+        for k, v in self.ids.items():
+            r.append(f"  {k}: {v}")
+        for k in sorted(self.ids_by_kind):
+            r.append(f"  keyword {k}: {self.ids_by_kind[k]}")
+        r.append("")
+        r.append(f"== kept: ABI wire values, pending Kernel and DevTools ({len(self.listed['abi'])})")
+        r.extend(self.listed["abi"])
+        r.append("")
+        r.append(f"== signify keys installed ({len(self.keys)})")
+        r.extend(self.keys)
+        r.append("")
+        r.append(f"== references to a key, renamed ({len(self.key_refs)})")
+        r.extend(self.key_refs)
+        r.append("")
+        r.append(f"== set-list lines for a key EmiBSD does not have, dropped ({len(self.key_dropped)})")
+        r.extend(self.key_dropped)
+        r.append("")
+        r.append(f"== files and directories renamed ({len(self.paths)})")
+        r.extend(f"{old} -> {new}" for old, new in sorted(self.paths))
+        r.append("")
+        r.append(f"== files read as Latin-1 text, not UTF-8: {self.latin1}")
+        (out / "rename-report.txt").write_text("\n".join(r) + "\n")
+        return (f"{sum(self.renamed.values())} renamed, {sum(self.kept.values())} kept, "
+                f"{sum(self.ids.values())} ids removed")
+
+
 def step_tree(arch: str, out: Path) -> None:
     view = out / "src"
     if view.exists():
@@ -146,6 +452,11 @@ def step_tree(arch: str, out: Path) -> None:
             subprocess.run(["patch", "-s", "-p1", "-F", "0", "-V", "none", "-t", "-N", "-d", str(where),
                             "-i", str(patch)], check=True)
         n += 1
+    # The base system's name, after the patches (they match the original text) and before the
+    # imported programs are placed (third party, never rewritten).
+    rename = Rename(view)
+    rename.tree()
+    summary = rename.report(out)
     m = place_imported(view)
     # In the userland __OpenBSD__ becomes __EmiBSD__ (the user's decision of 2026-11-04): the
     # compiler predefines __EmiBSD__ alone, so every place the inherited C tests or names
@@ -157,7 +468,7 @@ def step_tree(arch: str, out: Path) -> None:
             if b"__OpenBSD__" in data:
                 f.write_bytes(data.replace(b"__OpenBSD__", b"__EmiBSD__"))
                 renamed += 1
-    print(f"tree: {n} inherited entries and {m} imported in {view}; __OpenBSD__ renamed in {renamed} files")
+    print(f"tree: {n} inherited entries and {m} imported in {view}; __OpenBSD__ renamed in {renamed} files; name: {summary}")
 
 
 HOST = ROOT / "target" / "host"
@@ -864,7 +1175,7 @@ def make_walk(arch: str, out: Path, directory: str, *targets: str) -> int:
                                    "-V", var], cwd=out / "src" / directory, env=env,
                                   capture_output=True, text=True).stdout.strip()
             opts = re.sub(r"(--with-(?:ssl|libevent|libexpat))=/usr\b", rf"\1={sysroot}/usr", opts)
-            args.append(f"{var}={opts} --host={m['MACHINE_ARCH']}-unknown-openbsd "
+            args.append(f"{var}={opts} --host={m['MACHINE_ARCH']}-unknown-emibsd "
                         f"--build={os.uname().machine}-apple-darwin")
             # What a cross configure cannot learn by running a program, as the target answers.
             env.update(CONFIGURE_ANSWERS)
