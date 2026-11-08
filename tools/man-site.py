@@ -58,6 +58,9 @@ SETS = ("base", "comp", "game", "man")
 OSREV = "80"
 VERSION = "8.0"
 PAGE = re.compile(r"^usr/share/man/man([1-9])(?:/([a-z0-9]+))?/([^/]+)\.([1-9][a-z]*)$")
+# Section 9 documents the C kernel's internal interfaces, which EmiBSD's kernel does not have
+# (the user's decision of 2026-11-07, with the Kernel): it is not published.
+DROPPED = {"9"}
 SECTIONS = {"1": "General commands", "2": "System calls", "3": "Library functions",
             "4": "Device drivers", "5": "File formats", "6": "Games", "7": "Miscellaneous",
             "8": "System administration", "9": "Kernel internals"}
@@ -94,6 +97,8 @@ def pages(top: Path) -> dict:
                     continue
                 sec, arch, name, ext = m.groups()
                 if arch not in (None, ARCH):
+                    continue
+                if sec in DROPPED:
                     continue
                 if member.isfile():
                     data = tar.extractfile(member).read()
