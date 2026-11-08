@@ -25,6 +25,7 @@
 # consumer (OS's MANIFEST.toml) fetches by tag and architecture and checks the sum.
 set -eu
 cd "$(dirname "$0")/.."
+root=$(pwd)
 tag=${1:?the release tag, YEAR.MONTH.N}
 repo=EmiBSD/Userland
 git tag --points-at HEAD | grep -qx "$tag" \
@@ -36,6 +37,14 @@ for t in "$@"; do
     (cd dist && shasum -a 256 -c "$(basename "$t").sha256" >/dev/null) || { echo "release: $t does not match its .sha256" >&2; exit 1; }
     zstd -dc "$t" | tar -xOf - "$(basename "$t" .tar.zst)/MANIFEST" | grep -qx "tag: $tag" \
         || { echo "release: $t was not made from $tag (its MANIFEST says otherwise): just dist again" >&2; exit 1; }
+    # Each project signs its own releases (2026-11-07): the artifact's SHA256 is signed with
+    # EmiBSD's base key (`just sign <arch>`), and the signature must verify with the public key.
+    v=$(mktemp -d)
+    zstd -dc "$t" | tar -xf - -C "$v"
+    (cd "$v/$(basename "$t" .tar.zst)" && [ -f SHA256.sig ] \
+        && signify -C -q -p "$root/base/etc/signify/emibsd-80-base.pub" -x SHA256.sig) \
+        || { rm -rf "$v"; echo "release: $t has no SHA256.sig that verifies with emibsd-80-base.pub (just sign)" >&2; exit 1; }
+    rm -rf "$v"
 done
 git ls-remote --tags origin "refs/tags/$tag" | grep -q . \
     || { echo "release: $tag is not on origin yet: git push origin main $tag (the maintainer's), then again" >&2; exit 1; }
@@ -70,7 +79,7 @@ notes=$work/notes
     echo
     echo "Inside userland-$tag-<arch>/: the install sets base80.tar.zst, comp80, game80 and man80 (zstd),"
     echo "the installer's ramdisk miniroot80.fs (rdsetroot it into the Kernel's bsd.RAMDISK to make bsd.rd),"
-    echo "the installation notes INSTALL.<arch> for the medium, their SHA256, and MANIFEST (the commit, the epoch, the base system's pin, the compiler, the sums,"
+    echo "the installation notes INSTALL.<arch> for the medium, their SHA256 and its signature SHA256.sig (emibsd-80-base), and MANIFEST (the commit, the epoch, the base system's pin, the compiler, the sums,"
     echo "what the sets still lack). Reproducible: \`just dist <arch>\` at this tag gives the same SHA256."
     echo
     echo "The base system is OpenBSD's at its pin, changed only by the patches each program's directory"

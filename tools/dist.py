@@ -14,8 +14,11 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 """The artifact of one architecture's install sets: dist/userland-<tag>-<arch>.tar.zst and its .sha256.
 
-usage: dist.py <arch>...     build the sets of each architecture from HEAD's tag, from scratch,
-                             and pack them
+usage: dist.py <arch>...         build the sets of each architecture from HEAD's tag, from
+                                 scratch, and pack them
+       dist.py --sign <arch>...  sign an artifact dist/ already holds: SHA256.sig over its SHA256,
+                                 with EmiBSD's base key, added to the tarball (the main session's,
+                                 never an agent's: it uses the maintainer's private key)
 
 HEAD must carry a release tag, YEAR.MONTH.N (2026.11.0), and the tree no change to a tracked
 file: a release is cut from a tagged commit. The build runs in a new worktree of that tag
@@ -32,6 +35,15 @@ the Kernel's bsd.RAMDISK with rdsetroot, it is bsd.rd), the installation notes I
 what the sets still lack). Compressed as DevTools' artifacts are (zstd -19, the host's zstd).
 Reproducible: entries sorted, mtime the epoch, root and wheel, modes 0644 and 0755. The worktree
 is removed afterwards; dist/ keeps the artifact.
+
+Signing (each project signs its own releases, the user's decision of 2026-11-07) is a step of
+its own, after the build is proven: `--sign` reads the artifact, signs its SHA256 with signify
+and emibsd-80-base (EMIBSD_SIGNIFY_KEY, ~/emibsd-keys/emibsd-80-base.sec; the passphrase from
+the file EMIBSD_SIGNIFY_PASS names, ~/emibsd-keys/key.txt, on signify's stdin, never in an
+argument or the environment), checks the signature with base/etc/signify/emibsd-80-base.pub,
+and packs the same entries plus SHA256.sig the same way. Ed25519 is deterministic, so the
+signed artifact is as reproducible as the unsigned one: a rebuild of the tag gives the
+unsigned artifact, and signing it gives the published one byte for byte.
 """
 import hashlib
 import io
@@ -41,6 +53,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -128,6 +141,11 @@ def pack(tag: str, arch: str, tree: Path) -> Path:
     files.append((notes.name, notes.read_bytes()))
     files += [("SHA256", sums.encode()), ("MANIFEST", manifest(tag, arch, tree, epoch, sums).encode())]
     DIST.mkdir(exist_ok=True)
+    return write(name, files, int(epoch))
+
+
+def write(name: str, files: list, epoch: int) -> Path:
+    """dist/<name>.tar.zst holding <name>/ and `files` (path, bytes), and its .sha256."""
     tarball = DIST / f"{name}.tar.zst"
     if shutil.which("zstd") is None:
         raise SystemExit("dist: zstd not found (the user's install, as DevTools' dist uses)")
@@ -135,7 +153,7 @@ def pack(tag: str, arch: str, tree: Path) -> Path:
     with tarfile.open(fileobj=zstd.stdin, mode="w|", format=tarfile.USTAR_FORMAT) as tar:
         def entry(path, kind, size=0):
             info = tarfile.TarInfo(path)
-            info.type, info.size, info.mtime = kind, size, int(epoch)
+            info.type, info.size, info.mtime = kind, size, epoch
             info.uid = info.gid = 0
             info.uname, info.gname = "root", "wheel"
             info.mode = 0o755 if kind == tarfile.DIRTYPE else 0o644
@@ -151,7 +169,53 @@ def pack(tag: str, arch: str, tree: Path) -> Path:
     return tarball
 
 
+def sign(tag: str, arch: str) -> Path:
+    """Adds SHA256.sig, over the artifact's own SHA256, to dist/userland-<tag>-<arch>.tar.zst."""
+    name = f"userland-{tag}-{arch}"
+    tarball = DIST / f"{name}.tar.zst"
+    if not tarball.exists():
+        raise SystemExit(f"dist: no {tarball.relative_to(ROOT)} to sign (just dist {arch})")
+    key = Path(os.environ.get("EMIBSD_SIGNIFY_KEY", Path.home() / "emibsd-keys/emibsd-80-base.sec"))
+    passfile = Path(os.environ.get("EMIBSD_SIGNIFY_PASS", Path.home() / "emibsd-keys/key.txt"))
+    pub = ROOT / "base/etc/signify/emibsd-80-base.pub"
+    if shutil.which("signify") is None:
+        raise SystemExit("dist: signify not found (the user's install)")
+    zstd = subprocess.Popen(["zstd", "-dcq", str(tarball)], stdout=subprocess.PIPE)
+    files, epoch = {}, None
+    with tarfile.open(fileobj=zstd.stdout, mode="r|") as tar:
+        for member in tar:
+            if member.isfile():
+                files[member.name.removeprefix(f"{name}/")] = tar.extractfile(member).read()
+                epoch = member.mtime
+    if zstd.wait() or "SHA256" not in files:
+        raise SystemExit(f"dist: {tarball.name} is not an artifact of dist.py")
+    if "SHA256.sig" in files:
+        raise SystemExit(f"dist: {tarball.name} is already signed")
+    with tempfile.TemporaryDirectory() as work:
+        w = Path(work)
+        for path, data in files.items():
+            (w / path).write_bytes(data)
+        with open(passfile, "rb") as pw:
+            subprocess.run(["signify", "-S", "-e", "-s", str(key), "-m", "SHA256", "-x", "SHA256.sig"],
+                           cwd=w, stdin=pw, check=True, stdout=subprocess.DEVNULL)
+        listed = [l.split("(")[1].split(")")[0] for l in files["SHA256"].decode().splitlines() if l]
+        subprocess.run(["signify", "-C", "-q", "-p", str(pub), "-x", "SHA256.sig", *listed],
+                       cwd=w, check=True)
+        files["SHA256.sig"] = (w / "SHA256.sig").read_bytes()
+    return write(name, list(files.items()), epoch)
+
+
 def main() -> int:
+    if sys.argv[1:2] == ["--sign"]:
+        archs = sys.argv[2:]
+        if not archs or any(a not in ARCHS for a in archs):
+            print(__doc__, file=sys.stderr)
+            return 2
+        tag = release_tag()
+        for arch in archs:
+            tarball = sign(tag, arch)
+            print((DIST / f"{tarball.name}.sha256").read_text(), end="")
+        return 0
     archs = sys.argv[1:]
     if not archs or any(a not in ARCHS for a in archs):
         print(__doc__, file=sys.stderr)
