@@ -286,11 +286,13 @@ def publish(out: Path) -> None:
         subprocess.run(["sh", "-c", 'set -a; . "$0"; set +a; export AWS_DEFAULT_REGION=auto '
                         'AWS_ENDPOINT_URL="$R2_ENDPOINT" AWS_PAGER=; exec aws "$@"', creds, *step],
                        cwd=out, check=True)
-    r = subprocess.run(["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code} %{content_type}",
-                        f"{SITE}/getentropy.2"], capture_output=True, text=True)
-    print(f"man-site: {SITE}/getentropy.2 -> {r.stdout}")
-    if not r.stdout.startswith("200 text/html"):
-        raise SystemExit("man-site: the published page does not answer 200 text/html")
+    # The publish is finished only when the catalogue and a page answer from the site itself.
+    for path in ("/", "/getentropy.2"):
+        r = subprocess.run(["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code} %{content_type}",
+                            f"{SITE}{path}"], capture_output=True, text=True)
+        print(f"man-site: {SITE}{path} -> {r.stdout}")
+        if not r.stdout.startswith("200 text/html"):
+            raise SystemExit(f"man-site: {SITE}{path} does not answer 200 text/html")
 
 
 def main() -> int:
