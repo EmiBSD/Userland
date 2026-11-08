@@ -1,0 +1,24 @@
+The installer finds its mirror list through DNS, not through OpenBSD's fixed addresses.
+
+start_cgiinfo wrote two hosts entries for the mirror-list server before fetching from it,
+199.185.178.80 and 2620:3d:c000:178::80, OpenBSD's own server. With the build-time rename
+the host name became ftplist1.emibsd.org, but those entries still sent it to OpenBSD's
+server: TLS failed on the name and, after 12 seconds, the installer gave up on the list;
+worse, it opened a connection to OpenBSD's infrastructure (nothing EmiBSD runs may reach it,
+the user's decision of 2026-11-07). EmiBSD's list is served by Cloudflare, whose anycast
+addresses are not stable, so nothing is pinned in their place: by this step the installer
+has DNS from DHCP or from the user's answer.
+
+--- a/distrib/miniroot/install.sub
++++ b/distrib/miniroot/install.sub
+@@ -2665,9 +2665,7 @@
+ 	# If no networks are configured, we do not need the httplist file.
+ 	((NIFS < 1)) && return
+ 
+-	# Ensure proper name resolution in case there's no dns yet.
+-	add_hostent 199.185.178.80 ftplist1.openbsd.org
+-	add_hostent 2620:3d:c000:178::80 ftplist1.openbsd.org
++	# The mirror list is found through DNS: its host has no fixed address.
+ 
+ 	# Make sure the ftp subshell gets its own process group.
+ 	set -m
