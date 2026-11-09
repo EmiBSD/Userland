@@ -56,6 +56,9 @@ from DevTools; OS assembles the sets with the kernel into a release.
   upstream outside the base system's tree. In the userland `__OpenBSD__` becomes
   `__EmiBSD__` (2026-11-04): the inherited C sees only the macro the compiler predefines,
   and the build renames every `__OpenBSD__` in its copy of the tree to `__EmiBSD__`.
+  The trees keep only the Kernel's architectures, arm64 and amd64 (2026-11-08): what
+  belongs to another (`arch/<cpu>/`, `md.<machine>`, `man4.<machine>`, ...) is not copied
+  from the pin, and the Makefiles that name every architecture are patched to these two.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
   showed the written class and its grammar; their code was dropped on 2026-11-08. `ls`
   and `cp` are inherited here like every other program; the

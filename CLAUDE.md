@@ -30,8 +30,9 @@ substance, in English. The user is answered in Spanish.
 - Three classes: **inherited** (the base system's C at the pin, in our layout, patches only),
   **imported** (a third-party upstream, `UPSTREAM.toml` pin, patches, never rewritten) and
   **written** (from scratch, Rust, `#![forbid(unsafe_code)]`). An inherited program's `src/`
-  is its directory at the pin byte for byte, written whole by `just layout` and never edited
-  by hand; a change is a patch. It is committed, not yet built (README, "Open"). In the
+  is its directory at the pin byte for byte, less what belongs to an architecture other
+  than arm64 and amd64 (the user's decision of 2026-11-08: `tools/layout.py`'s `ARCHS`),
+  written whole by `just layout` and never edited by hand; a change is a patch. It is committed, not yet built (README, "Open"). In the
   userland `__OpenBSD__` becomes `__EmiBSD__`: the inherited C is compiled with
   `__EmiBSD__` only; `tools/world.py` renames every `__OpenBSD__` in its copy of the tree, and (the user's decision of 2026-11-07) the base system's name in the inherited trees' text, after the patches: OpenBSD to EmiBSD in prose, messages, comments, identifiers and URLs, with the version-control ids removed; copyrights, licences, e-mail addresses, the PT_OPENBSD_* names in linker scripts (lld reads them by text) and data about other systems stay; the ELF note name is EmiBSD (`target/<arch>/rename-report.txt`). `unsafe` only in `base/lib/libc`, `base/libexec/rtld`
   and `base/lib/crates/sys`, each site with a `// SAFETY:` proof.

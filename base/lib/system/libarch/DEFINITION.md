@@ -14,7 +14,9 @@ paths). Our patches, if any, never change what callers see.
 
 ## Patches
 
-The series under `patches/`, each with its reason in its header: none today.
+The series under `patches/`, each with its reason in its header:
+
+- `0001-two-architectures.patch`: libarch descends only into amd64: the other architectures' directories are not in the tree.
 
 ## Security history
 

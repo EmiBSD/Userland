@@ -13,3 +13,4 @@ patch under `patches/`.
 The series under `patches/`, each with its reason in its header:
 
 - `0001-zstd-in-base.patch`: The base set carries zstd, unzstd and zstdcat, and the man set their manual: zstd is imported into the base system.
+- `0002-two-architectures.patch`: The installation notes' allarchs target makes amd64's and arm64's: the others' notes are not in the tree.

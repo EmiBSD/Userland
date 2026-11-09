@@ -11,8 +11,8 @@ and lib/ is mapped to exactly one leaf, in the tree it lives in there; the scrip
 otherwise.
 
 Three classes of program (docs/PROGRAM.md): `inherited` (the base system's C at the pin,
-in this layout: src/ is the reference tree's directory at the pin, byte for byte, replaced
-whole on every run), `imported` (compiled from its upstream at the pin of UPSTREAM.toml, never
+in this layout: src/ is the reference tree's directory at the pin, byte for byte, less the
+files of the architectures outside ARCHS, replaced whole on every run), `imported` (compiled from its upstream at the pin of UPSTREAM.toml, never
 rewritten) and `written` (from scratch, in Rust, under its definition). A skeleton whose
 STATUS is still `planned`, `inherited` or `imported` is regenerated from the templates; one
 that moved on is left alone.
@@ -332,6 +332,9 @@ from DevTools; OS assembles the sets with the kernel into a release.
   upstream outside the base system's tree. In the userland `__OpenBSD__` becomes
   `__EmiBSD__` (2026-11-04): the inherited C sees only the macro the compiler predefines,
   and the build renames every `__OpenBSD__` in its copy of the tree to `__EmiBSD__`.
+  The trees keep only the Kernel's architectures, arm64 and amd64 (2026-11-08): what
+  belongs to another (`arch/<cpu>/`, `md.<machine>`, `man4.<machine>`, ...) is not copied
+  from the pin, and the Makefiles that name every architecture are patched to these two.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
   showed the written class and its grammar; their code was dropped on 2026-11-08. `ls`
   and `cp` are inherited here like every other program; the
@@ -458,7 +461,8 @@ upstream; *written*, EmiBSD's own.
 ├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
 │                     program's directory in that tree
 ├── src/              that directory at the pin, byte for byte: the Makefile, the sources,
-│                     the manual; written whole by tools/layout.py, never edited by hand
+│                     the manual; written whole by tools/layout.py, never edited by hand;
+│                     what belongs to an architecture other than arm64 and amd64 is left out
 ├── patches/          our patches, a numbered series, each with its reason in its header
 ├── DEFINITION.md     what the program is for here, the compatibility others rely on, the
 │                     security history tracked against the upstream
@@ -1365,6 +1369,8 @@ def upstream_toml(name: str, spec: dict, cls: str = "imported") -> str:
              f'repo    = "{spec["repo"]}"           # the organisation\'s mirror, always',
              f'origin  = "{spec["origin"]}"          # what the mirror is fed from',
              f'path    = {arr(spec.get("path", []))}']
+    if spec.get("archs"):
+        lines.append(f'archs   = {arr(spec["archs"])}   # the architectures kept of what depends on one; the others are not copied')
     if spec.get("commit"):
         lines.append(f'commit  = "{spec["commit"]}"')
     if spec.get("tag"):
@@ -1468,6 +1474,33 @@ def inherited_notes(name: str) -> str:
 
 ARCHS = ("arm64", "amd64")   # the Kernel's two; `<arch>` in an entry is each of them
 
+# Every architecture of the base system, MACHINE to its MACHINE_CPU and MACHINE_ARCH names
+# (the user's decision of 2026-11-08: the trees keep only the Kernel's architectures). What
+# belongs to one outside ARCHS is not copied: a directory named for its CPU or its machine
+# (lib/csu/sparc64, lib/libc/arch/hppa, distrib/notes/alpha) and a file or a directory whose
+# last dotted part is its machine (distrib/sets/lists/base/md.i386, share/man/man4/man4.octeon).
+MACHINES = {"alpha": ("alpha",), "amd64": ("amd64",), "arm64": ("aarch64",), "armv7": ("arm",),
+            "hppa": ("hppa",), "i386": ("i386",), "landisk": ("sh",), "loongson": ("mips64", "mips64el"),
+            "luna88k": ("m88k",), "macppc": ("powerpc",), "octeon": ("mips64",),
+            "powerpc64": ("powerpc64",), "riscv64": ("riscv64",), "sparc64": ("sparc64",)}
+_KEPT = set(ARCHS) | {c for a in ARCHS for c in MACHINES[a]}
+OTHER_DIRS = ({m for m in MACHINES} | {c for cs in MACHINES.values() for c in cs}) - _KEPT
+OTHER_SUFFIXES = set(MACHINES) - set(ARCHS)   # machines only: `.sh` is a script, not landisk
+
+
+def archs_of(origins: list) -> list:
+    """ARCHS for an entry that has files of an architecture outside them at the pin (they are
+    left out, and its UPSTREAM.toml says so), nothing for one that has none."""
+    prefixes = tuple(o.rstrip("/") + "/" for o in origins)
+    return list(ARCHS) if any(p.startswith(prefixes) and other_arch(p) for p in pin_paths()) else []
+
+
+def other_arch(name: str, is_dir: bool = False) -> bool:
+    """A path of the reference tree that belongs to an architecture outside ARCHS."""
+    parts = name.rstrip("/").split("/")
+    return any(p in OTHER_DIRS for p in (parts if is_dir else parts[:-1])) or \
+        any("." in p and p.rsplit(".", 1)[1] in OTHER_SUFFIXES for p in parts)
+
 DEFINITION_TREE = """# {name} (inherited)
 
 STATUS: see `STATUS`. Files of the base system that belong to no program, at the pin of
@@ -1504,7 +1537,7 @@ def materialise_tree(dst: Path, origins: list, the_pin: str) -> int:
     n = 0
     with tarfile.open(fileobj=io.BytesIO(tar)) as tf:
         for m in tf.getmembers():
-            if m.isdir() or not keep_in_tree(m.name, set(origins)):
+            if m.isdir() or not keep_in_tree(m.name, set(origins)) or other_arch(m.name):
                 continue
             target = dst / m.name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -1532,7 +1565,7 @@ def tree_skeleton(top: str, leaf: str, entries: list, the_pin: str) -> int:
     n += put(d / "DEFINITION.md", DEFINITION_TREE.format(name=name, origin=", ".join(f"`{o}`" for o in origins),
                                                        patches=patch_list(d)), force)
     n += put(d / "UPSTREAM.toml", upstream_toml(name, dict(name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN,
-                                                           path=origins, commit=the_pin, version="", license=[], cpe="",
+                                                           path=origins, archs=archs_of(origins), commit=the_pin, version="", license=[], cpe="",
                                                            series=series(d)),
                                                 "inherited"), force)
     if force:
@@ -1571,7 +1604,7 @@ def materialise(dst: Path, origin: str, the_pin: str) -> int:
         for m in tf.getmembers():
             if m.name == origin and m.isfile():   # an entry that is one file (lib/check_sym)
                 target = dst / Path(origin).name
-            elif not m.name.startswith(prefix) or m.name == prefix:
+            elif not m.name.startswith(prefix) or m.name == prefix or other_arch(m.name, m.isdir()):
                 continue
             else:
                 target = dst / m.name[len(prefix):]
@@ -1656,7 +1689,8 @@ def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     n += put(d / "patches" / ".gitkeep", "", False)
     n += put(d / "tests" / "cve" / ".gitkeep", "", False)
     pin_spec = dict(name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN, path=[origin],
-                    commit=the_pin, version="", license=[], cpe=IMPORTED.get(name, ""), series=series(d))
+                    commit=the_pin, version="", license=[], cpe=IMPORTED.get(name, ""), series=series(d),
+                    archs=archs_of([origin]))
     if imported:
         n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section=section), force)
         n += put(d / "DEFINITION.md", DEFINITION_IMPORTED.format(name=name, origin=origin, section=section, notes=notes_for(name)), force)

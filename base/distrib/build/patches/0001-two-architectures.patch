@@ -1,0 +1,17 @@
+distrib's obj target descends only into amd64 and arm64: the other machines' directories are not in the tree.
+
+The trees keep only the Kernel's architectures (the user's decision of 2026-11-08).
+
+--- a/distrib/Makefile
++++ b/distrib/Makefile
+@@ -3,9 +3,7 @@
+ SUBDIR=	special notes
+ 
+ .if	make(obj)
+-SUBDIR+=alpha amd64 armv7 arm64 hppa i386 \
+-	landisk luna88k macppc \
+-	octeon powerpc64 riscv64 sparc64
++SUBDIR+=amd64 arm64
+ .elif exists(${MACHINE})
+ SUBDIR+=${MACHINE}
+ .endif

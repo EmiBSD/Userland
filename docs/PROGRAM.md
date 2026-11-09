@@ -15,7 +15,8 @@ upstream; *written*, EmiBSD's own.
 ├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
 │                     program's directory in that tree
 ├── src/              that directory at the pin, byte for byte: the Makefile, the sources,
-│                     the manual; written whole by tools/layout.py, never edited by hand
+│                     the manual; written whole by tools/layout.py, never edited by hand;
+│                     what belongs to an architecture other than arm64 and amd64 is left out
 ├── patches/          our patches, a numbered series, each with its reason in its header
 ├── DEFINITION.md     what the program is for here, the compatibility others rely on, the
 │                     security history tracked against the upstream

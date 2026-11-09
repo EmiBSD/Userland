@@ -5,6 +5,7 @@ kind    = "git"
 repo    = "https://github.com/EmiBSD/OpenBSD-src"           # the organisation's mirror, always
 origin  = "https://github.com/openbsd/src"          # what the mirror is fed from
 path    = ["lib/libm"]
+archs   = ["arm64", "amd64"]   # the architectures kept of what depends on one; the others are not copied
 commit  = "3ce1f3f79392ae4d60ce67bea5835d517caaa2ca"
 version = ""                 # the human version; to fill from the source when empty
 license = []   # the families; the texts stay in the source
