@@ -80,7 +80,8 @@ warnings`, tests, once a written program brings the workspace back); `just host-
 the base system's make for the host from its inherited `src/` (the inherited C is built with
 it, never with GNU make or an installed bmake); `just world arm64` builds the inherited
 system for EmiBSD under `target/arm64` (`tools/world.py`: the tree copied back to its paths,
-the host tools, /usr/include, csu, the libraries, the programs, /etc, the sets); `just dist
+the host tools, /usr/include, csu, the libraries, the programs, DevTools' toolchains for EmiBSD
+laid into comp from `DEVTOOLS.toml`'s releases, /etc, the sets); `just dist
 arm64` and `just release <YEAR.MONTH.N>` cut a release of the sets, one artifact per
 architecture, from a tagged commit (OS fetches it by tag), signed with `just sign`, and its
 manual published to man.emibsd.org with `just man-site <tag> --publish`; `just lint`, `just test`, `just man` in a program's directory; `just

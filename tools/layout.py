@@ -312,7 +312,9 @@ flowchart LR
 ```
 
 The pin is LandingZone's, because it fixes the ABI the kernel implements; the toolchains come
-from DevTools; OS assembles the sets with the kernel into a release.
+from DevTools, the ones the build runs on the development host and the ones the comp set
+carries to run on EmiBSD itself (`DEVTOOLS.toml`, the same releases); OS assembles the sets
+with the kernel into a release.
 
 ## Rules (the user's decisions of 2026-10-23, revised on 2026-11-04)
 
@@ -805,7 +807,7 @@ host-make:
 world arch="arm64" *steps:
     python3 -I tools/world.py {{arch}} {{steps}}
 
-# What `just world` builds from (network): KERNEL.toml's release and the imported programs' sources.
+# What `just world` builds from (network): KERNEL.toml's release, DEVTOOLS.toml's toolchains and the imported programs' sources.
 fetch-build:
     python3 -I tools/upstream.py fetch --build
 
@@ -909,8 +911,9 @@ UPSTREAM_PY = r'''#!/usr/bin/env python3
 """Fetch, verify and pin the upstream sources of the imported programs (docs/PROGRAM.md).
 
 usage: upstream.py fetch [<program dir>...]     fetch what the UPSTREAM.toml files name
-       upstream.py fetch --build                 what world.py builds from: KERNEL.toml's release and
-                                                 the imported programs' sources, nothing inherited
+       upstream.py fetch --build                 what world.py builds from: KERNEL.toml's release,
+                                                 DEVTOOLS.toml's toolchains and the imported
+                                                 programs' sources, nothing inherited
        upstream.py check [<program dir>...]     every fetched upstream matches its pin
 
 Git upstreams are cloned sparse, blob-less, into upstream/<mirror name>/ at the repository
@@ -919,11 +922,14 @@ most of them), checked out at the pinned commit (or the commit a pinned tag reso
 Tarball upstreams are downloaded into upstream/<name>/, their SHA-256 verified before
 extraction. KERNEL.toml's Kernel release is downloaded by tag (gh), one artifact per
 architecture it pins a sum for, checked, and what `take` names unpacked into
-upstream/kernel/<release>/<artifact>/. Everything fetched is made read-only;
-upstream/<key>/.pin records the hash. Stdlib only.
+upstream/kernel/<release>/<artifact>/. DEVTOOLS.toml's toolchains for EmiBSD (LLVM, Rust)
+are downloaded the same way, each whole, into upstream/devtools/<release>/<artifact>/, and
+the MANIFEST inside must name the pinned tag and commit. Everything fetched is made
+read-only; upstream/<key>/.pin records the hash. Stdlib only.
 """
 import hashlib
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -1072,15 +1078,58 @@ def fetch_kernel():
     readonly(dest)
 
 
+def devtools_pin():
+    with open(ROOT / "DEVTOOLS.toml", "rb") as fh:
+        return tomllib.load(fh)
+
+
+def fetch_devtools():
+    for tool, t in devtools_pin().items():
+        dest = UPSTREAM / "devtools" / t["release"]
+        if dest.exists():
+            readonly_off(dest)
+        dest.mkdir(parents=True, exist_ok=True)
+        repo = "/".join(t["repo"].rstrip("/").split("/")[-2:])
+        for arch, want in sorted(t["sha256"].items()):
+            name = f"{t['release']}-{t['host'][arch]}-{arch}"
+            archive = dest / f"{name}.tar.zst"
+            if not archive.exists() or hashlib.sha256(archive.read_bytes()).hexdigest() != want:
+                archive.unlink(missing_ok=True)
+                print(f"upstream: {tool}: downloading {archive.name} from {repo} {t['release']}")
+                subprocess.run(["gh", "release", "download", t["release"], "--repo", repo, "--pattern", archive.name,
+                                "--dir", str(dest)], check=True)
+            digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+            if digest != want:
+                archive.unlink()
+                raise SystemExit(f"upstream: {tool}: {archive.name}: SHA-256 {digest} != {want}")
+            # Unpacked anew each time: a tree left by an earlier run is not trusted.
+            if (dest / name).exists():
+                shutil.rmtree(dest / name)
+            zstd = subprocess.Popen(["zstd", "-dcq", str(archive)], stdout=subprocess.PIPE)
+            subprocess.run(["tar", "-xf", "-", "-C", str(dest), name], stdin=zstd.stdout, check=True)
+            if zstd.wait():
+                raise SystemExit(f"upstream: {tool}: zstd could not read {archive.name}")
+            # The artifact says what it is: the tag and the commit the pin names, and its host.
+            said = dict(l.split(": ", 1) for l in (dest / name / "MANIFEST").read_text().splitlines() if ": " in l)
+            for key, value in (("tag", t["release"]), ("commit", t["commit"]), ("host", t["host"][arch]), ("arch", arch)):
+                if said.get(key) != value:
+                    raise SystemExit(f"upstream: {tool}: {name}/MANIFEST says {key} {said.get(key)}, the pin {value}")
+            print(f"upstream: {tool}: {t['release']} {arch} {digest[:12]} pinned")
+        (dest / ".pin").write_text(t["commit"] + "\n")
+        readonly(dest)
+
+
 def cmd_fetch(args):
     if args == ["--build"]:
         args = [str(s.parent) for s in sorted(ROOT.joinpath("base").rglob("STATUS"))
                 if s.read_text().startswith("imported")]
         fetch_kernel()
+        fetch_devtools()
         if not args:
             return
     elif not args:
         fetch_kernel()
+        fetch_devtools()
     groups = {}
     for d, up in tomls(args):
         groups.setdefault(key_of(up), []).append(up)
@@ -1113,6 +1162,11 @@ def cmd_check(args):
         if not pin.exists() or pin.read_text().strip() != k["commit"]:
             print(f"upstream: KERNEL.toml: kernel {k['release']} not fetched (just fetch)")
             bad += 1
+        for tool, t in devtools_pin().items():
+            pin = UPSTREAM / "devtools" / t["release"] / ".pin"
+            if not pin.exists() or pin.read_text().strip() != t["commit"]:
+                print(f"upstream: DEVTOOLS.toml: {tool} {t['release']} not fetched (just fetch)")
+                bad += 1
     if bad:
         raise SystemExit(bad)
     print("upstream: every fetched upstream matches its pin")

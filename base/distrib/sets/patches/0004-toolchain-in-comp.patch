@@ -1,0 +1,140 @@
+The compiler and its tools are comp's: the base and man lists no longer name them.
+
+EmiBSD's toolchain is DevTools' LLVM, laid into the system from its artifact, and it goes in
+the comp set whole (the user's decisions of 2026-11-08 and 2026-11-15). The base lists named
+the compiler's drivers and the object tools (cc, c++, cpp, clang, clang++, clang-cpp, ld,
+ld.lld, ar, nm, objcopy, size, strings, strip), which there are links to programs comp
+carries, and the man list five of their pages. They leave both; comp's list of the compiler
+is written from the artifact by the build (tools/world.py) and names them. The C++ run time
+and the compiler's run time (libc++.so, libc++abi.so, libcompiler_rt.a) stay in base.
+
+--- a/distrib/sets/lists/base/md.amd64
++++ b/distrib/sets/lists/base/md.amd64
+@@ -5,10 +5,6 @@
+ ./sbin/kbd
+ ./sbin/mount_ntfs
+ ./sbin/wsconsctl
+-./usr/bin/clang
+-./usr/bin/clang++
+-./usr/bin/clang-cpp
+-./usr/bin/ld.lld
+ ./usr/bin/pctr
+ ./usr/lib/libLLVM.so.10.0
+ ./usr/lib/libc++.so.13.0
+--- a/distrib/sets/lists/base/md.arm64
++++ b/distrib/sets/lists/base/md.arm64
+@@ -1,10 +1,6 @@
+ ./etc/examples/wsconsctl.conf
+ ./sbin/kbd
+ ./sbin/wsconsctl
+-./usr/bin/clang
+-./usr/bin/clang++
+-./usr/bin/clang-cpp
+-./usr/bin/ld.lld
+ ./usr/lib/libLLVM.so.10.0
+ ./usr/lib/libc++.so.13.0
+ ./usr/lib/libc++abi.so.10.0
+--- a/distrib/sets/lists/base/mi
++++ b/distrib/sets/lists/base/mi
+@@ -432,7 +432,6 @@
+ ./usr/bin/Mail
+ ./usr/bin/apply
+ ./usr/bin/apropos
+-./usr/bin/ar
+ ./usr/bin/arch
+ ./usr/bin/at
+ ./usr/bin/atq
+@@ -448,12 +447,10 @@
+ ./usr/bin/bc
+ ./usr/bin/bgplgsh
+ ./usr/bin/biff
+-./usr/bin/c++
+ ./usr/bin/cal
+ ./usr/bin/calendar
+ ./usr/bin/cap_mkdb
+ ./usr/bin/captoinfo
+-./usr/bin/cc
+ ./usr/bin/cdio
+ ./usr/bin/chflags
+ ./usr/bin/chfn
+@@ -470,7 +467,6 @@
+ ./usr/bin/compress
+ ./usr/bin/corelist
+ ./usr/bin/cpan
+-./usr/bin/cpp
+ ./usr/bin/crontab
+ ./usr/bin/csplit
+ ./usr/bin/ctags
+@@ -547,7 +543,6 @@
+ ./usr/bin/lam
+ ./usr/bin/last
+ ./usr/bin/lastcomm
+-./usr/bin/ld
+ ./usr/bin/ldap
+ ./usr/bin/ldd
+ ./usr/bin/leave
+@@ -591,10 +586,8 @@
+ ./usr/bin/nfsstat
+ ./usr/bin/nice
+ ./usr/bin/nl
+-./usr/bin/nm
+ ./usr/bin/nohup
+ ./usr/bin/nslookup
+-./usr/bin/objcopy
+ ./usr/bin/od
+ ./usr/bin/opencvs
+ ./usr/bin/openrsync
+@@ -655,7 +648,6 @@
+ ./usr/bin/shar
+ ./usr/bin/showmount
+ ./usr/bin/signify
+-./usr/bin/size
+ ./usr/bin/skey
+ ./usr/bin/skeyaudit
+ ./usr/bin/skeyinfo
+@@ -676,8 +668,6 @@
+ ./usr/bin/ssh-keyscan
+ ./usr/bin/stat
+ ./usr/bin/streamzip
+-./usr/bin/strings
+-./usr/bin/strip
+ ./usr/bin/su
+ ./usr/bin/systat
+ ./usr/bin/tail
+--- a/distrib/sets/lists/man/mi
++++ b/distrib/sets/lists/man/mi
+@@ -52,7 +52,6 @@
+ ./usr/share/man/man1/cp.1
+ ./usr/share/man/man1/cpan.1
+ ./usr/share/man/man1/cpio.1
+-./usr/share/man/man1/cpp.1
+ ./usr/share/man/man1/crontab.1
+ ./usr/share/man/man1/csh.1
+ ./usr/share/man/man1/csplit.1
+@@ -182,10 +181,8 @@
+ ./usr/share/man/man1/nfsstat.1
+ ./usr/share/man/man1/nice.1
+ ./usr/share/man/man1/nl.1
+-./usr/share/man/man1/nm.1
+ ./usr/share/man/man1/nohup.1
+ ./usr/share/man/man1/nslookup.1
+-./usr/share/man/man1/objcopy.1
+ ./usr/share/man/man1/od.1
+ ./usr/share/man/man1/openrsync.1
+ ./usr/share/man/man1/openssl.1
+@@ -462,7 +459,6 @@
+ ./usr/share/man/man1/sh.1
+ ./usr/share/man/man1/shar.1
+ ./usr/share/man/man1/signify.1
+-./usr/share/man/man1/size.1
+ ./usr/share/man/man1/skey.1
+ ./usr/share/man/man1/skeyaudit.1
+ ./usr/share/man/man1/skeyinfo.1
+@@ -484,7 +480,6 @@
+ ./usr/share/man/man1/ssh.1
+ ./usr/share/man/man1/stat.1
+ ./usr/share/man/man1/streamzip.1
+-./usr/share/man/man1/strings.1
+ ./usr/share/man/man1/stty.1
+ ./usr/share/man/man1/su.1
+ ./usr/share/man/man1/systat.1

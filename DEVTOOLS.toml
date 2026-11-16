@@ -1,0 +1,36 @@
+# DevTools' releases of the toolchains that run on EmiBSD itself, which the comp set carries
+# (the user's decisions of 2026-11-08 and 2026-11-15): LLVM (clang, lld, the LLVM tools under
+# the base system's names cc, ld, ar, nm..., compiler-rt, libc++ and its headers) and Rust
+# (rustc, cargo, rustfmt, clippy, rust-src, the kernel's targets). They are built by DevTools,
+# never here: the base system's own compiler is not in the tree. tools/upstream.py fetch
+# downloads each architecture's artifact by tag into upstream/devtools/<release>/, checks its
+# sum and unpacks it; world.py's `toolchain` step lays each one into the sysroot as it is,
+# writes the comp lists from what it carries (lists/comp/clang.<arch>, rust.<arch>), and
+# leaves in base only the three run-time files the base lists name (libc++.so, libc++abi.so,
+# libcompiler_rt.a). The artifact is <release>-<host>-<arch>.tar.zst.
+#
+# These are the same releases as the ones the build itself runs on the development host
+# (tools/world.py, tools/cargo.sh): a move of one is a move of the other, in one commit, and
+# the user's decision. amd64 joins when the base system is built for it.
+
+[llvm]
+repo    = "https://github.com/EmiBSD/DevTools"
+release = "llvm-23.1.4+emibsd.6"
+commit  = "2600ec108efcf78a25724a1373c06865869646dc"   # what the tag names
+
+[llvm.host]
+arm64 = "aarch64-emibsd-emibsd8.0"
+
+[llvm.sha256]
+arm64 = "a778ef6d3dcf281e9a9d71e1565de9315beb7814e1fcf9a1e42c502dc2986aab"
+
+[rust]
+repo    = "https://github.com/EmiBSD/DevTools"
+release = "rust-1.99.1+emibsd.5"
+commit  = "e310966627cf2644895dcf23b04e619db6f600d9"   # what the tag names
+
+[rust.host]
+arm64 = "aarch64-emibsd-emibsd"
+
+[rust.sha256]
+arm64 = "2b7ec9abfd2bfffbb14f7e1d510699899f411d124192882f429a4ea69effc0cc"

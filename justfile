@@ -31,7 +31,7 @@ host-make:
 world arch="arm64" *steps:
     python3 -I tools/world.py {{arch}} {{steps}}
 
-# What `just world` builds from (network): KERNEL.toml's release and the imported programs' sources.
+# What `just world` builds from (network): KERNEL.toml's release, DEVTOOLS.toml's toolchains and the imported programs' sources.
 fetch-build:
     python3 -I tools/upstream.py fetch --build
 

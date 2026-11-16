@@ -36,7 +36,9 @@ flowchart LR
 ```
 
 The pin is LandingZone's, because it fixes the ABI the kernel implements; the toolchains come
-from DevTools; OS assembles the sets with the kernel into a release.
+from DevTools, the ones the build runs on the development host and the ones the comp set
+carries to run on EmiBSD itself (`DEVTOOLS.toml`, the same releases); OS assembles the sets
+with the kernel into a release.
 
 ## Rules (the user's decisions of 2026-10-23, revised on 2026-11-04)
 

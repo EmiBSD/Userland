@@ -16,7 +16,7 @@
 
 usage: world.py <arch> [step...]
 
-The steps, in order (the first nine, through sets, when none is named):
+The steps, in order (the first ten, through sets, when none is named):
 
   tree      target/<arch>/src: every inherited directory's src/ copied back to its path in
             the base system's tree, so each Makefile finds its neighbours where it expects
@@ -38,6 +38,10 @@ The steps, in order (the first nine, through sets, when none is named):
   lib       lib/ as Makefile.cross builds it: csu and libc first, then the rest
   base      every directory the trees' SUBDIR reach, each built and installed on its own;
             the failures are listed in target/<arch>/failed
+  toolchain the toolchains that run on EmiBSD, DevTools' releases (DEVTOOLS.toml: LLVM and
+            Rust, fetched by `just fetch-build`), laid into the sysroot as their artifacts
+            carry them: the compilers and their tools, libc++ and its headers, the
+            compiler's own headers and run time, their manual pages and licences
   etc       etc/Makefile's distribution-etc-root-var: /etc, /root, /var, pwd.db, etc.tgz;
             the manual of what the Kernel implements (the manual step: the pages for what
             its MANUAL.toml says it lacks leave the sysroot and the set lists, and
@@ -647,6 +651,7 @@ def step_tree(arch: str, out: Path) -> None:
                 f.write_bytes(data.replace(b"__OpenBSD__", b"__EmiBSD__"))
                 renamed += 1
     print(f"tree: {n} inherited entries and {m} imported in {view}; __OpenBSD__ renamed in {renamed} files; name: {summary}")
+    toolchain_lists(arch, out)
 
 
 HOST = ROOT / "target" / "host"
@@ -1546,6 +1551,9 @@ EXCLUDED = {
     # answers given to configure, or a build on EmiBSD itself.
     "usr.sbin/nsd": "configure cannot run its tests when cross-compiling (pending)",
     "usr.sbin/unbound": "configure cannot run its tests when cross-compiling (pending)",
+    # The user's decision of 2026-11-08: the system's object tools are DevTools' LLVM's, under
+    # the base system's names; nm and size are links to llvm-nm and llvm-size in its artifact.
+    "usr.bin/nm": "nm(1) and size(1) are LLVM's, from DevTools' artifact (the toolchain step)",
 }
 
 
@@ -1608,6 +1616,115 @@ def install_from_kernel(arch: str, out: Path) -> list:
                        env=make_env(arch, out), check=True)
     print(f"base: kernel {k['release']}: {', '.join(k['mdec'])} installed in /usr/mdec")
     return []
+
+
+# --- the toolchains that run on EmiBSD -----------------------------------------------------
+#
+# The base system builds its compiler from its own tree; EmiBSD's is DevTools' (LLVM and
+# Rust, built there for EmiBSD and released as one artifact per architecture: DEVTOOLS.toml).
+# An artifact is a tree rooted at /, laid into the sysroot as it is. comp's lists of what the
+# compilers install are written from the artifacts themselves, in the build's copy of the
+# tree, so they say what is installed and follow a move of the pin: lists/comp/clang.<arch>,
+# which the base system keeps for its own clang and names another release's files, and
+# rust.<arch> beside it.
+TOOLCHAIN_LISTS = {"llvm": "clang", "rust": "rust"}
+# What of them is base's, where the base lists name it: the C++ run time a C++ program needs
+# to start, and the compiler's run time, which libc and every program were linked with. The
+# tools are comp's (the user's decisions of 2026-11-08 and 2026-11-15); a patch of
+# distrib/sets takes their names out of the base and man lists.
+TOOLCHAIN_BASE = ("usr/lib/libc++.so.13.0", "usr/lib/libc++abi.so.10.0", "usr/lib/libcompiler_rt.a")
+
+
+def toolchains(arch: str) -> list:
+    """(name, pin, the unpacked artifact's directory) of each toolchain DEVTOOLS.toml pins,
+    for `arch`. A build that does not find one stops: nothing stands in for it."""
+    with open(ROOT / "DEVTOOLS.toml", "rb") as fh:
+        pins = tomllib.load(fh)
+    found = []
+    for name, t in pins.items():
+        where = ROOT / "upstream/devtools" / t["release"]
+        pin = where / ".pin"
+        if arch not in t["sha256"] or not pin.exists() or pin.read_text().strip() != t["commit"]:
+            raise SystemExit(f"world: {name} {t['release']}: {arch} not fetched or not pinned (just fetch-build)")
+        found.append((name, t, where / f"{t['release']}-{t['host'][arch]}-{arch}"))
+    return found
+
+
+def toolchain_paths(name: str, tree: Path) -> list:
+    """(path under /, its source) of everything an artifact carries, a directory before what
+    is in it. The MANIFEST at its root, which says what the artifact is and what it was built
+    from, goes beside its licences."""
+    paths = []
+    for root, dirs, files in os.walk(tree):
+        for n in dirs + files:
+            src = Path(root) / n
+            rel = str(src.relative_to(tree))
+            paths.append((f"usr/share/doc/emibsd/{name}/MANIFEST" if rel == "MANIFEST" else rel, src))
+    return sorted(paths)
+
+
+def toolchain_lists(arch: str, out: Path) -> None:
+    """comp's lists of the toolchains, from what their artifacts carry: every file and link,
+    and every directory no other list names. A file another set's list names would travel in
+    two sets, so it stops the build, but for the three base keeps."""
+    lists = out / "src/distrib/sets/lists"
+    elsewhere = {}
+    for f in sorted(lists.glob("*/*")):
+        if f.name in ("mi", f"md.{arch}"):
+            for line in f.read_text().splitlines():
+                if line.strip():
+                    elsewhere.setdefault(line.strip(), f"{f.parent.name}/{f.name}")
+    for name, t, tree in toolchains(arch):
+        entries = []
+        for rel, src in toolchain_paths(name, tree):
+            e = f"./{rel}"
+            where = elsewhere.get(e, "")
+            if rel in TOOLCHAIN_BASE:
+                if not where.startswith("base/"):
+                    raise SystemExit(f"world: {name}: {e} is base's and no base list names it")
+            elif src.is_dir() and not src.is_symlink():
+                if not where:
+                    entries.append(e)
+            elif where and not where.startswith("comp/"):
+                raise SystemExit(f"world: {name}: {e} is also in lists/{where}: a patch of distrib/sets takes it out")
+            else:
+                entries.append(e)
+        target = lists / "comp" / f"{TOOLCHAIN_LISTS[name]}.{arch}"
+        target.write_text("".join(f"{e}\n" for e in entries))
+        print(f"tree: {name} {t['release']}: {len(entries)} entries in lists/comp/{target.name}")
+
+
+def step_toolchain(arch: str, out: Path) -> None:
+    """Each toolchain's artifact laid into the sysroot: its files as root:bin, 555 what is
+    executable and 444 the rest, as the base system installs a program, a library or a
+    header; its links as they are. A file the base system already installed stays only if it
+    is the same file (libcompiler_rt.a, which the build took from the same release of the
+    compiler: a difference means the two releases are not one)."""
+    sysroot, records = out / "sysroot", []
+    for name, t, tree in toolchains(arch):
+        n = 0
+        for rel, src in toolchain_paths(name, tree):
+            dst = sysroot / rel
+            if src.is_symlink():
+                if dst.is_symlink() and os.readlink(dst) == os.readlink(src):
+                    continue
+                if dst.is_symlink() or dst.exists():
+                    raise SystemExit(f"world: {name}: /{rel} is already installed, and is not this link")
+                dst.symlink_to(os.readlink(src))
+            elif src.is_dir():
+                dst.mkdir(exist_ok=True)
+                continue
+            else:
+                if dst.is_symlink() or (dst.exists() and dst.read_bytes() != src.read_bytes()):
+                    raise SystemExit(f"world: {name}: /{rel} is already installed, and differs")
+                executable = bool(src.stat().st_mode & stat.S_IXUSR)
+                shutil.copyfile(src, dst)
+                dst.chmod(0o755 if executable else 0o644)
+                records.append(f"{dst} uname=root gname=bin mode={'555' if executable else '444'}\n")
+            n += 1
+        print(f"toolchain: {name} {t['release']}: {n} files and links installed")
+    with open(out / "metalog", "a") as log:
+        log.writelines(records)
 
 
 # --- the manual the Kernel implements ------------------------------------------------------
@@ -1854,7 +1971,7 @@ OSREV = os.environ.get("WORLD_OSREV", "80")   # the kernel says EmiBSD 8.0
 def set_list(out: Path, name: str, arch: str) -> list:
     lists = out / "src/distrib/sets/lists" / name
     entries = set()
-    for f in ("mi", f"md.{arch}", f"clang.{arch}"):
+    for f in ("mi", f"md.{arch}", *(f"{l}.{arch}" for l in TOOLCHAIN_LISTS.values())):
         if (lists / f).exists():
             entries.update(l.strip() for l in (lists / f).read_text().splitlines() if l.strip())
     # What the manual step took out of the sysroot is in no list (the Kernel does not have it).
@@ -1956,12 +2073,12 @@ def ids_of(etc: Path) -> tuple:
 
 
 STEPS = {"tree": step_tree, "host": step_host, "includes": step_includes, "obj": step_obj,
-         "lib": step_lib, "base": step_base, "retry": step_retry, "image": step_image,
+         "lib": step_lib, "base": step_base, "toolchain": step_toolchain, "retry": step_retry, "image": step_image,
          "sets": step_sets, "etc": step_etc, "miniroot": step_miniroot, "manual": step_manual}
 # `just world arm64` with no step: the base system built and installed into the sysroot.
 # `make obj` first, as in the base system: include/Makefile has librpcsvc generate its
 # headers, which then must be in that library's obj, where its sources are compiled.
-DEFAULT = ("tree", "host", "obj", "includes", "lib", "base", "etc", "miniroot", "sets")
+DEFAULT = ("tree", "host", "obj", "includes", "lib", "base", "toolchain", "etc", "miniroot", "sets")
 
 
 def case_sensitive(out: Path) -> None:
