@@ -35,7 +35,7 @@ never a commit.
    `git status --porcelain --untracked-files=no` is empty; `python3 -I tools/upstream.py
    check` names nothing missing; `target/host/bin/makefs` and `sha256` exist. Any of these
    failing is a stop: report it, do not repair it.
-2. **First build.** `PATH=/opt/homebrew/opt/rustup/bin:$PATH just dist <arch>`, output to
+2. **First build.** `just dist <arch>`, output to
    `<scratchpad>/dist-<tag>-1.log`. It takes about 25 minutes. Then move the artifact and
    its `.sha256` to `<scratchpad>/first/`.
 3. **Second build.** The same, to `dist-<tag>-2.log`. `cmp` the two artifacts. If they

@@ -29,7 +29,7 @@ The workspace is `Cargo.toml` at the root; a program's package is `src/` under i
 and joins `members` when its STATUS reaches `implemented` (`docs/PROGRAM.md`, "Written").
 Since 2026-11-04 `main` has no written code, and the proof of concept's code (`cli`, `sys`,
 `ls`, `cp`, which this file still names as examples) was dropped on 2026-11-08; the first
-program implemented again brings back the root `Cargo.toml`, `rust-toolchain.toml` and the
+program implemented again brings back the root `Cargo.toml` and the
 `cli` and `sys` it needs, written anew from their documents, in their own commits.
 
 - **One `Command`, one `main.rs`, modules by domain.** `src/options.rs` holds the `Command`
@@ -46,8 +46,10 @@ program implemented again brings back the root `Cargo.toml`, `rust-toolchain.tom
 - **Visibility is the minimum.** Everything is private until something needs it; `pub(crate)`
   inside a crate; `pub` only in `cli` and `sys`, where it is a contract that semver covers.
   A program's modules export to `main.rs` and nothing else.
-- **The toolchain is pinned** (`rust-toolchain.toml`: stable, one version, `rustfmt`,
-  `clippy`, `rust-src`); a bump is its own commit and the user's decision. No nightly, not
+- **The toolchain is DevTools'**, pinned by release tag (`rust-1.99.1+emibsd.N`) in
+  `tools/cargo.sh`, with `rustfmt`, `clippy` and `rust-src` in the same tree; no
+  `rust-toolchain.toml`, no rustup, and cargo only through that file (the user's rule of
+  2026-11-11). A move of the pin is its own commit and the user's decision. No nightly, not
   even for a tool: what needs nightly (`cargo-fuzz`, `miri` on the host) is not used; property
   tests on stable replace fuzzing (`docs/PROGRAM.md`, Rules).
 - **Edition 2024** everywhere, inherited from `[workspace.package]`; `edition.workspace =
@@ -141,7 +143,7 @@ writes its own libc and its own loader, and depends on nothing from outside, so 
   directories, metadata, the environment, processes): only what `std` lacks (the passwd and
   group databases, the terminal, local time, `pledge`, uid and umask, `mkfifo`, `mknod`, the
   flags, times and mode of a symbolic link).
-- **Layouts are declared per target** (`openbsd`, the Kernel's ABI; `macos`, the development
+- **Layouts are declared per target** (`emibsd`, the Kernel's ABI; `macos`, the development
   host) and any other target is a `compile_error!`: a wrong `struct` layout is undefined
   behaviour that no test catches.
 - **What `std` already does safely is used from `std`:** `std::process::Command` for a

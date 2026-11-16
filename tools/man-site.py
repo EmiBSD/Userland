@@ -87,18 +87,24 @@ def artifact(tag: str) -> Path:
 
 def pages(top: Path) -> dict:
     """{key: mdoc source bytes} for every page kept, from the four sets."""
-    found, arch_pages = {}, {}
+    found, arch_pages, symlinks = {}, {}, []
     for s in SETS:
         zstd = subprocess.Popen(["zstd", "-dcq", str(top / f"{s}{OSREV}.tar.zst")], stdout=subprocess.PIPE)
         with tarfile.open(fileobj=zstd.stdout, mode="r|") as tar:
             for member in tar:
                 m = PAGE.match(member.name.removeprefix("./"))
-                if not m or not (member.isfile() or member.islnk()):
+                if not m or not (member.isfile() or member.islnk() or member.issym()):
                     continue
                 sec, arch, name, ext = m.groups()
                 if arch not in (None, ARCH):
                     continue
                 if sec in DROPPED:
+                    continue
+                if member.issym():
+                    # A symbolic link (cc.1 -> clang.1, a toolchain's page under the system's
+                    # name): its target may come later, or in another set.
+                    target = os.path.normpath(os.path.join(os.path.dirname(member.name), member.linkname))
+                    symlinks.append((arch, f"{name}.{ext}", target.removeprefix("./")))
                     continue
                 if member.isfile():
                     data = tar.extractfile(member).read()
@@ -109,6 +115,10 @@ def pages(top: Path) -> dict:
                 found[("link", member.name.removeprefix("./"))] = data
                 (arch_pages if arch else found)[f"{name}.{ext}"] = data
         zstd.wait()
+    for arch, key, target in symlinks:
+        data = found.get(("link", target))
+        if data is not None:
+            (arch_pages if arch else found).setdefault(key, data)
     site = {k: v for k, v in found.items() if isinstance(k, str)}
     for key, data in arch_pages.items():
         site[f"{ARCH}/{key}" if key in site else key] = data

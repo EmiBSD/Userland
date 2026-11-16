@@ -36,7 +36,9 @@ flowchart LR
 ```
 
 The pin is LandingZone's, because it fixes the ABI the kernel implements; the toolchains come
-from DevTools; OS assembles the sets with the kernel into a release.
+from DevTools, the ones the build runs on the development host and the ones the comp set
+carries to run on EmiBSD itself (`DEVTOOLS.toml`, the same releases); OS assembles the sets
+with the kernel into a release.
 
 ## Rules (the user's decisions of 2026-10-23, revised on 2026-11-04)
 
@@ -56,6 +58,9 @@ from DevTools; OS assembles the sets with the kernel into a release.
   upstream outside the base system's tree. In the userland `__OpenBSD__` becomes
   `__EmiBSD__` (2026-11-04): the inherited C sees only the macro the compiler predefines,
   and the build renames every `__OpenBSD__` in its copy of the tree to `__EmiBSD__`.
+  The trees keep only the Kernel's architectures, arm64 and amd64 (2026-11-08): what
+  belongs to another (`arch/<cpu>/`, `md.<machine>`, `man4.<machine>`, ...) is not copied
+  from the pin, and the Makefiles that name every architecture are patched to these two.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
   showed the written class and its grammar; their code was dropped on 2026-11-08. `ls`
   and `cp` are inherited here like every other program; the
@@ -78,8 +83,8 @@ from DevTools; OS assembles the sets with the kernel into a release.
 - **LLVM and Rust, nothing GPL.** The toolchains live in
   [DevTools](https://github.com/EmiBSD/DevTools): upstream LLVM at
   a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
-  pinned stable tag, so the `*-unknown-openbsd` targets, tier 3 in Rust, get their `std` from a
-  stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
+  pinned stable tag, so EmiBSD's own targets (`aarch64-emibsd-emibsd`), which upstream Rust does not
+  have, get their `std` from a stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,

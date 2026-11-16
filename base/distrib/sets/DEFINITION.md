@@ -13,3 +13,6 @@ patch under `patches/`.
 The series under `patches/`, each with its reason in its header:
 
 - `0001-zstd-in-base.patch`: The base set carries zstd, unzstd and zstdcat, and the man set their manual: zstd is imported into the base system.
+- `0002-two-architectures.patch`: The installation notes' allarchs target makes amd64's and arm64's: the others' notes are not in the tree.
+- `0003-no-gcc.patch`: The sets list nothing of GCC: comp/gcc.amd64 (ld.bfd) and comp/mi's gcc-local.1 are gone.
+- `0004-toolchain-in-comp.patch`: The compiler and its tools are comp's: the base and man lists no longer name them.

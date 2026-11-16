@@ -91,7 +91,14 @@ INSTALL_ANSWERS = [
 ]
 INSTALL_REJECTS = ["panic:", "Failed to install bootblocks", "Installation of ", "Checksum test for",
                    "found here anyway", "not a valid choice"]
-BOOT_PROBE = "uname -a; ls -l /bsd /usr/mdec/BOOTAA64.EFI; zstd -V; df -h /; echo up-$((6*7))\n"
+# One line, under a terminal's 255 characters. The last command is the verdict; what the
+# ones before it print is reported. Since comp carries DevTools'
+# toolchains they are asked to run, and cc to compile a program that is then run: what they
+# answer is in the report, and a compiler that does not start does not fail the install.
+BOOT_PROBE = ("uname -a; ls -l /bsd /usr/mdec/BOOTAA64.EFI; zstd -V; df -h / /usr; "
+              "cc --version; rustc --version; cargo --version; "
+              "echo 'int main(void){return 42;}' >/tmp/t.c; cc -o /tmp/t /tmp/t.c; /tmp/t; echo ran-$?; "
+              "echo up-$((6*7))\n")
 
 
 def kernel_release(arch: str) -> Path:

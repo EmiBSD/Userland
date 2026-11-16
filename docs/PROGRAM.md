@@ -15,7 +15,8 @@ upstream; *written*, EmiBSD's own.
 ├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
 │                     program's directory in that tree
 ├── src/              that directory at the pin, byte for byte: the Makefile, the sources,
-│                     the manual; written whole by tools/layout.py, never edited by hand
+│                     the manual; written whole by tools/layout.py, never edited by hand;
+│                     what belongs to an architecture other than arm64 and amd64 is left out
 ├── patches/          our patches, a numbered series, each with its reason in its header
 ├── DEFINITION.md     what the program is for here, the compatibility others rely on, the
 │                     security history tracked against the upstream
@@ -42,14 +43,15 @@ inherited C is compiled with the one macro DevTools' compiler predefines for
 `__OpenBSD__` the inherited C tests or names to `__EmiBSD__` in the build's copy of the tree
 (`src/` stays the pin). What the
 base system's own lld does by default for its target (`--undefined-version`,
-`--ignore-function-address-equality`) `tools/world.py` gives to every link.
+`--ignore-function-address-equality`) DevTools' clang driver gives to every link it makes
+for `*-emibsd-emibsd` (since llvm-23.1.4+emibsd.3); a direct `ld.lld` does not take them.
 
 ## Written (from scratch, in Rust)
 
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
 proof of concept, dropped on 2026-11-08; `ls` and `cp` are inherited like the rest, and
 only the two shared crates keep their documents here at `designed`, from which their code is
-written anew. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
+written anew. The root `Cargo.toml` comes back with the first
 program implemented again. What follows is the contract that program meets.
 
 ```
@@ -234,7 +236,7 @@ they run with only the root partition mounted, in single-user mode and on the in
 ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` is dynamic,
 so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
 program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
-is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
+is `emibsd` (the Kernel's ABI; no flag on the development host, where static linking does not
 exist); the toolchain's `crt-static` replaces it if DevTools' Rust finds that target respects
 it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
 does not pay `std` once per program: `base/distrib/installer` builds `bin/` and `sbin/` into one

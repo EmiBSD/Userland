@@ -1,0 +1,31 @@
+The manual's architecture-dependent sections descend only into arm64's and amd64's directories.
+
+The trees keep only the Kernel's architectures (the user's decision of 2026-11-08):
+tools/layout.py does not copy man4.<machine> and man8.<machine> of the others, so the
+SUBDIR lists that named all of them would descend into directories that are not there.
+
+--- a/share/man/man4/Makefile
++++ b/share/man/man4/Makefile
+@@ -122,8 +122,6 @@
+ 	xbf.4 xe.4 xen.4 xf86.4 xge.4 xhci.4 xl.4 xmphy.4 xnf.4 xspd.4 \
+ 	yds.4 ytphy.4 zero.4 zyd.4
+ 
+-SUBDIR=	man4.alpha man4.amd64 man4.arm64 man4.armv7 \
+-	man4.hppa man4.i386 man4.landisk man4.luna88k \
+-	man4.macppc man4.octeon man4.powerpc64 man4.riscv64 man4.sparc64
++SUBDIR=	man4.amd64 man4.arm64
+ 
+ .include <bsd.prog.mk>
+--- a/share/man/man8/Makefile
++++ b/share/man/man8/Makefile
+@@ -8,9 +8,6 @@
+ 	rc.conf.8 rc.d.8 rc.shutdown.8 rc.subr.8 release.8 \
+ 	security.8 ssl.8 starttls.8 sticky.8 yp.8
+ 
+-SUBDIR=	man8.alpha man8.amd64 man8.arm64 man8.armv7 \
+-	man8.hppa man8.i386 man8.landisk \
+-	man8.luna88k man8.macppc \
+-	man8.octeon man8.powerpc64 man8.riscv64 man8.sparc64
++SUBDIR=	man8.amd64 man8.arm64
+ 
+ .include <bsd.prog.mk>

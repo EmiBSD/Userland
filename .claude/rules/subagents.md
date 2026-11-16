@@ -106,7 +106,9 @@ A prompt that misses one of these gets a question back, not a guess.
   implementer (the user's decision of 2026-10-25, replacing the rule of 2026-10-24) to settle
   what the DEFINITION leaves open and to check a behaviour, taking the behaviour and never
   the structure or the text. Nobody `cd`s into it or writes there, the hook refuses both.
-- `PATH=/opt/homebrew/opt/rustup/bin:$PATH` before `cargo` or `just`. Install nothing. The
+- The toolchains are DevTools', straight from `~/devel/emibsd/toolchains`: `tools/world.py`
+  names the LLVM release and `tools/cargo.sh` the Rust one, and the recipes of `just` go
+  through them. No rustup directory on `PATH`, no bare `cargo`. Install nothing. The
   worktree has its own `target/`; the main checkout's is never used.
 - `just setup` once, so the `commit-msg` hook runs (it is `core.hooksPath`, shared by the
   worktrees of one repository; check with `git config core.hooksPath`).
@@ -146,8 +148,8 @@ A prompt that misses one of these gets a question back, not a guess.
 
 - A "STOP" refusal or a permission denial: stop at once, commit nothing more, report it.
 - Anything that is the user's decision: a crate dependency, a download, an install, anything
-  outside the repository, a change to `docs/PROGRAM.md`'s rules, a bump of
-  `rust-toolchain.toml` or of an `UPSTREAM.toml` pin, a flag or exit code that leaves POSIX,
+  outside the repository, a change to `docs/PROGRAM.md`'s rules, a move of a
+  toolchain pin or of an `UPSTREAM.toml` pin, a flag or exit code that leaves POSIX,
   a scope change: stop and hand back with the question.
 - Low on context: stop in a committed state, update `HANDOFF.md` (done with hashes, left,
   the tests' counts), then hand back naming its path.

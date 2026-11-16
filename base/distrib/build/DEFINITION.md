@@ -10,4 +10,6 @@ patch under `patches/`.
 
 ## Patches
 
-The series under `patches/`, each with its reason in its header: none today.
+The series under `patches/`, each with its reason in its header:
+
+- `0001-two-architectures.patch`: distrib's obj target descends only into amd64 and arm64: the other machines' directories are not in the tree.

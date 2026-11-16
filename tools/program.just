@@ -4,7 +4,7 @@
 name := file_name(justfile_directory())
 root := `git rev-parse --show-toplevel`
 
-# Build: a written program through cargo; an imported one through build/ after fetch; an
+# Build: a written program through cargo (tools/cargo.sh: DevTools' toolchains only); an imported one through build/ after fetch; an
 # inherited one through the build driver, which is not here yet (README, Open).
 build:
     #!/bin/sh
@@ -12,7 +12,7 @@ build:
     case "$(cat STATUS)" in
       imported*) python3 -I "{{root}}/tools/upstream.py" check . && sh build/build.sh ;;
       inherited*) echo "{{name}}: inherited; the build driver is not in this repository yet (README, Open)"; exit 1 ;;
-      *) cargo build --manifest-path src/Cargo.toml ;;
+      *) sh "{{root}}/tools/cargo.sh" build --manifest-path src/Cargo.toml ;;
     esac
 
 # Fetch and verify the upstream source (imported programs).
@@ -21,20 +21,20 @@ fetch:
 
 # Unit and integration tests (tests/, with stress/, cve/ and golden/ inside).
 test:
-    cargo test --manifest-path src/Cargo.toml
+    sh "{{root}}/tools/cargo.sh" test --manifest-path src/Cargo.toml
 
 # The stress tests alone, on four CPUs.
 stress:
-    EMIBSD_NCPU=4 cargo test --manifest-path src/Cargo.toml --test 'stress*'
+    EMIBSD_NCPU=4 sh "{{root}}/tools/cargo.sh" test --manifest-path src/Cargo.toml --test 'stress*'
 
 # Host benchmarks against a reference system's program on the same input.
 bench:
-    cargo bench --manifest-path src/Cargo.toml
+    sh "{{root}}/tools/cargo.sh" bench --manifest-path src/Cargo.toml
 
 # Format check and clippy with warnings denied.
 lint:
-    cargo fmt --manifest-path src/Cargo.toml -- --check
-    cargo clippy --manifest-path src/Cargo.toml -- -D warnings
+    sh "{{root}}/tools/cargo.sh" fmt --manifest-path src/Cargo.toml -- --check
+    sh "{{root}}/tools/cargo.sh" clippy --manifest-path src/Cargo.toml -- -D warnings
 
 # Render the manual to the terminal.
 man:

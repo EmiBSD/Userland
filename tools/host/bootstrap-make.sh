@@ -16,11 +16,12 @@
 # bootstrap-make.sh: build the base system's make(1) for the development host, from its
 # inherited src/ and libutil's ohash, into target/host/bin/make. It is the one program built
 # without make: every other one is built by this make with the share/mk of the same pin.
-# The compiler is DevTools' clang (EMIBSD_LLVM_BIN), aimed at the host; src/ is only read.
+# The compiler is DevTools' clang (EMIBSD_LLVM_BIN), aimed at the host, and the linker its lld,
+# never the host's ld; of the host only its SDK is used. src/ is only read.
 
 set -eu
 root=$(git rev-parse --show-toplevel)
-llvm=${EMIBSD_LLVM_BIN:-$HOME/devel/emibsd/toolchains/llvm-23.1.4+emibsd.2-aarch64-apple-darwin-arm64/bin}
+llvm=${EMIBSD_LLVM_BIN:-$HOME/devel/emibsd/toolchains/llvm-23.1.4+emibsd.6-aarch64-apple-darwin-arm64/bin}
 src=$root/base/usr/bin/development/make/src
 util=$root/base/lib/system/libutil/src
 obj=$root/target/host/make
@@ -28,7 +29,7 @@ out=$root/target/host/bin
 
 [ -x "$llvm/clang" ] || { echo "bootstrap-make: no clang in $llvm (set EMIBSD_LLVM_BIN)" >&2; exit 1; }
 case "$(uname -s)" in
-Darwin) host="--target=$(uname -m)-apple-macos -isysroot $(xcrun --show-sdk-path)" ;;
+Darwin) host="--target=$(uname -m)-apple-macos -isysroot $(xcrun --show-sdk-path) -fuse-ld=lld" ;;
 *) echo "bootstrap-make: no host profile for $(uname -s)" >&2; exit 1 ;;
 esac
 

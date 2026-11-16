@@ -54,6 +54,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -111,12 +112,15 @@ def manifest(tag: str, arch: str, tree: Path, epoch: str, sums: str) -> str:
     pin = next((l.split('"')[1] for l in (tree / "base/distrib/share/UPSTREAM.toml").read_text().splitlines()
                 if l.startswith("commit")), "unknown")
     out = tree / "target" / arch
+    with open(tree / "DEVTOOLS.toml", "rb") as fh:
+        toolchains = tomllib.load(fh)
     llvm = run(str(Path(os.environ.get("EMIBSD_LLVM_BIN", Path.home() /
-                    "devel/emibsd/toolchains/llvm-23.1.4+emibsd.2-aarch64-apple-darwin-arm64/bin")) / "clang"), "--version")
+                    "devel/emibsd/toolchains/llvm-23.1.4+emibsd.6-aarch64-apple-darwin-arm64/bin")) / "clang"), "--version")
     missing = {s: len([l for l in (out / f"sets/{s}.missing").read_text().splitlines() if l]) for s in SETS}
     return "".join([
         f"tag: {tag}\n", f"commit: {commit}\n", f"arch: {arch}\n", f"source_date_epoch: {epoch}\n",
-        f"base system pin: {pin}\n", f"compiler: {llvm.splitlines()[0]}\n", "\n",
+        f"base system pin: {pin}\n", f"compiler: {llvm.splitlines()[0]}\n",
+        *(f"toolchain in comp: {t['release']} ({t['commit']})\n" for t in toolchains.values()), "\n",
         f"miniroot: miniroot{OSREV}.fs, an FFS image of {(out / f'sets/miniroot{OSREV}.fs').stat().st_size} bytes "
         "for rd(4) (rdsetroot into the Kernel's bsd.RAMDISK)\n",
         "\n", "sets (SHA256):\n", sums, "\n",

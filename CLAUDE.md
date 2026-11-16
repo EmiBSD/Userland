@@ -30,8 +30,9 @@ substance, in English. The user is answered in Spanish.
 - Three classes: **inherited** (the base system's C at the pin, in our layout, patches only),
   **imported** (a third-party upstream, `UPSTREAM.toml` pin, patches, never rewritten) and
   **written** (from scratch, Rust, `#![forbid(unsafe_code)]`). An inherited program's `src/`
-  is its directory at the pin byte for byte, written whole by `just layout` and never edited
-  by hand; a change is a patch. It is committed, not yet built (README, "Open"). In the
+  is its directory at the pin byte for byte, less what belongs to an architecture other
+  than arm64 and amd64 (the user's decision of 2026-11-08: `tools/layout.py`'s `ARCHS`),
+  written whole by `just layout` and never edited by hand; a change is a patch. It is committed, not yet built (README, "Open"). In the
   userland `__OpenBSD__` becomes `__EmiBSD__`: the inherited C is compiled with
   `__EmiBSD__` only; `tools/world.py` renames every `__OpenBSD__` in its copy of the tree, and (the user's decision of 2026-11-07) the base system's name in the inherited trees' text, after the patches: OpenBSD to EmiBSD in prose, messages, comments, identifiers and URLs, with the version-control ids removed; copyrights, licences, e-mail addresses, the PT_OPENBSD_* names in linker scripts (lld reads them by text) and data about other systems stay; the ELF note name is EmiBSD (`target/<arch>/rename-report.txt`). `unsafe` only in `base/lib/libc`, `base/libexec/rtld`
   and `base/lib/crates/sys`, each site with a `// SAFETY:` proof.
@@ -68,12 +69,19 @@ tools/                                 layout.py, version.py, upstream.py, cve.p
 
 ## Working
 
-`PATH=/opt/homebrew/opt/rustup/bin:$PATH`; `just check` at the root (fmt, clippy `-D
+The toolchains are DevTools' releases, run straight from `~/devel/emibsd/toolchains` (the
+user's rule of 2026-11-11): never rustup, not even as a launcher, never Homebrew's or Apple's
+compilers. The C is built by the LLVM release `tools/world.py` names (`EMIBSD_LLVM_BIN`), the
+host tools linked by its lld; a written program by the Rust release `tools/cargo.sh` names
+(`EMIBSD_RUST_BIN`), its `bin/` first on `PATH`, `RUSTC` set to its rustc and the link done by
+DevTools' clang. A build that does not find its toolchain fails; it never falls back.
+`just check` at the root (fmt, clippy `-D
 warnings`, tests, once a written program brings the workspace back); `just host-make` builds
 the base system's make for the host from its inherited `src/` (the inherited C is built with
 it, never with GNU make or an installed bmake); `just world arm64` builds the inherited
 system for EmiBSD under `target/arm64` (`tools/world.py`: the tree copied back to its paths,
-the host tools, /usr/include, csu, the libraries, the programs, /etc, the sets); `just dist
+the host tools, /usr/include, csu, the libraries, the programs, DevTools' toolchains for EmiBSD
+laid into comp from `DEVTOOLS.toml`'s releases, /etc, the sets); `just dist
 arm64` and `just release <YEAR.MONTH.N>` cut a release of the sets, one artifact per
 architecture, from a tagged commit (OS fetches it by tag), signed with `just sign`, and its
 manual published to man.emibsd.org with `just man-site <tag> --publish`; `just lint`, `just test`, `just man` in a program's directory; `just

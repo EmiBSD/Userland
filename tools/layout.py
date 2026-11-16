@@ -11,8 +11,8 @@ and lib/ is mapped to exactly one leaf, in the tree it lives in there; the scrip
 otherwise.
 
 Three classes of program (docs/PROGRAM.md): `inherited` (the base system's C at the pin,
-in this layout: src/ is the reference tree's directory at the pin, byte for byte, replaced
-whole on every run), `imported` (compiled from its upstream at the pin of UPSTREAM.toml, never
+in this layout: src/ is the reference tree's directory at the pin, byte for byte, less the
+files of the architectures outside ARCHS, replaced whole on every run), `imported` (compiled from its upstream at the pin of UPSTREAM.toml, never
 rewritten) and `written` (from scratch, in Rust, under its definition). A skeleton whose
 STATUS is still `planned`, `inherited` or `imported` is regenerated from the templates; one
 that moved on is left alone.
@@ -312,7 +312,9 @@ flowchart LR
 ```
 
 The pin is LandingZone's, because it fixes the ABI the kernel implements; the toolchains come
-from DevTools; OS assembles the sets with the kernel into a release.
+from DevTools, the ones the build runs on the development host and the ones the comp set
+carries to run on EmiBSD itself (`DEVTOOLS.toml`, the same releases); OS assembles the sets
+with the kernel into a release.
 
 ## Rules (the user's decisions of 2026-10-23, revised on 2026-11-04)
 
@@ -332,6 +334,9 @@ from DevTools; OS assembles the sets with the kernel into a release.
   upstream outside the base system's tree. In the userland `__OpenBSD__` becomes
   `__EmiBSD__` (2026-11-04): the inherited C sees only the macro the compiler predefines,
   and the build renames every `__OpenBSD__` in its copy of the tree to `__EmiBSD__`.
+  The trees keep only the Kernel's architectures, arm64 and amd64 (2026-11-08): what
+  belongs to another (`arch/<cpu>/`, `md.<machine>`, `man4.<machine>`, ...) is not copied
+  from the pin, and the Makefiles that name every architecture are patched to these two.
 - **The first written programs were a proof of concept.** `cli`, `sys`, `ls` and `cp`
   showed the written class and its grammar; their code was dropped on 2026-11-08. `ls`
   and `cp` are inherited here like every other program; the
@@ -354,8 +359,8 @@ from DevTools; OS assembles the sets with the kernel into a release.
 - **LLVM and Rust, nothing GPL.** The toolchains live in
   [DevTools](https://github.com/EmiBSD/DevTools): upstream LLVM at
   a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
-  pinned stable tag, so the `*-unknown-openbsd` targets, tier 3 in Rust, get their `std` from a
-  stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
+  pinned stable tag, so EmiBSD's own targets (`aarch64-emibsd-emibsd`), which upstream Rust does not
+  have, get their `std` from a stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,
@@ -458,7 +463,8 @@ upstream; *written*, EmiBSD's own.
 ├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
 │                     program's directory in that tree
 ├── src/              that directory at the pin, byte for byte: the Makefile, the sources,
-│                     the manual; written whole by tools/layout.py, never edited by hand
+│                     the manual; written whole by tools/layout.py, never edited by hand;
+│                     what belongs to an architecture other than arm64 and amd64 is left out
 ├── patches/          our patches, a numbered series, each with its reason in its header
 ├── DEFINITION.md     what the program is for here, the compatibility others rely on, the
 │                     security history tracked against the upstream
@@ -485,14 +491,15 @@ inherited C is compiled with the one macro DevTools' compiler predefines for
 `__OpenBSD__` the inherited C tests or names to `__EmiBSD__` in the build's copy of the tree
 (`src/` stays the pin). What the
 base system's own lld does by default for its target (`--undefined-version`,
-`--ignore-function-address-equality`) `tools/world.py` gives to every link.
+`--ignore-function-address-equality`) DevTools' clang driver gives to every link it makes
+for `*-emibsd-emibsd` (since llvm-23.1.4+emibsd.3); a direct `ld.lld` does not take them.
 
 ## Written (from scratch, in Rust)
 
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
 proof of concept, dropped on 2026-11-08; `ls` and `cp` are inherited like the rest, and
 only the two shared crates keep their documents here at `designed`, from which their code is
-written anew. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
+written anew. The root `Cargo.toml` comes back with the first
 program implemented again. What follows is the contract that program meets.
 
 ```
@@ -677,7 +684,7 @@ they run with only the root partition mounted, in single-user mode and on the in
 ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` is dynamic,
 so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
 program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
-is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
+is `emibsd` (the Kernel's ABI; no flag on the development host, where static linking does not
 exist); the toolchain's `crt-static` replaces it if DevTools' Rust finds that target respects
 it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
 does not pay `std` once per program: `base/distrib/installer` builds `bin/` and `sbin/` into one
@@ -718,7 +725,7 @@ PROGRAM_JUST = """# Shared recipes for every program and library; each one's jus
 name := file_name(justfile_directory())
 root := `git rev-parse --show-toplevel`
 
-# Build: a written program through cargo; an imported one through build/ after fetch; an
+# Build: a written program through cargo (tools/cargo.sh: DevTools' toolchains only); an imported one through build/ after fetch; an
 # inherited one through the build driver, which is not here yet (README, Open).
 build:
     #!/bin/sh
@@ -726,7 +733,7 @@ build:
     case "$(cat STATUS)" in
       imported*) python3 -I "{{root}}/tools/upstream.py" check . && sh build/build.sh ;;
       inherited*) echo "{{name}}: inherited; the build driver is not in this repository yet (README, Open)"; exit 1 ;;
-      *) cargo build --manifest-path src/Cargo.toml ;;
+      *) sh "{{root}}/tools/cargo.sh" build --manifest-path src/Cargo.toml ;;
     esac
 
 # Fetch and verify the upstream source (imported programs).
@@ -735,20 +742,20 @@ fetch:
 
 # Unit and integration tests (tests/, with stress/, cve/ and golden/ inside).
 test:
-    cargo test --manifest-path src/Cargo.toml
+    sh "{{root}}/tools/cargo.sh" test --manifest-path src/Cargo.toml
 
 # The stress tests alone, on four CPUs.
 stress:
-    EMIBSD_NCPU=4 cargo test --manifest-path src/Cargo.toml --test 'stress*'
+    EMIBSD_NCPU=4 sh "{{root}}/tools/cargo.sh" test --manifest-path src/Cargo.toml --test 'stress*'
 
 # Host benchmarks against a reference system's program on the same input.
 bench:
-    cargo bench --manifest-path src/Cargo.toml
+    sh "{{root}}/tools/cargo.sh" bench --manifest-path src/Cargo.toml
 
 # Format check and clippy with warnings denied.
 lint:
-    cargo fmt --manifest-path src/Cargo.toml -- --check
-    cargo clippy --manifest-path src/Cargo.toml -- -D warnings
+    sh "{{root}}/tools/cargo.sh" fmt --manifest-path src/Cargo.toml -- --check
+    sh "{{root}}/tools/cargo.sh" clippy --manifest-path src/Cargo.toml -- -D warnings
 
 # Render the manual to the terminal.
 man:
@@ -800,7 +807,7 @@ host-make:
 world arch="arm64" *steps:
     python3 -I tools/world.py {{arch}} {{steps}}
 
-# What `just world` builds from (network): KERNEL.toml's release and the imported programs' sources.
+# What `just world` builds from (network): KERNEL.toml's release, DEVTOOLS.toml's toolchains and the imported programs' sources.
 fetch-build:
     python3 -I tools/upstream.py fetch --build
 
@@ -838,9 +845,9 @@ check:
     #!/bin/sh
     set -e
     if [ ! -f Cargo.toml ]; then echo "check: no written program in the tree: nothing for cargo"; exit 0; fi
-    cargo fmt --all -- --check
-    cargo clippy --workspace -- -D warnings
-    cargo test --workspace
+    sh tools/cargo.sh fmt --all -- --check
+    sh tools/cargo.sh clippy --workspace -- -D warnings
+    sh tools/cargo.sh test --workspace
 
 # Install the repository's git hooks (commit-msg: the Change: trailer and the version bump).
 setup:
@@ -904,8 +911,9 @@ UPSTREAM_PY = r'''#!/usr/bin/env python3
 """Fetch, verify and pin the upstream sources of the imported programs (docs/PROGRAM.md).
 
 usage: upstream.py fetch [<program dir>...]     fetch what the UPSTREAM.toml files name
-       upstream.py fetch --build                 what world.py builds from: KERNEL.toml's release and
-                                                 the imported programs' sources, nothing inherited
+       upstream.py fetch --build                 what world.py builds from: KERNEL.toml's release,
+                                                 DEVTOOLS.toml's toolchains and the imported
+                                                 programs' sources, nothing inherited
        upstream.py check [<program dir>...]     every fetched upstream matches its pin
 
 Git upstreams are cloned sparse, blob-less, into upstream/<mirror name>/ at the repository
@@ -914,11 +922,14 @@ most of them), checked out at the pinned commit (or the commit a pinned tag reso
 Tarball upstreams are downloaded into upstream/<name>/, their SHA-256 verified before
 extraction. KERNEL.toml's Kernel release is downloaded by tag (gh), one artifact per
 architecture it pins a sum for, checked, and what `take` names unpacked into
-upstream/kernel/<release>/<artifact>/. Everything fetched is made read-only;
-upstream/<key>/.pin records the hash. Stdlib only.
+upstream/kernel/<release>/<artifact>/. DEVTOOLS.toml's toolchains for EmiBSD (LLVM, Rust)
+are downloaded the same way, each whole, into upstream/devtools/<release>/<artifact>/, and
+the MANIFEST inside must name the pinned tag and commit. Everything fetched is made
+read-only; upstream/<key>/.pin records the hash. Stdlib only.
 """
 import hashlib
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -1057,9 +1068,55 @@ def fetch_kernel():
         subprocess.run(["tar", "-xf", "-", "-C", str(dest), *members], stdin=zstd.stdout, check=True)
         if zstd.wait():
             raise SystemExit(f"upstream: kernel: zstd could not read {archive.name}")
+        # include/ is a tree whose machine -> <arch> link /usr/include needs as a link; tar
+        # extracts links as links, and a copy or a flattening would not.
+        link = dest / name / "include" / "machine"
+        if "include" in k["take"] and not link.is_symlink():
+            raise SystemExit(f"upstream: kernel: {link} is not the symbolic link the release carries")
         print(f"upstream: kernel: {k['release']} {arch} {digest[:12]} pinned ({', '.join(k['take'])})")
     (dest / ".pin").write_text(k["commit"] + "\n")
     readonly(dest)
+
+
+def devtools_pin():
+    with open(ROOT / "DEVTOOLS.toml", "rb") as fh:
+        return tomllib.load(fh)
+
+
+def fetch_devtools():
+    for tool, t in devtools_pin().items():
+        dest = UPSTREAM / "devtools" / t["release"]
+        if dest.exists():
+            readonly_off(dest)
+        dest.mkdir(parents=True, exist_ok=True)
+        repo = "/".join(t["repo"].rstrip("/").split("/")[-2:])
+        for arch, want in sorted(t["sha256"].items()):
+            name = f"{t['release']}-{t['host'][arch]}-{arch}"
+            archive = dest / f"{name}.tar.zst"
+            if not archive.exists() or hashlib.sha256(archive.read_bytes()).hexdigest() != want:
+                archive.unlink(missing_ok=True)
+                print(f"upstream: {tool}: downloading {archive.name} from {repo} {t['release']}")
+                subprocess.run(["gh", "release", "download", t["release"], "--repo", repo, "--pattern", archive.name,
+                                "--dir", str(dest)], check=True)
+            digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+            if digest != want:
+                archive.unlink()
+                raise SystemExit(f"upstream: {tool}: {archive.name}: SHA-256 {digest} != {want}")
+            # Unpacked anew each time: a tree left by an earlier run is not trusted.
+            if (dest / name).exists():
+                shutil.rmtree(dest / name)
+            zstd = subprocess.Popen(["zstd", "-dcq", str(archive)], stdout=subprocess.PIPE)
+            subprocess.run(["tar", "-xf", "-", "-C", str(dest), name], stdin=zstd.stdout, check=True)
+            if zstd.wait():
+                raise SystemExit(f"upstream: {tool}: zstd could not read {archive.name}")
+            # The artifact says what it is: the tag and the commit the pin names, and its host.
+            said = dict(l.split(": ", 1) for l in (dest / name / "MANIFEST").read_text().splitlines() if ": " in l)
+            for key, value in (("tag", t["release"]), ("commit", t["commit"]), ("host", t["host"][arch]), ("arch", arch)):
+                if said.get(key) != value:
+                    raise SystemExit(f"upstream: {tool}: {name}/MANIFEST says {key} {said.get(key)}, the pin {value}")
+            print(f"upstream: {tool}: {t['release']} {arch} {digest[:12]} pinned")
+        (dest / ".pin").write_text(t["commit"] + "\n")
+        readonly(dest)
 
 
 def cmd_fetch(args):
@@ -1067,10 +1124,12 @@ def cmd_fetch(args):
         args = [str(s.parent) for s in sorted(ROOT.joinpath("base").rglob("STATUS"))
                 if s.read_text().startswith("imported")]
         fetch_kernel()
+        fetch_devtools()
         if not args:
             return
     elif not args:
         fetch_kernel()
+        fetch_devtools()
     groups = {}
     for d, up in tomls(args):
         groups.setdefault(key_of(up), []).append(up)
@@ -1103,6 +1162,11 @@ def cmd_check(args):
         if not pin.exists() or pin.read_text().strip() != k["commit"]:
             print(f"upstream: KERNEL.toml: kernel {k['release']} not fetched (just fetch)")
             bad += 1
+        for tool, t in devtools_pin().items():
+            pin = UPSTREAM / "devtools" / t["release"] / ".pin"
+            if not pin.exists() or pin.read_text().strip() != t["commit"]:
+                print(f"upstream: DEVTOOLS.toml: {tool} {t['release']} not fetched (just fetch)")
+                bad += 1
     if bad:
         raise SystemExit(bad)
     print("upstream: every fetched upstream matches its pin")
@@ -1365,6 +1429,8 @@ def upstream_toml(name: str, spec: dict, cls: str = "imported") -> str:
              f'repo    = "{spec["repo"]}"           # the organisation\'s mirror, always',
              f'origin  = "{spec["origin"]}"          # what the mirror is fed from',
              f'path    = {arr(spec.get("path", []))}']
+    if spec.get("archs"):
+        lines.append(f'archs   = {arr(spec["archs"])}   # the architectures kept of what depends on one; the others are not copied')
     if spec.get("commit"):
         lines.append(f'commit  = "{spec["commit"]}"')
     if spec.get("tag"):
@@ -1468,6 +1534,33 @@ def inherited_notes(name: str) -> str:
 
 ARCHS = ("arm64", "amd64")   # the Kernel's two; `<arch>` in an entry is each of them
 
+# Every architecture of the base system, MACHINE to its MACHINE_CPU and MACHINE_ARCH names
+# (the user's decision of 2026-11-08: the trees keep only the Kernel's architectures). What
+# belongs to one outside ARCHS is not copied: a directory named for its CPU or its machine
+# (lib/csu/sparc64, lib/libc/arch/hppa, distrib/notes/alpha) and a file or a directory whose
+# last dotted part is its machine (distrib/sets/lists/base/md.i386, share/man/man4/man4.octeon).
+MACHINES = {"alpha": ("alpha",), "amd64": ("amd64",), "arm64": ("aarch64",), "armv7": ("arm",),
+            "hppa": ("hppa",), "i386": ("i386",), "landisk": ("sh",), "loongson": ("mips64", "mips64el"),
+            "luna88k": ("m88k",), "macppc": ("powerpc",), "octeon": ("mips64",),
+            "powerpc64": ("powerpc64",), "riscv64": ("riscv64",), "sparc64": ("sparc64",)}
+_KEPT = set(ARCHS) | {c for a in ARCHS for c in MACHINES[a]}
+OTHER_DIRS = ({m for m in MACHINES} | {c for cs in MACHINES.values() for c in cs}) - _KEPT
+OTHER_SUFFIXES = set(MACHINES) - set(ARCHS)   # machines only: `.sh` is a script, not landisk
+
+
+def archs_of(origins: list) -> list:
+    """ARCHS for an entry that has files of an architecture outside them at the pin (they are
+    left out, and its UPSTREAM.toml says so), nothing for one that has none."""
+    prefixes = tuple(o.rstrip("/") + "/" for o in origins)
+    return list(ARCHS) if any(p.startswith(prefixes) and other_arch(p) for p in pin_paths()) else []
+
+
+def other_arch(name: str, is_dir: bool = False) -> bool:
+    """A path of the reference tree that belongs to an architecture outside ARCHS."""
+    parts = name.rstrip("/").split("/")
+    return any(p in OTHER_DIRS for p in (parts if is_dir else parts[:-1])) or \
+        any("." in p and p.rsplit(".", 1)[1] in OTHER_SUFFIXES for p in parts)
+
 DEFINITION_TREE = """# {name} (inherited)
 
 STATUS: see `STATUS`. Files of the base system that belong to no program, at the pin of
@@ -1504,7 +1597,7 @@ def materialise_tree(dst: Path, origins: list, the_pin: str) -> int:
     n = 0
     with tarfile.open(fileobj=io.BytesIO(tar)) as tf:
         for m in tf.getmembers():
-            if m.isdir() or not keep_in_tree(m.name, set(origins)):
+            if m.isdir() or not keep_in_tree(m.name, set(origins)) or other_arch(m.name):
                 continue
             target = dst / m.name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -1532,7 +1625,7 @@ def tree_skeleton(top: str, leaf: str, entries: list, the_pin: str) -> int:
     n += put(d / "DEFINITION.md", DEFINITION_TREE.format(name=name, origin=", ".join(f"`{o}`" for o in origins),
                                                        patches=patch_list(d)), force)
     n += put(d / "UPSTREAM.toml", upstream_toml(name, dict(name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN,
-                                                           path=origins, commit=the_pin, version="", license=[], cpe="",
+                                                           path=origins, archs=archs_of(origins), commit=the_pin, version="", license=[], cpe="",
                                                            series=series(d)),
                                                 "inherited"), force)
     if force:
@@ -1571,7 +1664,7 @@ def materialise(dst: Path, origin: str, the_pin: str) -> int:
         for m in tf.getmembers():
             if m.name == origin and m.isfile():   # an entry that is one file (lib/check_sym)
                 target = dst / Path(origin).name
-            elif not m.name.startswith(prefix) or m.name == prefix:
+            elif not m.name.startswith(prefix) or m.name == prefix or other_arch(m.name, m.isdir()):
                 continue
             else:
                 target = dst / m.name[len(prefix):]
@@ -1656,7 +1749,8 @@ def skeleton(top: str, leaf: str, name: str, src_dir: str, the_pin: str) -> int:
     n += put(d / "patches" / ".gitkeep", "", False)
     n += put(d / "tests" / "cve" / ".gitkeep", "", False)
     pin_spec = dict(name=name, kind="git", repo=OPENBSD_MIRROR, origin=OPENBSD_ORIGIN, path=[origin],
-                    commit=the_pin, version="", license=[], cpe=IMPORTED.get(name, ""), series=series(d))
+                    commit=the_pin, version="", license=[], cpe=IMPORTED.get(name, ""), series=series(d),
+                    archs=archs_of([origin]))
     if imported:
         n += put(d / "DELIVERY.md", DELIVERY.format(name=name, section=section), force)
         n += put(d / "DEFINITION.md", DEFINITION_IMPORTED.format(name=name, origin=origin, section=section, notes=notes_for(name)), force)
