@@ -26,8 +26,8 @@
 
 set -eu
 toolchains=$HOME/devel/emibsd/toolchains
-rust=${EMIBSD_RUST_BIN:-$toolchains/rust-1.99.1+emibsd.5-aarch64-apple-darwin-arm64/bin}
-llvm=${EMIBSD_LLVM_BIN:-$toolchains/llvm-23.1.4+emibsd.6-aarch64-apple-darwin-arm64/bin}
+rust=${EMIBSD_RUST_BIN:-$toolchains/rust-1.99.1+emibsd.6-aarch64-apple-darwin-arm64/bin}
+llvm=${EMIBSD_LLVM_BIN:-$toolchains/llvm-23.1.4+emibsd.7-aarch64-apple-darwin-arm64/bin}
 
 [ -x "$rust/cargo" ] || { echo "cargo.sh: no cargo in $rust (set EMIBSD_RUST_BIN)" >&2; exit 1; }
 [ -x "$llvm/clang" ] || { echo "cargo.sh: no clang in $llvm (set EMIBSD_LLVM_BIN)" >&2; exit 1; }

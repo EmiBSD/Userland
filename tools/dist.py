@@ -115,7 +115,7 @@ def manifest(tag: str, arch: str, tree: Path, epoch: str, sums: str) -> str:
     with open(tree / "DEVTOOLS.toml", "rb") as fh:
         toolchains = tomllib.load(fh)
     llvm = run(str(Path(os.environ.get("EMIBSD_LLVM_BIN", Path.home() /
-                    "devel/emibsd/toolchains/llvm-23.1.4+emibsd.6-aarch64-apple-darwin-arm64/bin")) / "clang"), "--version")
+                    "devel/emibsd/toolchains/llvm-23.1.4+emibsd.7-aarch64-apple-darwin-arm64/bin")) / "clang"), "--version")
     missing = {s: len([l for l in (out / f"sets/{s}.missing").read_text().splitlines() if l]) for s in SETS}
     return "".join([
         f"tag: {tag}\n", f"commit: {commit}\n", f"arch: {arch}\n", f"source_date_epoch: {epoch}\n",

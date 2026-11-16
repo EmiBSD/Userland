@@ -15,22 +15,22 @@
 
 [llvm]
 repo    = "https://github.com/EmiBSD/DevTools"
-release = "llvm-23.1.4+emibsd.6"
-commit  = "2600ec108efcf78a25724a1373c06865869646dc"   # what the tag names
+release = "llvm-23.1.4+emibsd.7"
+commit  = "ed08e1982c94a6f08a0f646c215be4c44273cae7"   # what the tag names
 
 [llvm.host]
 arm64 = "aarch64-emibsd-emibsd8.0"
 
 [llvm.sha256]
-arm64 = "a778ef6d3dcf281e9a9d71e1565de9315beb7814e1fcf9a1e42c502dc2986aab"
+arm64 = "54f8012f532fe30a71b7a2e5e52a6277b0ea4ee12023d365901c678d93019f23"
 
 [rust]
 repo    = "https://github.com/EmiBSD/DevTools"
-release = "rust-1.99.1+emibsd.5"
-commit  = "e310966627cf2644895dcf23b04e619db6f600d9"   # what the tag names
+release = "rust-1.99.1+emibsd.6"
+commit  = "ed08e1982c94a6f08a0f646c215be4c44273cae7"   # what the tag names
 
 [rust.host]
 arm64 = "aarch64-emibsd-emibsd"
 
 [rust.sha256]
-arm64 = "2b7ec9abfd2bfffbb14f7e1d510699899f411d124192882f429a4ea69effc0cc"
+arm64 = "ee363bada622e5020ebe79ace6ca7f42d9d97d6108618068df14e71a10e3cafe"
