@@ -662,8 +662,14 @@ HOST_HEADERS = {"usr.bin/mklocale": "mklocale.h"}
 
 
 def host_cc() -> str:
+    """DevTools' clang aimed at the host. The link is DevTools' too, its lld and never the
+    host's ld: said in a configuration file, so a compile-only run does not warn of an
+    unused argument. Of the host, only its SDK is used (a host program links its libc)."""
     sdk = subprocess.run(["xcrun", "--show-sdk-path"], capture_output=True, text=True, check=True).stdout.strip()
-    return (f"{LLVM}/clang --target={os.uname().machine}-apple-macos -isysroot {sdk} "
+    cfg = HOST / "clang-host.cfg"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text("-fuse-ld=lld\n")
+    return (f"{LLVM}/clang --config={cfg} --target={os.uname().machine}-apple-macos -isysroot {sdk} "
             f"-include {ROOT / 'tools/host/compat.h'}")
 
 
@@ -721,13 +727,32 @@ def step_host(arch: str, out: Path) -> None:
                         "NOMAN=1", "CRTBEGIN=", "CRTEND=", "LIBCRT0=", "LIBC=", "WARNINGS=no"],
                        cwd=out / "src" / tool, env=env, check=True)
         prog = Path(tool).name
+        (HOST / "bin" / prog).unlink(missing_ok=True)   # rpcgen's is a script, not a copy
         shutil.copy2(obj / prog, HOST / "bin" / prog)
         print(f"host: {HOST / 'bin' / prog}")
+    host_rpcgen()
     host_makefs(out)
     host_base(out)
     host_base_tools(out)
     host_tic(out)
     host_crunchgen(arch, out)
+
+
+def host_rpcgen() -> None:
+    """rpcgen runs the C preprocessor by a fixed path, /usr/bin/cpp, which on the host is the
+    host's own compiler. Its -Y names the directory to look for `cpp` in: there, under that
+    name, DevTools' clang, as /usr/bin/cpp is on the system itself (a link to clang, which
+    preprocesses when called so). The build's rpcgen is a script that says so."""
+    cppdir = HOST / "cpp"
+    cppdir.mkdir(exist_ok=True)
+    (cppdir / "cpp").unlink(missing_ok=True)
+    (cppdir / "cpp").symlink_to(LLVM / "clang-cpp")
+    real = HOST / "libexec/rpcgen"
+    real.parent.mkdir(exist_ok=True)
+    shutil.move(HOST / "bin/rpcgen", real)
+    script = HOST / "bin/rpcgen"
+    script.write_text(f'#!/bin/sh\nexec "{real}" -Y "{cppdir}" "$@"\n')
+    script.chmod(0o755)
 
 
 def host_crunchgen(arch: str, out: Path) -> None:
