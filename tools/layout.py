@@ -489,7 +489,8 @@ inherited C is compiled with the one macro DevTools' compiler predefines for
 `__OpenBSD__` the inherited C tests or names to `__EmiBSD__` in the build's copy of the tree
 (`src/` stays the pin). What the
 base system's own lld does by default for its target (`--undefined-version`,
-`--ignore-function-address-equality`) `tools/world.py` gives to every link.
+`--ignore-function-address-equality`) DevTools' clang driver gives to every link it makes
+for `*-emibsd-emibsd` (since llvm-23.1.4+emibsd.3); a direct `ld.lld` does not take them.
 
 ## Written (from scratch, in Rust)
 

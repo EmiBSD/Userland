@@ -75,7 +75,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE = ROOT / "base"
 TREES = ("etc", "data", "distrib")   # their entries keep their full paths under src/
 LLVM = Path(os.environ.get("EMIBSD_LLVM_BIN",
-                           Path.home() / "devel/emibsd/toolchains/llvm-23.1.4+emibsd.2-aarch64-apple-darwin-arm64/bin"))
+                           Path.home() / "devel/emibsd/toolchains/llvm-23.1.4+emibsd.6-aarch64-apple-darwin-arm64/bin"))
 EPOCH = os.environ.get("SOURCE_DATE_EPOCH") or \
     subprocess.run(["git", "-C", str(ROOT), "log", "-1", "--format=%ct"], capture_output=True,
                    text=True, check=True).stdout.strip()
@@ -1322,15 +1322,12 @@ def step_miniroot(arch: str, out: Path) -> None:
 BASE_TREES = ("bin", "libexec", "sbin", "usr.bin", "usr.sbin", "share", "games")
 
 
-# The base system's lld takes these by default when it targets the base system (its
-# Driver.cpp, under __OpenBSD__): a version script may name symbols a library does not
-# define (libc's Symbols.list names __data_start), and protected symbols stay preemptible.
-# DevTools' lld for aarch64-emibsd does not yet; until it does (a DevTools matter), they are
-# given to every link, and only to links, by a clang configuration file under target/.
-LINK_DEFAULTS = ("--undefined-version", "--ignore-function-address-equality")
-# Likewise the base system's clang leaves -Wpointer-sign off by default and upstream's turns
-# it on: the Makefiles that build with -Werror (LibreSSL's) mix char and unsigned char
-# pointers and expect no warning for it.
+# What the base system's clang does by default and DevTools' does not, given to every
+# compile by a clang configuration file under target/. (The two link defaults the base
+# system's lld takes, --undefined-version and --ignore-function-address-equality, are
+# DevTools' clang driver's own since llvm-23.1.4+emibsd.3.) The base system's clang leaves
+# -Wpointer-sign off by default and upstream's turns it on: the Makefiles that build with
+# -Werror (LibreSSL's) mix char and unsigned char pointers and expect no warning for it.
 COMPILE_DEFAULTS = ("-Wno-pointer-sign",
                     # a warning DevTools' clang has and the pin's does not: kept, not fatal
                     # under -Werror (sshd-auth)
@@ -1373,8 +1370,7 @@ def link_config(out: Path) -> Path:
     prefixes = (f"-ffile-prefix-map={out / 'src'}=/usr/src", f"-ffile-prefix-map={out / 'obj'}=/usr/obj",
                 f"-ffile-prefix-map={out / 'sysroot'}/=/")
     cfg.write_text("".join(f"{flag}\n" for flag in COMPILE_DEFAULTS + prefixes) +
-                   f"-idirafter {out / 'compiler-include'}\n" +
-                   "".join(f"$-Wl,{flag}\n" for flag in LINK_DEFAULTS))
+                   f"-idirafter {out / 'compiler-include'}\n")
     return cfg
 
 
