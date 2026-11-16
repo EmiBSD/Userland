@@ -126,7 +126,7 @@ def place_imported(view: Path) -> int:
             if not f.is_symlink():
                 f.chmod(f.stat().st_mode | stat.S_IWUSR)
         for patch in sorted((d / "patches").glob("*.patch")):
-            subprocess.run(["patch", "-s", "-p1", "-F", "0", "-V", "none", "-t", "-N", "-d", str(dst),
+            subprocess.run(["patch", "-s", "-E", "-p1", "-F", "0", "-V", "none", "-t", "-N", "-d", str(dst),
                             "-i", str(patch)], check=True)
         n += 1
     return n
@@ -626,8 +626,8 @@ def step_tree(arch: str, out: Path) -> None:
         for patch in sorted((d / "patches").glob("*.patch")):
             where = view if tree else view / paths[0]
             # Exactly (no fuzz: a patch that no longer fits the pin must fail), in batch
-            # mode, leaving no backup files in the tree.
-            subprocess.run(["patch", "-s", "-p1", "-F", "0", "-V", "none", "-t", "-N", "-d", str(where),
+            # mode, leaving no backup files in the tree; a file a patch empties is removed (-E).
+            subprocess.run(["patch", "-s", "-E", "-p1", "-F", "0", "-V", "none", "-t", "-N", "-d", str(where),
                             "-i", str(patch)], check=True)
         n += 1
     # The base system's name, after the patches (they match the original text) and before the

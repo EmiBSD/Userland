@@ -1,0 +1,21 @@
+The sets list nothing of GCC: comp/gcc.amd64 (ld.bfd) and comp/mi's gcc-local.1 are gone.
+
+EmiBSD's compiler is DevTools' LLVM and nothing GPL is in the system (README, Rules): GNU's
+ld.bfd and GCC's local manual have no place in it (the user's decision of 2026-11-08, to
+drop what the inherited toolchain left behind).
+
+--- a/distrib/sets/lists/comp/gcc.amd64
++++ /dev/null
+@@ -1,2 +0,0 @@
+-./usr/bin/ld.bfd
+-./usr/share/man/man1/ld.bfd.1
+--- a/distrib/sets/lists/comp/mi
++++ b/distrib/sets/lists/comp/mi
+@@ -1606,7 +1606,6 @@
+ ./usr/share/man/man1/ctfdump.1
+ ./usr/share/man/man1/ctfstrip.1
+ ./usr/share/man/man1/flex.1
+-./usr/share/man/man1/gcc-local.1
+ ./usr/share/man/man1/gprof.1
+ ./usr/share/man/man1/ld.1
+ ./usr/share/man/man1/libtool.1
