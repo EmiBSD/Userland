@@ -81,8 +81,8 @@ from DevTools; OS assembles the sets with the kernel into a release.
 - **LLVM and Rust, nothing GPL.** The toolchains live in
   [DevTools](https://github.com/EmiBSD/DevTools): upstream LLVM at
   a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
-  pinned stable tag, so the `*-unknown-openbsd` targets, tier 3 in Rust, get their `std` from a
-  stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
+  pinned stable tag, so EmiBSD's own targets (`aarch64-emibsd-emibsd`), which upstream Rust does not
+  have, get their `std` from a stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,

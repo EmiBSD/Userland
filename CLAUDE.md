@@ -69,7 +69,13 @@ tools/                                 layout.py, version.py, upstream.py, cve.p
 
 ## Working
 
-`PATH=/opt/homebrew/opt/rustup/bin:$PATH`; `just check` at the root (fmt, clippy `-D
+The toolchains are DevTools' releases, run straight from `~/devel/emibsd/toolchains` (the
+user's rule of 2026-11-11): never rustup, not even as a launcher, never Homebrew's or Apple's
+compilers. The C is built by the LLVM release `tools/world.py` names (`EMIBSD_LLVM_BIN`), the
+host tools linked by its lld; a written program by the Rust release `tools/cargo.sh` names
+(`EMIBSD_RUST_BIN`), its `bin/` first on `PATH`, `RUSTC` set to its rustc and the link done by
+DevTools' clang. A build that does not find its toolchain fails; it never falls back.
+`just check` at the root (fmt, clippy `-D
 warnings`, tests, once a written program brings the workspace back); `just host-make` builds
 the base system's make for the host from its inherited `src/` (the inherited C is built with
 it, never with GNU make or an installed bmake); `just world arm64` builds the inherited

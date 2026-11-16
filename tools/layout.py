@@ -357,8 +357,8 @@ from DevTools; OS assembles the sets with the kernel into a release.
 - **LLVM and Rust, nothing GPL.** The toolchains live in
   [DevTools](https://github.com/EmiBSD/DevTools): upstream LLVM at
   a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
-  pinned stable tag, so the `*-unknown-openbsd` targets, tier 3 in Rust, get their `std` from a
-  stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
+  pinned stable tag, so EmiBSD's own targets (`aarch64-emibsd-emibsd`), which upstream Rust does not
+  have, get their `std` from a stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
 - **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,
@@ -497,7 +497,7 @@ for `*-emibsd-emibsd` (since llvm-23.1.4+emibsd.3); a direct `ld.lld` does not t
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
 proof of concept, dropped on 2026-11-08; `ls` and `cp` are inherited like the rest, and
 only the two shared crates keep their documents here at `designed`, from which their code is
-written anew. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
+written anew. The root `Cargo.toml` comes back with the first
 program implemented again. What follows is the contract that program meets.
 
 ```
@@ -682,7 +682,7 @@ they run with only the root partition mounted, in single-user mode and on the in
 ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` is dynamic,
 so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
 program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
-is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
+is `emibsd` (the Kernel's ABI; no flag on the development host, where static linking does not
 exist); the toolchain's `crt-static` replaces it if DevTools' Rust finds that target respects
 it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
 does not pay `std` once per program: `base/distrib/installer` builds `bin/` and `sbin/` into one
@@ -723,7 +723,7 @@ PROGRAM_JUST = """# Shared recipes for every program and library; each one's jus
 name := file_name(justfile_directory())
 root := `git rev-parse --show-toplevel`
 
-# Build: a written program through cargo; an imported one through build/ after fetch; an
+# Build: a written program through cargo (tools/cargo.sh: DevTools' toolchains only); an imported one through build/ after fetch; an
 # inherited one through the build driver, which is not here yet (README, Open).
 build:
     #!/bin/sh
@@ -731,7 +731,7 @@ build:
     case "$(cat STATUS)" in
       imported*) python3 -I "{{root}}/tools/upstream.py" check . && sh build/build.sh ;;
       inherited*) echo "{{name}}: inherited; the build driver is not in this repository yet (README, Open)"; exit 1 ;;
-      *) cargo build --manifest-path src/Cargo.toml ;;
+      *) sh "{{root}}/tools/cargo.sh" build --manifest-path src/Cargo.toml ;;
     esac
 
 # Fetch and verify the upstream source (imported programs).
@@ -740,20 +740,20 @@ fetch:
 
 # Unit and integration tests (tests/, with stress/, cve/ and golden/ inside).
 test:
-    cargo test --manifest-path src/Cargo.toml
+    sh "{{root}}/tools/cargo.sh" test --manifest-path src/Cargo.toml
 
 # The stress tests alone, on four CPUs.
 stress:
-    EMIBSD_NCPU=4 cargo test --manifest-path src/Cargo.toml --test 'stress*'
+    EMIBSD_NCPU=4 sh "{{root}}/tools/cargo.sh" test --manifest-path src/Cargo.toml --test 'stress*'
 
 # Host benchmarks against a reference system's program on the same input.
 bench:
-    cargo bench --manifest-path src/Cargo.toml
+    sh "{{root}}/tools/cargo.sh" bench --manifest-path src/Cargo.toml
 
 # Format check and clippy with warnings denied.
 lint:
-    cargo fmt --manifest-path src/Cargo.toml -- --check
-    cargo clippy --manifest-path src/Cargo.toml -- -D warnings
+    sh "{{root}}/tools/cargo.sh" fmt --manifest-path src/Cargo.toml -- --check
+    sh "{{root}}/tools/cargo.sh" clippy --manifest-path src/Cargo.toml -- -D warnings
 
 # Render the manual to the terminal.
 man:
@@ -843,9 +843,9 @@ check:
     #!/bin/sh
     set -e
     if [ ! -f Cargo.toml ]; then echo "check: no written program in the tree: nothing for cargo"; exit 0; fi
-    cargo fmt --all -- --check
-    cargo clippy --workspace -- -D warnings
-    cargo test --workspace
+    sh tools/cargo.sh fmt --all -- --check
+    sh tools/cargo.sh clippy --workspace -- -D warnings
+    sh tools/cargo.sh test --workspace
 
 # Install the repository's git hooks (commit-msg: the Change: trailer and the version bump).
 setup:

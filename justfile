@@ -69,9 +69,9 @@ check:
     #!/bin/sh
     set -e
     if [ ! -f Cargo.toml ]; then echo "check: no written program in the tree: nothing for cargo"; exit 0; fi
-    cargo fmt --all -- --check
-    cargo clippy --workspace -- -D warnings
-    cargo test --workspace
+    sh tools/cargo.sh fmt --all -- --check
+    sh tools/cargo.sh clippy --workspace -- -D warnings
+    sh tools/cargo.sh test --workspace
 
 # Install the repository's git hooks (commit-msg: the Change: trailer and the version bump).
 setup:

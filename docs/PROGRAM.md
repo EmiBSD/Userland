@@ -51,7 +51,7 @@ for `*-emibsd-emibsd` (since llvm-23.1.4+emibsd.3); a direct `ld.lld` does not t
 No written program is in `main` today. The first ones (`cli`, `sys`, `ls`, `cp`) were a
 proof of concept, dropped on 2026-11-08; `ls` and `cp` are inherited like the rest, and
 only the two shared crates keep their documents here at `designed`, from which their code is
-written anew. The root `Cargo.toml` and `rust-toolchain.toml` come back with the first
+written anew. The root `Cargo.toml` comes back with the first
 program implemented again. What follows is the contract that program meets.
 
 ```
@@ -236,7 +236,7 @@ they run with only the root partition mounted, in single-user mode and on the in
 ramdisk, without `/usr/lib` or `ld.so`; everything under `usr/` and `libexec/` is dynamic,
 so a fix in a shared library reaches every program that links it. A `bin/` or `sbin/`
 program carries `src/build.rs` emitting `cargo:rustc-link-arg-bins=-static` when the target
-is `openbsd` (the Kernel's ABI; no flag on the development host, where static linking does not
+is `emibsd` (the Kernel's ABI; no flag on the development host, where static linking does not
 exist); the toolchain's `crt-static` replaces it if DevTools' Rust finds that target respects
 it. `DELIVERY.md` says `static` or `dynamic` and the measured size. The installer's ramdisk
 does not pay `std` once per program: `base/distrib/installer` builds `bin/` and `sbin/` into one
