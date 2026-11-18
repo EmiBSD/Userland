@@ -29,7 +29,9 @@ def cpe_of(prog: Path):
     if up.exists():
         with open(up, "rb") as fh:
             data = tomllib.load(fh)
-        return data.get("security", {}).get("cpe", ""), data["upstream"].get("version", ""), ""
+        # NVD knows the upstream's version only: ours carries the patch level as build
+        # metadata (`9.9+emibsd.2`, docs/PROGRAM.md, Versions), which is not part of the match.
+        return data.get("security", {}).get("cpe", ""), data["upstream"].get("version", "").split("+", 1)[0], ""
     text = (prog / "DEFINITION.md").read_text()
     m = re.search(r'^cpe\s*=\s*"([^"]+)"', text, re.M)
     k = re.search(r'^cve-keyword\s*=\s*"([^"]+)"', text, re.M)
