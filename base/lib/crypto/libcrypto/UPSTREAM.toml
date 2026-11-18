@@ -2,7 +2,7 @@
 [upstream]
 name    = "libcrypto"
 kind    = "git"
-repo    = "https://github.com/EmiBSD/OpenBSD-src"           # the organisation's mirror, always
+repo    = "https://github.com/EmiBSD/ext-openbsd-src"           # the organisation's mirror, always
 origin  = "https://github.com/openbsd/src"          # what the mirror is fed from
 path    = ["lib/libcrypto"]
 archs   = ["arm64", "amd64"]   # the architectures kept of what depends on one; the others are not copied

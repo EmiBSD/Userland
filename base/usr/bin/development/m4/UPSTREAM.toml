@@ -2,7 +2,7 @@
 [upstream]
 name    = "m4"
 kind    = "git"
-repo    = "https://github.com/EmiBSD/OpenBSD-src"           # the organisation's mirror, always
+repo    = "https://github.com/EmiBSD/ext-openbsd-src"           # the organisation's mirror, always
 origin  = "https://github.com/openbsd/src"          # what the mirror is fed from
 path    = ["usr.bin/m4"]
 commit  = "3ce1f3f79392ae4d60ce67bea5835d517caaa2ca"

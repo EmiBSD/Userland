@@ -12,7 +12,7 @@ upstream; *written*, EmiBSD's own.
 ```
 <group>/<name>/
 ├── STATUS            inherited | inherited-built | inherited-shipped
-├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
+├── UPSTREAM.toml     the pin: the EmiBSD/ext-openbsd-src mirror, LandingZone's commit, the
 │                     program's directory in that tree
 ├── src/              that directory at the pin, byte for byte: the Makefile, the sources,
 │                     the manual; written whole by tools/layout.py, never edited by hand;
@@ -107,7 +107,7 @@ The source itself lives under `upstream/`, gitignored and read-only, fetched by
 `tools/upstream.py fetch` and verified against `UPSTREAM.toml` (commit for git, SHA-256 and
 signature for a tarball); a build copies it to `target/`, applies `patches/`, builds there.
 `upstream/.pin` must match the TOML or `just build` refuses. Most imports point at
-`EmiBSD/OpenBSD-src` at the Kernel's pin (OpenSSH, LibreSSL, `unbound`, `smtpd`, `nvi`,
+`EmiBSD/ext-openbsd-src` at the Kernel's pin (OpenSSH, LibreSSL, `unbound`, `smtpd`, `nvi`,
 `mandoc`, ncurses, LLVM all live in that tree): one shared clone, one fetch. Moving an
 import to a newer version is a `upstream:` commit that bumps the pin and lists the CVEs it
 closes, as the kernel bumps its LZ pin.

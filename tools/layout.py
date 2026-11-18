@@ -29,7 +29,7 @@ SRC = Path(sys.argv[1])
 OUT = Path(sys.argv[2])
 BASE = OUT / "base"                    # the system that is built; the repository's tools live beside it
 PIN_FILE = SRC.parent / "PINNED.md"          # Kernel/reference/PINNED.md: the reference tree's pin
-OPENBSD_MIRROR = "https://github.com/EmiBSD/OpenBSD-src"
+OPENBSD_MIRROR = "https://github.com/EmiBSD/ext-openbsd-src"
 OPENBSD_ORIGIN = "https://github.com/openbsd/src"
 
 # Where a top-level directory's bare names come from in the reference tree.
@@ -304,7 +304,7 @@ inherited tree subsystem by subsystem.
 
 ```mermaid
 flowchart LR
-    obsd["OpenBSD-src (mirror)"] -- "the base system's sources, at the pin;<br/>the imports (ssh, LibreSSL, ...)" --> ul["Userland"]
+    obsd["ext-openbsd-src (mirror)"] -- "the base system's sources, at the pin;<br/>the imports (ssh, LibreSSL, ...)" --> ul["Userland"]
     lz["LandingZone"] -. "the pin" .-> ul
     dev["DevTools"] -- "clang, lld, libc++; rustc, cargo, std" --> ul
     ul -- "the base sets" --> os["OS"]
@@ -320,7 +320,7 @@ with the kernel into a release.
 
 - **Three classes of program** (`docs/PROGRAM.md`; the user's decision of 2026-11-04,
   replacing the two classes of 2026-10-23). *Inherited*: the base system's C at
-  LandingZone's pin, from the `EmiBSD/OpenBSD-src` mirror, every notice kept whole, placed
+  LandingZone's pin, from the `EmiBSD/ext-openbsd-src` mirror, every notice kept whole, placed
   in this layout and changed only by `patches/`, never rewritten in place: the base EmiBSD
   runs. *Imported*: cryptography, the security and network protocols with a living upstream
   and a CVE history, and the legacy giants (`ssh`, LibreSSL, `unbound`, `smtpd`, `vi`,
@@ -361,7 +361,7 @@ with the kernel into a release.
   a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
   pinned stable tag, so EmiBSD's own targets (`aarch64-emibsd-emibsd`), which upstream Rust does not
   have, get their `std` from a stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
-- **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
+- **Upstreams are mirrored in the organisation** (`EmiBSD/ext-openbsd-src`, `EmiBSD/ext-rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,
   gitignored and read-only; a build applies `patches/` to a copy under `target/`, never to
@@ -460,7 +460,7 @@ upstream; *written*, EmiBSD's own.
 ```
 <group>/<name>/
 ├── STATUS            inherited | inherited-built | inherited-shipped
-├── UPSTREAM.toml     the pin: the EmiBSD/OpenBSD-src mirror, LandingZone's commit, the
+├── UPSTREAM.toml     the pin: the EmiBSD/ext-openbsd-src mirror, LandingZone's commit, the
 │                     program's directory in that tree
 ├── src/              that directory at the pin, byte for byte: the Makefile, the sources,
 │                     the manual; written whole by tools/layout.py, never edited by hand;
@@ -555,7 +555,7 @@ The source itself lives under `upstream/`, gitignored and read-only, fetched by
 `tools/upstream.py fetch` and verified against `UPSTREAM.toml` (commit for git, SHA-256 and
 signature for a tarball); a build copies it to `target/`, applies `patches/`, builds there.
 `upstream/.pin` must match the TOML or `just build` refuses. Most imports point at
-`EmiBSD/OpenBSD-src` at the Kernel's pin (OpenSSH, LibreSSL, `unbound`, `smtpd`, `nvi`,
+`EmiBSD/ext-openbsd-src` at the Kernel's pin (OpenSSH, LibreSSL, `unbound`, `smtpd`, `nvi`,
 `mandoc`, ncurses, LLVM all live in that tree): one shared clone, one fetch. Moving an
 import to a newer version is a `upstream:` commit that bumps the pin and lists the CVEs it
 closes, as the kernel bumps its LZ pin.
@@ -917,7 +917,7 @@ usage: upstream.py fetch [<program dir>...]     fetch what the UPSTREAM.toml fil
        upstream.py check [<program dir>...]     every fetched upstream matches its pin
 
 Git upstreams are cloned sparse, blob-less, into upstream/<mirror name>/ at the repository
-root, one clone per mirror shared by every program that names it (EmiBSD/OpenBSD-src holds
+root, one clone per mirror shared by every program that names it (EmiBSD/ext-openbsd-src holds
 most of them), checked out at the pinned commit (or the commit a pinned tag resolves to).
 Tarball upstreams are downloaded into upstream/<name>/, their SHA-256 verified before
 extraction. KERNEL.toml's Kernel release is downloaded by tag (gh), one artifact per

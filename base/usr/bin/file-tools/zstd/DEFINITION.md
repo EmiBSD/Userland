@@ -1,7 +1,7 @@
 # zstd (imported)
 
 STATUS: see `STATUS`. Compiled from its upstream at the pin of `UPSTREAM.toml` (the
-organisation's mirror `EmiBSD/zstd` of `facebook/zstd`, tag `v1.5.7`), never rewritten (the
+organisation's mirror `EmiBSD/ext-zstd` of `facebook/zstd`, tag `v1.5.7`), never rewritten (the
 user's decision of 2026-10-23). Imported into the base system on 2026-11-05 (the user's
 decision): the install sets are zstd archives, and the installer and the system read them
 with it. Licence: upstream's dual BSD-3-Clause or GPL-2.0-only; EmiBSD takes the BSD side

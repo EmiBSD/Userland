@@ -8,7 +8,7 @@ usage: upstream.py fetch [<program dir>...]     fetch what the UPSTREAM.toml fil
        upstream.py check [<program dir>...]     every fetched upstream matches its pin
 
 Git upstreams are cloned sparse, blob-less, into upstream/<mirror name>/ at the repository
-root, one clone per mirror shared by every program that names it (EmiBSD/OpenBSD-src holds
+root, one clone per mirror shared by every program that names it (EmiBSD/ext-openbsd-src holds
 most of them), checked out at the pinned commit (or the commit a pinned tag resolves to).
 Tarball upstreams are downloaded into upstream/<name>/, their SHA-256 verified before
 extraction. KERNEL.toml's Kernel release is downloaded by tag (gh), one artifact per

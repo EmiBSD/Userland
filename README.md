@@ -28,7 +28,7 @@ inherited tree subsystem by subsystem.
 
 ```mermaid
 flowchart LR
-    obsd["OpenBSD-src (mirror)"] -- "the base system's sources, at the pin;<br/>the imports (ssh, LibreSSL, ...)" --> ul["Userland"]
+    obsd["ext-openbsd-src (mirror)"] -- "the base system's sources, at the pin;<br/>the imports (ssh, LibreSSL, ...)" --> ul["Userland"]
     lz["LandingZone"] -. "the pin" .-> ul
     dev["DevTools"] -- "clang, lld, libc++; rustc, cargo, std" --> ul
     ul -- "the base sets" --> os["OS"]
@@ -44,7 +44,7 @@ with the kernel into a release.
 
 - **Three classes of program** (`docs/PROGRAM.md`; the user's decision of 2026-11-04,
   replacing the two classes of 2026-10-23). *Inherited*: the base system's C at
-  LandingZone's pin, from the `EmiBSD/OpenBSD-src` mirror, every notice kept whole, placed
+  LandingZone's pin, from the `EmiBSD/ext-openbsd-src` mirror, every notice kept whole, placed
   in this layout and changed only by `patches/`, never rewritten in place: the base EmiBSD
   runs. *Imported*: cryptography, the security and network protocols with a living upstream
   and a CVE history, and the legacy giants (`ssh`, LibreSSL, `unbound`, `smtpd`, `vi`,
@@ -85,7 +85,7 @@ with the kernel into a release.
   a pinned release, one compiler for the C and the backend of rustc, and rust-lang/rust at a
   pinned stable tag, so EmiBSD's own targets (`aarch64-emibsd-emibsd`), which upstream Rust does not
   have, get their `std` from a stable release's source, not from nightly. Nothing of them comes from OpenBSD's tree.
-- **Upstreams are mirrored in the organisation** (`EmiBSD/OpenBSD-src`, `EmiBSD/rust`, ...),
+- **Upstreams are mirrored in the organisation** (`EmiBSD/ext-openbsd-src`, `EmiBSD/ext-rust`, ...),
   so an upstream that moves or disappears does not take the build with it. A tarball upstream
   gets a repository where each release is one commit. Fetched sources live under `upstream/`,
   gitignored and read-only; a build applies `patches/` to a copy under `target/`, never to
